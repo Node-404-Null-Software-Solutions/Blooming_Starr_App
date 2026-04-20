@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(find /c/Dev/bloomingstarr-main/src -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(ls -la /c/Dev/bloomingstarr-main/src/app/\\\\\\(app\\\\\\)/app/[businessSlug]/pricing/)",
+      "Bash(grep -r \"pricing\\\\|Pricing\\\\|pricingEntry\" /c/Dev/bloomingstarr-main/src/app/\\\\\\(app\\\\\\)/app/[businessSlug]/settings --include=\"*.tsx\" --include=\"*.ts\")",
+      "Bash(grep -r \"pricing\\\\|Pricing\\\\|pricingEntry\" /c/Dev/bloomingstarr-main/src/app/\\\\\\(app\\\\\\)/app/[businessSlug]/about --include=\"*.tsx\" --include=\"*.ts\")",
+      "Bash(grep -r \"pricing\\\\|Pricing\\\\|pricingEntry\" /c/Dev/bloomingstarr-main/src/app/\\\\\\(app\\\\\\)/app/[businessSlug]/feedback --include=\"*.tsx\" --include=\"*.ts\")",
+      "Bash(grep -r \"pricing\\\\|Pricing\\\\|pricingEntry\" /c/Dev/bloomingstarr-main/src --include=*.tsx --include=*.ts --exclude-dir=node_modules)",
+      "Bash(find /c/Dev/bloomingstarr-main -name schema.prisma -o -name .env* -o -name *.config.*)",
+      "Bash(grep -r \"pricing\\\\|Pricing\" /c/Dev/bloomingstarr-main/src/lib --include=*.ts --include=*.tsx)"
+    ]
+  }
+}

@@ -1,0 +1,1520 @@
+{
+  "plantSource": [
+    {
+      "name": "Arcadia Garden Products",
+      "code": "AGP"
+    },
+    {
+      "name": "Amazon",
+      "code": "AM"
+    },
+    {
+      "name": "Facebook Marketplace",
+      "code": "FM"
+    },
+    {
+      "name": "Brandon The Plant Guy",
+      "code": "BTPG"
+    },
+    {
+      "name": "Best Plant Friend",
+      "code": "BPF"
+    },
+    {
+      "name": "Aura Rooted",
+      "code": "AR"
+    },
+    {
+      "name": "Dicks Sticks & Exotics",
+      "code": "DSE"
+    },
+    {
+      "name": "BWH Plant Company",
+      "code": "BWH"
+    },
+    {
+      "name": "Fred Meyer",
+      "code": "FMY"
+    },
+    {
+      "name": "Fontanimal Plant House",
+      "code": "FPH"
+    },
+    {
+      "name": "Home Depot",
+      "code": "HD"
+    },
+    {
+      "name": "Home Stock",
+      "code": "HS"
+    },
+    {
+      "name": "It's a Succulent Thang",
+      "code": "IST"
+    },
+    {
+      "name": "Jumanji Jon Plants",
+      "code": "JJP"
+    },
+    {
+      "name": "Land Of Alice",
+      "code": "LOA"
+    },
+    {
+      "name": "Micro Cultivate",
+      "code": "MI"
+    },
+    {
+      "name": "Maggie Mae Plants",
+      "code": "MMP"
+    },
+    {
+      "name": "Orange Lake Nursery",
+      "code": "OLN"
+    },
+    {
+      "name": "The Green Escape",
+      "code": "TGE"
+    },
+    {
+      "name": "Palm Street",
+      "code": "PS"
+    },
+    {
+      "name": "Rooted Summerville",
+      "code": "RSV"
+    },
+    {
+      "name": "The Amazing Garden",
+      "code": "TAG"
+    },
+    {
+      "name": "Thorsen's Greenhouse",
+      "code": "TG"
+    },
+    {
+      "name": "The Gay Ole Plant Shop",
+      "code": "TGOPS"
+    },
+    {
+      "name": "Totally Rooted LLC",
+      "code": "TRL"
+    },
+    {
+      "name": "TikTok",
+      "code": "TT"
+    },
+    {
+      "name": "Zen Botanicals",
+      "code": "ZB"
+    },
+    {
+      "name": "Walmart",
+      "code": "WM"
+    },
+    {
+      "name": "The Lady Cove",
+      "code": "TLC"
+    },
+    {
+      "name": "Ts Garden Gems",
+      "code": "TGG"
+    }
+  ],
+  "genus": [
+    {
+      "name": "Acer",
+      "code": "AC"
+    },
+    {
+      "name": "Adenium Obesum",
+      "code": "AO"
+    },
+    {
+      "name": "Blechnum",
+      "code": "BL"
+    },
+    {
+      "name": "Alternanthera",
+      "code": "ALT"
+    },
+    {
+      "name": "Alocasia",
+      "code": "AL"
+    },
+    {
+      "name": "Aglaonema",
+      "code": "AG"
+    },
+    {
+      "name": "Begonia",
+      "code": "BE"
+    },
+    {
+      "name": "Chamaedorea",
+      "code": "CHA"
+    },
+    {
+      "name": "Asplenium",
+      "code": "ASP"
+    },
+    {
+      "name": "Calathea",
+      "code": "CA"
+    },
+    {
+      "name": "Ceropegia",
+      "code": "CE"
+    },
+    {
+      "name": "Chlorophytum",
+      "code": "CHL"
+    },
+    {
+      "name": "Colocasia",
+      "code": "COL"
+    },
+    {
+      "name": "Crassula",
+      "code": "CR"
+    },
+    {
+      "name": "Ctenanthe",
+      "code": "CT"
+    },
+    {
+      "name": "Dracaena",
+      "code": "DR"
+    },
+    {
+      "name": "Epipremnum",
+      "code": "EPI"
+    },
+    {
+      "name": "Ficus",
+      "code": "FIC"
+    },
+    {
+      "name": "Hypoestes",
+      "code": "HYP"
+    },
+    {
+      "name": "Fittonia",
+      "code": "FI"
+    },
+    {
+      "name": "Hoya",
+      "code": "HO"
+    },
+    {
+      "name": "Hurricane",
+      "code": "HU"
+    },
+    {
+      "name": "Hydrangea",
+      "code": "HY"
+    },
+    {
+      "name": "Maranta",
+      "code": "MAR"
+    },
+    {
+      "name": "Monstera",
+      "code": "MA"
+    },
+    {
+      "name": "Philodendron",
+      "code": "PH"
+    },
+    {
+      "name": "Pilea",
+      "code": "PI"
+    },
+    {
+      "name": "Philodendron Hederaceum",
+      "code": "PHH"
+    },
+    {
+      "name": "Piper",
+      "code": "PIP"
+    },
+    {
+      "name": "Pothos",
+      "code": "PO"
+    },
+    {
+      "name": "Scindapsus",
+      "code": "SC"
+    },
+    {
+      "name": "Sensation Aurea",
+      "code": "SA"
+    },
+    {
+      "name": "Senecio",
+      "code": "SE"
+    },
+    {
+      "name": "Stromanthe",
+      "code": "ST"
+    },
+    {
+      "name": "Syngonium",
+      "code": "SYN"
+    },
+    {
+      "name": "Unknown",
+      "code": "UNK"
+    },
+    {
+      "name": "Syringa",
+      "code": "SY"
+    },
+    {
+      "name": "Spathiphyllum",
+      "code": "SPA"
+    }
+  ],
+  "cultivar": [
+    {
+      "name": "Adansonii",
+      "code": "AD"
+    },
+    {
+      "name": "Angel Wing",
+      "code": "AW"
+    },
+    {
+      "name": "Beauty Star",
+      "code": "BS"
+    },
+    {
+      "name": "Birkin",
+      "code": "BI"
+    },
+    {
+      "name": "Bisma Dragon Scale",
+      "code": "BDS"
+    },
+    {
+      "name": "Black Cardinal",
+      "code": "BC"
+    },
+    {
+      "name": "Brasil",
+      "code": "BRL"
+    },
+    {
+      "name": "Burle Marx Variegated",
+      "code": "BMV"
+    },
+    {
+      "name": "Burle Marxii",
+      "code": "BM"
+    },
+    {
+      "name": "Carnosa",
+      "code": "CA"
+    },
+    {
+      "name": "Common Lilac",
+      "code": "CL"
+    },
+    {
+      "name": "Cream Splash",
+      "code": "CS"
+    },
+    {
+      "name": "Crocatum",
+      "code": "CR"
+    },
+    {
+      "name": "Deliciosa",
+      "code": "DE"
+    },
+    {
+      "name": "Desert Rose",
+      "code": "DR"
+    },
+    {
+      "name": "Diamond",
+      "code": "DI"
+    },
+    {
+      "name": "Domesticum",
+      "code": "DO"
+    },
+    {
+      "name": "Dottie",
+      "code": "DOT"
+    },
+    {
+      "name": "Elegans",
+      "code": "EL"
+    },
+    {
+      "name": "Florida Bronze",
+      "code": "FB"
+    },
+    {
+      "name": "Fusion White",
+      "code": "FW"
+    },
+    {
+      "name": "Gloriosum",
+      "code": "GL"
+    },
+    {
+      "name": "Golden",
+      "code": "GO"
+    },
+    {
+      "name": "Golden Crocodile",
+      "code": "GC"
+    },
+    {
+      "name": "Golden Flame",
+      "code": "GF"
+    },
+    {
+      "name": "Golden Girl",
+      "code": "GG"
+    },
+    {
+      "name": "Gollum Jade",
+      "code": "GJ"
+    },
+    {
+      "name": "Green Congo Nuclear",
+      "code": "GCN"
+    },
+    {
+      "name": "Green Velvet Frydek",
+      "code": "GVF"
+    },
+    {
+      "name": "Haworthii",
+      "code": "HA"
+    },
+    {
+      "name": "Heart Leaf",
+      "code": "HL"
+    },
+    {
+      "name": "Japanese Maple",
+      "code": "JM"
+    },
+    {
+      "name": "Jose Buono",
+      "code": "JB"
+    },
+    {
+      "name": "Krimson Princess",
+      "code": "KP"
+    },
+    {
+      "name": "Lacecap",
+      "code": "LC"
+    },
+    {
+      "name": "Leuconeura Lemon",
+      "code": "LL"
+    },
+    {
+      "name": "Longiloba",
+      "code": "LO"
+    },
+    {
+      "name": "Longiloba Mint",
+      "code": "LM"
+    },
+    {
+      "name": "Makoyana",
+      "code": "MA"
+    },
+    {
+      "name": "Mandalay",
+      "code": "MAN"
+    },
+    {
+      "name": "McColley's Finale",
+      "code": "MF"
+    },
+    {
+      "name": "Mint Batik",
+      "code": "MB"
+    },
+    {
+      "name": "Mojito",
+      "code": "MOJ"
+    },
+    {
+      "name": "Moonlight",
+      "code": "MO"
+    },
+    {
+      "name": "Neon",
+      "code": "NE"
+    },
+    {
+      "name": "Ninja",
+      "code": "NI"
+    },
+    {
+      "name": "Orange Marmalade",
+      "code": "OM"
+    },
+    {
+      "name": "Painted Lady",
+      "code": "PL"
+    },
+    {
+      "name": "Panda",
+      "code": "PA"
+    },
+    {
+      "name": "Paraiso Verde",
+      "code": "PV"
+    },
+    {
+      "name": "Party Time",
+      "code": "PT"
+    },
+    {
+      "name": "Peace Lily Domino",
+      "code": "PLD"
+    },
+    {
+      "name": "Pearls and Jade",
+      "code": "PAJ"
+    },
+    {
+      "name": "Peperomioides",
+      "code": "PEP"
+    },
+    {
+      "name": "Peru",
+      "code": "PE"
+    },
+    {
+      "name": "Pink Princess",
+      "code": "PP"
+    },
+    {
+      "name": "Pink Princess Marbled",
+      "code": "PPM"
+    },
+    {
+      "name": "Pink Splash",
+      "code": "PS"
+    },
+    {
+      "name": "Pinnatum Marble",
+      "code": "PM"
+    },
+    {
+      "name": "Pinstripe",
+      "code": "PIN"
+    },
+    {
+      "name": "Polly",
+      "code": "PO"
+    },
+    {
+      "name": "Prince of Orange",
+      "code": "POO"
+    },
+    {
+      "name": "Publicalyx",
+      "code": "PU"
+    },
+    {
+      "name": "Purple Cloak",
+      "code": "PC"
+    },
+    {
+      "name": "Red",
+      "code": "RE"
+    },
+    {
+      "name": "Red Anderson Pink Knight",
+      "code": "RAPK"
+    },
+    {
+      "name": "Red Flame",
+      "code": "RF"
+    },
+    {
+      "name": "Red King",
+      "code": "RK"
+    },
+    {
+      "name": "Red Sun",
+      "code": "RS"
+    },
+    {
+      "name": "Regal Shield",
+      "code": "RSD"
+    },
+    {
+      "name": "Rex",
+      "code": "REX"
+    },
+    {
+      "name": "Ring of Fire",
+      "code": "ROF"
+    },
+    {
+      "name": "Shining Sea Star",
+      "code": "SSS"
+    },
+    {
+      "name": "Shivereana",
+      "code": "SH"
+    },
+    {
+      "name": "Silver Splash",
+      "code": "SS"
+    },
+    {
+      "name": "Silver Sword",
+      "code": "SSW"
+    },
+    {
+      "name": "Snake Plant",
+      "code": "SP"
+    },
+    {
+      "name": "Snow Drift",
+      "code": "SD"
+    },
+    {
+      "name": "Spathonema",
+      "code": "SPA"
+    },
+    {
+      "name": "Spider Plant",
+      "code": "SPI"
+    },
+    {
+      "name": "Strawberry Shake",
+      "code": "STS"
+    },
+    {
+      "name": "String of Hearts",
+      "code": "SOH"
+    },
+    {
+      "name": "String of Pearls",
+      "code": "SOP"
+    },
+    {
+      "name": "Teneke",
+      "code": "TE"
+    },
+    {
+      "name": "Thai Constellation",
+      "code": "TCN"
+    },
+    {
+      "name": "Thai Sunrise",
+      "code": "TS"
+    },
+    {
+      "name": "Triostar",
+      "code": "TR"
+    },
+    {
+      "name": "Variegated Macrorrhiza",
+      "code": "VM"
+    },
+    {
+      "name": "Variegated String of Hearts",
+      "code": "VSH"
+    },
+    {
+      "name": "Variegated String of Pearls",
+      "code": "VSP"
+    },
+    {
+      "name": "White Knight",
+      "code": "WK"
+    },
+    {
+      "name": "White Knight Variegated",
+      "code": "WKV"
+    },
+    {
+      "name": "White Princess",
+      "code": "WP"
+    },
+    {
+      "name": "White Wizard",
+      "code": "WW"
+    },
+    {
+      "name": "Variegated Red Congo Red Hot",
+      "code": "VRCRH"
+    },
+    {
+      "name": "Hurricane",
+      "code": "HU"
+    },
+    {
+      "name": "Victoria",
+      "code": "VI"
+    },
+    {
+      "name": "Austra Gem",
+      "code": "AG"
+    },
+    {
+      "name": "Braziliense Mahogany Fern",
+      "code": "BMF"
+    },
+    {
+      "name": "Leuconeura Red",
+      "code": "LR"
+    },
+    {
+      "name": "Depressa Silver",
+      "code": "DS"
+    },
+    {
+      "name": "Krimson Queen",
+      "code": "KQ"
+    },
+    {
+      "name": "String of Tears",
+      "code": "SOT"
+    },
+    {
+      "name": "Black Magic",
+      "code": "BLM"
+    },
+    {
+      "name": "Silver Cane",
+      "code": "SLC"
+    }
+  ],
+  "plantId": [
+    {
+      "name": "1A",
+      "code": "1A"
+    },
+    {
+      "name": "1A-2",
+      "code": "1A-2"
+    },
+    {
+      "name": "1A-7",
+      "code": "1A-7"
+    },
+    {
+      "name": "1A-4",
+      "code": "1A-4"
+    },
+    {
+      "name": "1A-3",
+      "code": "1A-3"
+    },
+    {
+      "name": "1A-6",
+      "code": "1A-6"
+    },
+    {
+      "name": "1A-5",
+      "code": "1A-5"
+    },
+    {
+      "name": "1A-8",
+      "code": "1A-8"
+    },
+    {
+      "name": "1A-9",
+      "code": "1A-9"
+    },
+    {
+      "name": "1A-10",
+      "code": "1A-10"
+    },
+    {
+      "name": "1A-11",
+      "code": "1A-11"
+    },
+    {
+      "name": "1A-12",
+      "code": "1A-12"
+    },
+    {
+      "name": "1A-13",
+      "code": "1A-13"
+    },
+    {
+      "name": "1A-14",
+      "code": "1A-14"
+    },
+    {
+      "name": "1A-15",
+      "code": "1A-15"
+    },
+    {
+      "name": "1B",
+      "code": "1B"
+    },
+    {
+      "name": "1C",
+      "code": "1C"
+    },
+    {
+      "name": "1H",
+      "code": "1H"
+    },
+    {
+      "name": "1D",
+      "code": "1D"
+    },
+    {
+      "name": "1E",
+      "code": "1E"
+    },
+    {
+      "name": "1F",
+      "code": "1F"
+    },
+    {
+      "name": "1G",
+      "code": "1G"
+    },
+    {
+      "name": "1I",
+      "code": "1I"
+    },
+    {
+      "name": "1J",
+      "code": "1J"
+    },
+    {
+      "name": "1K",
+      "code": "1K"
+    },
+    {
+      "name": "1M",
+      "code": "1M"
+    },
+    {
+      "name": "1L",
+      "code": "1L"
+    },
+    {
+      "name": "1N",
+      "code": "1N"
+    },
+    {
+      "name": "1O",
+      "code": "1O"
+    },
+    {
+      "name": "1P",
+      "code": "1P"
+    },
+    {
+      "name": "1R",
+      "code": "1R"
+    },
+    {
+      "name": "1Q",
+      "code": "1Q"
+    },
+    {
+      "name": "1S",
+      "code": "1S"
+    },
+    {
+      "name": "1T",
+      "code": "1T"
+    },
+    {
+      "name": "2B",
+      "code": "2B"
+    },
+    {
+      "name": "2B-2",
+      "code": "2B-2"
+    },
+    {
+      "name": "2C",
+      "code": "2C"
+    },
+    {
+      "name": "3D",
+      "code": "3D"
+    },
+    {
+      "name": "2D",
+      "code": "2D"
+    },
+    {
+      "name": "TC",
+      "code": "TC"
+    },
+    {
+      "name": "3A",
+      "code": "3A"
+    },
+    {
+      "name": "3C",
+      "code": "3C"
+    },
+    {
+      "name": "3C-2",
+      "code": "3C-2"
+    },
+    {
+      "name": "3B",
+      "code": "3B"
+    },
+    {
+      "name": "2A",
+      "code": "2A"
+    },
+    {
+      "name": "2A-2",
+      "code": "2A-2"
+    },
+    {
+      "name": "2A-3",
+      "code": "2A-3"
+    },
+    {
+      "name": "2A-4",
+      "code": "2A-4"
+    },
+    {
+      "name": "2A-5",
+      "code": "2A-5"
+    },
+    {
+      "name": "2A-6",
+      "code": "2A-6"
+    },
+    {
+      "name": "2A-7",
+      "code": "2A-7"
+    },
+    {
+      "name": "2A-8",
+      "code": "2A-8"
+    },
+    {
+      "name": "2A-9",
+      "code": "2A-9"
+    },
+    {
+      "name": "2A-10",
+      "code": "2A-10"
+    }
+  ],
+  "paymentMethod": [
+    {
+      "name": "ACH",
+      "code": "ACH"
+    },
+    {
+      "name": "Credit Card",
+      "code": "Credit Card"
+    },
+    {
+      "name": "Cash",
+      "code": "Cash"
+    },
+    {
+      "name": "Cash App",
+      "code": "Cash App"
+    },
+    {
+      "name": "Other",
+      "code": "Other"
+    },
+    {
+      "name": "PayPal",
+      "code": "PayPal"
+    },
+    {
+      "name": "Square",
+      "code": "Square"
+    },
+    {
+      "name": "Venmo",
+      "code": "Venmo"
+    },
+    {
+      "name": "Zelle",
+      "code": "Zelle"
+    },
+    {
+      "name": "Promotional Credit",
+      "code": "Promotional Credit"
+    },
+    {
+      "name": "Gift Certificate",
+      "code": "Gift Certificate"
+    },
+    {
+      "name": "Debit Card",
+      "code": "Debit Card"
+    },
+    {
+      "name": "Unpaid Invoice",
+      "code": "Unpaid Invoice"
+    }
+  ],
+  "productSource": [
+    {
+      "name": "Amano Studio",
+      "code": "AS"
+    },
+    {
+      "name": "Anyumocz",
+      "code": "AN"
+    },
+    {
+      "name": "Axle Rose Co",
+      "code": "ARC"
+    },
+    {
+      "name": "Divine Dev",
+      "code": "DV"
+    },
+    {
+      "name": "Ebaokuup",
+      "code": "EB"
+    },
+    {
+      "name": "Elsjoy",
+      "code": "EL"
+    },
+    {
+      "name": "Gardife",
+      "code": "GA"
+    },
+    {
+      "name": "Hyuetrsa",
+      "code": "HY"
+    },
+    {
+      "name": "Jungle Club",
+      "code": "JC"
+    },
+    {
+      "name": "Loyim",
+      "code": "LO"
+    },
+    {
+      "name": "Tergy",
+      "code": "TE"
+    },
+    {
+      "name": "Tiny Plant Market",
+      "code": "TPM"
+    },
+    {
+      "name": "Wousiver",
+      "code": "WO"
+    },
+    {
+      "name": "Yaomiao",
+      "code": "YA"
+    },
+    {
+      "name": "Zople",
+      "code": "ZO"
+    },
+    {
+      "name": "Standard",
+      "code": "ST"
+    },
+    {
+      "name": "Potchen Store",
+      "code": "PS"
+    },
+    {
+      "name": "Omaykey",
+      "code": "OM"
+    },
+    {
+      "name": "Tosnail",
+      "code": "TO"
+    },
+    {
+      "name": "Mumufy",
+      "code": "MU"
+    },
+    {
+      "name": "Zenfun",
+      "code": "ZE"
+    },
+    {
+      "name": "Geelin",
+      "code": "GEE"
+    },
+    {
+      "name": "Eccliy",
+      "code": "EC"
+    },
+    {
+      "name": "Pcsxnbmyy",
+      "code": "PC"
+    },
+    {
+      "name": "Maccnny",
+      "code": "MA"
+    },
+    {
+      "name": "Mekueeex",
+      "code": "ME"
+    },
+    {
+      "name": "AdornJoy",
+      "code": "AD"
+    },
+    {
+      "name": "RooTrimmer",
+      "code": "RO"
+    }
+  ],
+  "productCategory": [
+    {
+      "name": "Earring",
+      "code": "EA"
+    },
+    {
+      "name": "Necklace",
+      "code": "NE"
+    },
+    {
+      "name": "Planter",
+      "code": "PL"
+    },
+    {
+      "name": "Pot",
+      "code": "PO"
+    },
+    {
+      "name": "Sticker",
+      "code": "ST"
+    },
+    {
+      "name": "Gift Bag",
+      "code": "GB"
+    },
+    {
+      "name": "Tote Bag",
+      "code": "TB"
+    },
+    {
+      "name": "Key Chain",
+      "code": "KC"
+    },
+    {
+      "name": "Plug",
+      "code": "PLUG"
+    },
+    {
+      "name": "Cutting",
+      "code": "CU"
+    }
+  ],
+  "productSize": [
+    {
+      "name": "2\"",
+      "code": "2"
+    },
+    {
+      "name": "3\"",
+      "code": "3"
+    },
+    {
+      "name": "4\"",
+      "code": "4"
+    },
+    {
+      "name": "4.3\"",
+      "code": "4.3"
+    },
+    {
+      "name": "5.5\"",
+      "code": "5.5"
+    },
+    {
+      "name": "6\"",
+      "code": "6"
+    },
+    {
+      "name": "3.7\"",
+      "code": "3.7"
+    },
+    {
+      "name": "5\"",
+      "code": "5.0"
+    },
+    {
+      "name": "SM",
+      "code": "SM"
+    },
+    {
+      "name": "ME",
+      "code": "ME"
+    },
+    {
+      "name": "LG",
+      "code": "LG"
+    }
+  ],
+  "productStyle": [
+    {
+      "name": "Ceramic Deco",
+      "code": "CD"
+    },
+    {
+      "name": "Ceramic Multi",
+      "code": "CM"
+    },
+    {
+      "name": "Clear",
+      "code": "CL"
+    },
+    {
+      "name": "Domes",
+      "code": "DO"
+    },
+    {
+      "name": "Easily Distracted By Plants",
+      "code": "ED"
+    },
+    {
+      "name": "Elephant",
+      "code": "EL"
+    },
+    {
+      "name": "Get in Loser, We're Going Plant Shopping",
+      "code": "GI"
+    },
+    {
+      "name": "Just One More Plant",
+      "code": "JO"
+    },
+    {
+      "name": "Monstera Deliciosa Plant",
+      "code": "MD"
+    },
+    {
+      "name": "Multicolor",
+      "code": "MU"
+    },
+    {
+      "name": "Plant Lover",
+      "code": "PL"
+    },
+    {
+      "name": "Siren Shell",
+      "code": "SS"
+    },
+    {
+      "name": "Snail",
+      "code": "SN"
+    },
+    {
+      "name": "Turtle",
+      "code": "TU"
+    },
+    {
+      "name": "W/Lines",
+      "code": "WL"
+    },
+    {
+      "name": "White",
+      "code": "WH"
+    },
+    {
+      "name": "Nursery",
+      "code": "NU"
+    },
+    {
+      "name": "Black",
+      "code": "BL"
+    },
+    {
+      "name": "Self-Watering",
+      "code": "SW"
+    },
+    {
+      "name": "Tall",
+      "code": "TA"
+    },
+    {
+      "name": "Ceramic Retro",
+      "code": "CR"
+    },
+    {
+      "name": "Addicted to Plants",
+      "code": "AP"
+    },
+    {
+      "name": "Don't Hate, Propogate",
+      "code": "DH"
+    },
+    {
+      "name": "Life is Short, Buy More Plants",
+      "code": "LIS"
+    },
+    {
+      "name": "Pink Princess Plant",
+      "code": "PPP"
+    },
+    {
+      "name": "Anthurium Crystallinum Plant",
+      "code": "ACP"
+    },
+    {
+      "name": "Monstera Albo Plant",
+      "code": "MAP"
+    },
+    {
+      "name": "Star Stud",
+      "code": "SS"
+    },
+    {
+      "name": "Monstera Leaf",
+      "code": "ML"
+    },
+    {
+      "name": "Saguaro Cactus",
+      "code": "SC"
+    },
+    {
+      "name": "Monstera Drops",
+      "code": "MD"
+    },
+    {
+      "name": "Plants",
+      "code": "PL"
+    },
+    {
+      "name": "Never Enough Plants",
+      "code": "NEP"
+    },
+    {
+      "name": "Plant Addict",
+      "code": "PA"
+    },
+    {
+      "name": "Plant Leaf",
+      "code": "PLE"
+    },
+    {
+      "name": "Starter",
+      "code": "STA"
+    },
+    {
+      "name": "Hanging",
+      "code": "HA"
+    },
+    {
+      "name": "Water Prop",
+      "code": "WP"
+    },
+    {
+      "name": "No Pot",
+      "code": "NP"
+    },
+    {
+      "name": "Heat Pack",
+      "code": "HPA"
+    },
+    {
+      "name": "Plant",
+      "code": "PLA"
+    }
+  ],
+  "origin": [
+    {
+      "name": "CORM",
+      "code": "CO"
+    },
+    {
+      "name": "SEEDLING",
+      "code": "SEE"
+    },
+    {
+      "name": "CLONE",
+      "code": "CL"
+    },
+    {
+      "name": "TISSUE CULTURE",
+      "code": "TC"
+    },
+    {
+      "name": "MOTHER",
+      "code": "MOM"
+    },
+    {
+      "name": "CUTTING",
+      "code": "CU"
+    },
+    {
+      "name": "DIVISION",
+      "code": "DI"
+    }
+  ],
+  "status": [
+    {
+      "name": "DEAD",
+      "code": "DED"
+    },
+    {
+      "name": "DELIVERED",
+      "code": "DEL"
+    },
+    {
+      "name": "ESTABLISHED",
+      "code": "EST"
+    },
+    {
+      "name": "FOR SALE",
+      "code": "FS"
+    },
+    {
+      "name": "HARDENING OFF",
+      "code": "HDO"
+    },
+    {
+      "name": "HOLD",
+      "code": "HD"
+    },
+    {
+      "name": "KEEP",
+      "code": "KE"
+    },
+    {
+      "name": "PENDING SALE",
+      "code": "PSA"
+    },
+    {
+      "name": "PENDING SHIPPING",
+      "code": "PSH"
+    },
+    {
+      "name": "PICKED UP",
+      "code": "PU"
+    },
+    {
+      "name": "QUARANTINE",
+      "code": "QT"
+    },
+    {
+      "name": "ROOTED",
+      "code": "RED"
+    },
+    {
+      "name": "ROOTING",
+      "code": "RTG"
+    },
+    {
+      "name": "SHIPPED",
+      "code": "SHIP"
+    },
+    {
+      "name": "SOLD",
+      "code": "SD"
+    }
+  ],
+  "environment": [
+    {
+      "name": "INDOOR GREENHOUSE",
+      "code": "IGH"
+    },
+    {
+      "name": "INDOOR AND OUTDOOR",
+      "code": "BOTH"
+    },
+    {
+      "name": "IN GROUND OUTDOORS",
+      "code": "IG"
+    },
+    {
+      "name": "OUTDOOR",
+      "code": "OUT"
+    },
+    {
+      "name": "IN BED OUTDOORS",
+      "code": "IBO"
+    },
+    {
+      "name": "ROTATES SEASONALLY",
+      "code": "ROS"
+    },
+    {
+      "name": "IN POTS OUTDOORS",
+      "code": "IPO"
+    },
+    {
+      "name": "OUTDOOR GREENHOUSE",
+      "code": "OGH"
+    },
+    {
+      "name": "INDOOR",
+      "code": "IN"
+    },
+    {
+      "name": "ENVIRONMENT",
+      "code": "ENV"
+    }
+  ],
+  "salesChannel": [
+    {
+      "name": "SALES CHANNEL",
+      "code": "VIA"
+    },
+    {
+      "name": "FACEBOOK",
+      "code": "FM"
+    },
+    {
+      "name": "PROFIT",
+      "code": "PR"
+    },
+    {
+      "name": "IN PERSON",
+      "code": "IP"
+    },
+    {
+      "name": "NOT APPLICABLE",
+      "code": "NA"
+    },
+    {
+      "name": "PALM STREET",
+      "code": "PS"
+    },
+    {
+      "name": "REWARD POINTS",
+      "code": "RP"
+    },
+    {
+      "name": "SALE PRICE",
+      "code": "SP"
+    },
+    {
+      "name": "COST",
+      "code": "CO"
+    },
+    {
+      "name": "ITEMS PER ORDER",
+      "code": "IPO"
+    },
+    {
+      "name": "WEBSITE",
+      "code": "WEB"
+    }
+  ]
+}

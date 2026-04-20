@@ -1,0 +1,423 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  EMPLOYEE
+}
+
+enum MembershipStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+enum RequestedRole {
+  MANAGER
+  EMPLOYEE
+}
+
+model Profile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  activeBusinessId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Business {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  ownerId   String
+  primaryColor   String?
+  secondaryColor String?
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships  Membership[]
+  joinRequests JoinRequest[]
+  pendingCoOwnerInvites PendingCoOwnerInvite[]
+  plantIntakes PlantIntake[]
+  productIntakes ProductIntake[]
+  transplantLogs TransplantLog[]
+  treatmentTrackings TreatmentTracking[]
+  overheadExpenses OverheadExpense[]
+  pricingEntries PricingEntry[]
+  sales SalesEntry[]
+  fertilizerLogs FertilizerLog[]
+  products       Product[]
+  lookupEntries  LookupEntry[]
+  employees      Employee[]
+  schedules      ScheduleEntry[]
+}
+
+model Product {
+  id                    String   @id @default(cuid())
+  businessId            String
+  sku                   String
+  productName           String?
+  defaultCostCents      Int      @default(0)
+  defaultSalePriceCents Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, sku])
+  @@index([businessId, sku])
+}
+
+model PlantIntake {
+  id           String   @id @default(cuid())
+  businessId   String
+
+  date         DateTime?
+  source       String
+  genus        String
+  cultivar     String
+  locationCode String?
+  sku          String
+
+  qty          Int      @default(1)
+  costCents    Int      @default(0)
+  msrpCents    Int      @default(0)
+  potType      String?
+
+  paymentMethod String?
+  cardLast4     String?
+
+  location     String?
+  status       String?
+  externalUid  String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([businessId, sku])
+  @@index([businessId, externalUid])
+}
+
+model Membership {
+  id         String   @id @default(cuid())
+  businessId String
+  userId     String
+  role       Role
+  status     MembershipStatus @default(ACTIVE)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+}
+
+model JoinRequest {
+  id            String          @id @default(cuid())
+  businessId    String
+  requesterId   String
+  requestedRole RequestedRole
+  status        JoinRequestStatus @default(PENDING)
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status])
+  @@unique([businessId, requesterId])
+}
+
+model PendingCoOwnerInvite {
+  id            String   @id @default(cuid())
+  businessId    String
+  newOwnerEmail String
+  token         String   @unique
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([token])
+}
+
+model ProductIntake {
+  id           String   @id @default(cuid())
+  businessId   String
+  date         DateTime?
+  vendor       String?
+  source       String?
+  category     String?
+  size         String?
+  style        String?
+  purchaseNumber String?
+  qty          Int      @default(1)
+  sku          String
+  totalCostCents Int    @default(0)
+  unitCostCents  Int    @default(0)
+  paymentMethod String?
+  cardLast4     String?
+  invoiceNumber String?
+  notes         String?
+  externalUid   String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([businessId, sku])
+  @@unique([businessId, externalUid])
+}
+
+model TransplantLog {
+  id           String   @id @default(cuid())
+  businessId   String
+  date         DateTime?
+  originalSku  String?
+  action       String?
+  media        String?
+  fromPot      String?
+  toPot        String?
+  idCode       String?
+  divisionSku  String?
+  costCents       Int @default(0)
+  potColor     String?
+  notes        String?
+  externalUid  String?
+  createdAtSource DateTime?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([businessId, originalSku])
+  @@unique([businessId, externalUid])
+}
+
+model TreatmentTracking {
+  id           String   @id @default(cuid())
+  businessId   String
+  date         DateTime?
+  sku          String
+  target       String?
+  product      String?
+  activeIngredient String?
+  epaNumber    String?
+  rate         String?
+  potSize      String?
+  method       String?
+  initials     String?
+  nextEarliest DateTime?
+  nextLatest   DateTime?
+  externalUid  String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([businessId, sku])
+  @@unique([businessId, externalUid])
+}
+
+model OverheadExpense {
+  id           String   @id @default(cuid())
+  businessId   String
+  date         DateTime?
+  vendor       String?
+  brand        String?
+  category     String?
+  description  String?
+  qty          Int      @default(1)
+  subTotalCents Int     @default(0)
+  shippingCents Int     @default(0)
+  discountCents Int     @default(0)
+  unitCostCents  Int    @default(0)
+  totalCents     Int    @default(0)
+  paymentMethod String?
+  cardLast4     String?
+  invoiceNumber String?
+  notes         String?
+  externalUid   String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([businessId, invoiceNumber])
+  @@unique([businessId, externalUid])
+}
+
+model PricingEntry {
+  id           String   @id @default(cuid())
+  businessId   String
+  date         DateTime?
+  sku          String
+  productName  String?
+  potSku       String?
+  plantCostCents Int     @default(0)
+  potOrProdCostCents Int @default(0)
+  overheadCents Int      @default(0)
+  totalCostCents Int     @default(0)
+  estimatedSellPriceCents Int @default(0)
+  actualSellPriceCents    Int @default(0)
+  discountCents Int       @default(0)
+  profitCents   Int       @default(0)
+  marginPct     Float?
+  avgQty        Int?
+  status        String?
+  notes         String?
+  mirrorUid     String?
+  msrpCents     Int       @default(0)
+  noteUid       String?
+  externalUid   String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([businessId, sku])
+  @@unique([businessId, externalUid])
+}
+
+model SalesEntry {
+  id           String   @id @default(cuid())
+  businessId   String
+  date         DateTime?
+  sku          String
+  itemName     String?
+  qty          Int      @default(1)
+  salePriceCents Int    @default(0)
+  totalSaleCents Int    @default(0)
+  paymentMethod String?
+  cardLast4     String?
+  channel       String?
+  costCents     Int      @default(0)
+  profitCents   Int      @default(0)
+  marginPct     Float?
+  notes         String?
+  externalUid   String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([businessId, sku])
+  @@unique([businessId, externalUid])
+}
+
+model FertilizerLog {
+  id           String   @id @default(cuid())
+  businessId   String
+  date         DateTime?
+  plantSku     String?
+  potSku       String?
+  product      String?
+  method       String?
+  rate         String?
+  unit         String?
+  nextEarliest DateTime?
+  nextLatest   DateTime?
+  notes        String?
+  externalUid  String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([businessId, plantSku])
+  @@unique([businessId, externalUid])
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Employee {
+  id              String         @id @default(cuid())
+  businessId      String
+  name            String
+  email           String?
+  phone           String?
+  position        String?
+  hourlyRateCents Int            @default(0)
+  salaryRateCents Int            @default(0)
+  status          EmployeeStatus @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  business  Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  schedules ScheduleEntry[]
+
+  @@index([businessId, status])
+  @@index([businessId, name])
+}
+
+model ScheduleEntry {
+  id         String   @id @default(cuid())
+  businessId String
+  employeeId String
+  date       DateTime
+  startTime  String   // "HH:mm" format
+  endTime    String   // "HH:mm" format
+  title      String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([employeeId, date])
+}
+
+model LookupEntry {
+  id         String   @id @default(cuid())
+  businessId String
+  table      String
+  name       String
+  code       String
+  parentCode String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, table, code])
+  @@unique([businessId, table, name])
+  @@index([businessId, table])
+}
