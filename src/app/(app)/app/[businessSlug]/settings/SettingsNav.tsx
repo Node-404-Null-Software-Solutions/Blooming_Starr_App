@@ -16,28 +16,54 @@ export default function SettingsNav({ businessSlug }: { businessSlug: string }) 
   const pathname = usePathname();
 
   return (
-    <nav className="py-4">
-      <p className="mb-2 px-4 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
-        Settings
-      </p>
-      {navItems.map(({ label, icon: Icon, segment }) => {
-        const href = `/app/${businessSlug}/settings/${segment}`;
-        const isActive = pathname === href || pathname.startsWith(`${href}/`);
-        return (
-          <Link
-            key={segment}
-            href={href}
-            className={`flex items-center gap-2.5 border-l-2 px-4 py-2.5 text-sm transition-colors ${
-              isActive
-                ? "border-[#16BE1B] bg-[#0E4D3A]/5 font-medium text-[#0E4D3A]"
-                : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-            }`}
-          >
-            <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-[#0E4D3A]" : "text-gray-400"}`} />
-            {label}
-          </Link>
-        );
-      })}
-    </nav>
+    <>
+      {/* Mobile: horizontal scrollable tabs */}
+      <nav className="flex overflow-x-auto md:hidden">
+        <p className="sr-only">Settings</p>
+        {navItems.map(({ label, icon: Icon, segment }) => {
+          const href = `/app/${businessSlug}/settings/${segment}`;
+          const isActive = pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={segment}
+              href={href}
+              className={`flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-3 text-sm whitespace-nowrap transition-colors ${
+                isActive
+                  ? "border-[#16BE1B] font-medium text-[#0E4D3A]"
+                  : "border-transparent text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              <Icon className={`h-4 w-4 ${isActive ? "text-[#0E4D3A]" : "text-gray-400"}`} />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Desktop: vertical sidebar list */}
+      <nav className="hidden py-4 md:block">
+        <p className="mb-2 px-4 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+          Settings
+        </p>
+        {navItems.map(({ label, icon: Icon, segment }) => {
+          const href = `/app/${businessSlug}/settings/${segment}`;
+          const isActive = pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={segment}
+              href={href}
+              className={`flex items-center gap-2.5 border-l-2 px-4 py-2.5 text-sm transition-colors ${
+                isActive
+                  ? "border-[#16BE1B] bg-[#0E4D3A]/5 font-medium text-[#0E4D3A]"
+                  : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-[#0E4D3A]" : "text-gray-400"}`} />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

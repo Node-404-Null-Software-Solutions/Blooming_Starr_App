@@ -73,15 +73,17 @@ const APP_BASE = "/app";
 export default function AppSidebar({
   businessName,
   businessSlug,
+  onNavClick,
 }: {
   businessName?: string | null;
   businessSlug?: string;
+  onNavClick?: () => void;
 }) {
   const pathname = usePathname();
   const slug = businessSlug ?? "default";
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col bg-[#0E4D3A]">
+    <aside className="flex h-full w-64 shrink-0 flex-col bg-[#0E4D3A]">
       {/* Brand header */}
       <div className="flex items-center gap-2.5 border-b border-white/15 px-4 py-4">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10">
@@ -114,6 +116,7 @@ export default function AppSidebar({
                 <Link
                   key={item.modulePath}
                   href={href}
+                  onClick={onNavClick}
                   aria-current={isActive ? "page" : undefined}
                   className={`group flex items-center gap-3 border-l-2 px-3 py-2 text-sm transition-colors ${
                     isActive
