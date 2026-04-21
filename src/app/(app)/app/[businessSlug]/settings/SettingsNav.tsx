@@ -2,11 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Calculator, Table, Users } from "lucide-react";
+import { Building2, Calculator, Table, Users, UserCircle } from "lucide-react";
 
-const navItems = [
+type NavItem = {
+  label: string;
+  icon: React.ElementType;
+  segment?: string;
+  href?: string;
+};
+
+const navItems: NavItem[] = [
   { label: "Business", icon: Building2, segment: "business" },
   { label: "Team", icon: Users, segment: "team" },
+  { label: "Employees", icon: UserCircle, href: "employees" },
   { label: "Lookups", icon: Table, segment: "lookups" },
   { label: "Formulas", icon: Calculator, segment: "formulas" },
 ];
@@ -19,12 +27,15 @@ export default function SettingsNav({ businessSlug }: { businessSlug: string }) 
       <p className="mb-2 px-4 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
         Settings
       </p>
-      {navItems.map(({ label, icon: Icon, segment }) => {
-        const href = `/app/${businessSlug}/settings/${segment}`;
+      {navItems.map(({ label, icon: Icon, segment, href: hrefOverride }) => {
+        const key = segment ?? hrefOverride ?? label;
+        const href = hrefOverride
+          ? `/app/${businessSlug}/${hrefOverride}`
+          : `/app/${businessSlug}/settings/${segment}`;
         const isActive = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
-            key={segment}
+            key={key}
             href={href}
             className={`flex items-center gap-2.5 border-l-2 px-4 py-2.5 text-sm transition-colors ${
               isActive

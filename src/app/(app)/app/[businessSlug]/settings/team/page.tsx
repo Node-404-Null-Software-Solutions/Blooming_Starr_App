@@ -1,7 +1,8 @@
 import { requireRole } from "@/lib/authz";
 import { db } from "@/lib/db";
-import { Users, UserPlus } from "lucide-react";
+import { Users, UserPlus, Link as LinkIcon } from "lucide-react";
 import TeamActions from "./TeamActions";
+import InvitePanel from "./InvitePanel";
 
 const roleColors: Record<string, string> = {
   OWNER: "bg-purple-100 text-purple-800",
@@ -20,7 +21,7 @@ export default async function TeamSettingsPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireRole(["OWNER"]);
+  const { business, userId: currentUserId } = await requireRole(["OWNER"]);
   const businessId = business.id;
 
   const [members, joinRequests] = await Promise.all([
@@ -40,10 +41,21 @@ export default async function TeamSettingsPage({
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Team</h1>
-        <p className="mt-1 text-sm text-gray-500">Manage members and approve join requests.</p>
+        <p className="mt-1 text-sm text-gray-500">Manage members, send invites, and approve join requests.</p>
       </div>
 
-      {/* Members */}
+      {/* Invite Members */}
+      <section className="rounded-md border border-gray-200 bg-white">
+        <div className="flex items-center gap-2 border-b border-gray-200 px-6 py-4 text-lg font-semibold text-gray-900">
+          <LinkIcon className="h-5 w-5 text-gray-400" />
+          Invite Members
+        </div>
+        <div className="px-6 py-4">
+          <InvitePanel businessSlug={businessSlug} />
+        </div>
+      </section>
+
+      {/* Current Members */}
       <section className="rounded-md border border-gray-200 bg-white">
         <div className="flex items-center gap-2 border-b border-gray-200 px-6 py-4 text-lg font-semibold text-gray-900">
           <Users className="h-5 w-5 text-gray-400" />
@@ -55,10 +67,11 @@ export default async function TeamSettingsPage({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                <th className="px-6 py-3 font-medium text-gray-500">User</th>
+                <th className="px-6 py-3 font-medium text-gray-500">User ID</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Role</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Status</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Member since</th>
+                <th className="px-6 py-3 font-medium text-gray-500"></th>
               </tr>
             </thead>
             <tbody>
@@ -77,6 +90,16 @@ export default async function TeamSettingsPage({
                   </td>
                   <td className="px-6 py-3 text-gray-500">
                     {m.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </td>
+                  <td className="px-6 py-3 text-right">
+                    {m.userId !== currentUserId && (
+                      <TeamActions
+                        membershipId={m.id}
+                        requestId={null}
+                        businessSlug={businessSlug}
+                        mode="member"
+                      />
+                    )}
                   </td>
                 </tr>
               ))}
@@ -105,7 +128,12 @@ export default async function TeamSettingsPage({
                     {req.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </p>
                 </div>
-                <TeamActions requestId={req.id} businessSlug={businessSlug} />
+                <TeamActions
+                  requestId={req.id}
+                  membershipId={null}
+                  businessSlug={businessSlug}
+                  mode="request"
+                />
               </li>
             ))}
           </ul>

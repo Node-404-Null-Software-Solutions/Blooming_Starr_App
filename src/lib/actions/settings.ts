@@ -1,8 +1,11 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { requireRole } from "@/lib/authz";
 import { db } from "@/lib/db";
+import type { RequestedRole } from "@prisma/client";
 
 const HEX_REGEX = /^#[0-9A-Fa-f]{6}$/;
 
@@ -90,6 +93,66 @@ export async function approveJoinRequest(
     }),
   ]);
 
+  revalidatePath(`/app/${businessSlug}/settings/team`);
+  return { ok: true };
+}
+
+export async function createMemberInvite(
+  businessSlug: string,
+  role: RequestedRole
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  const { business } = await requireRole(["OWNER"]);
+  const businessId = business.id;
+
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  await db.pendingMemberInvite.create({
+    data: { businessId, role, token, expiresAt },
+  });
+
+  const h = await headers();
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const url = `${proto}://${host}/join?token=${token}`;
+
+  return { ok: true, url };
+}
+
+export async function createCoOwnerInvite(
+  businessSlug: string
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  const { business } = await requireRole(["OWNER"]);
+  const businessId = business.id;
+
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  await db.pendingCoOwnerInvite.create({
+    data: { businessId, newOwnerEmail: "", token, expiresAt },
+  });
+
+  const h = await headers();
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const url = `${proto}://${host}/accept-co-owner?token=${token}`;
+
+  return { ok: true, url };
+}
+
+export async function removeMembership(
+  membershipId: string,
+  businessSlug: string
+): Promise<{ ok: boolean; error?: string }> {
+  const { business, userId } = await requireRole(["OWNER"]);
+
+  const membership = await db.membership.findFirst({
+    where: { id: membershipId, businessId: business.id },
+  });
+  if (!membership) return { ok: false, error: "Member not found" };
+  if (membership.userId === userId) return { ok: false, error: "Cannot remove yourself" };
+
+  await db.membership.delete({ where: { id: membershipId } });
   revalidatePath(`/app/${businessSlug}/settings/team`);
   return { ok: true };
 }

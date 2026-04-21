@@ -50,6 +50,7 @@ model Business {
   memberships  Membership[]
   joinRequests JoinRequest[]
   pendingCoOwnerInvites PendingCoOwnerInvite[]
+  pendingMemberInvites  PendingMemberInvite[]
   plantIntakes PlantIntake[]
   productIntakes ProductIntake[]
   transplantLogs TransplantLog[]
@@ -402,6 +403,21 @@ model ScheduleEntry {
 
   @@index([businessId, date])
   @@index([employeeId, date])
+}
+
+model PendingMemberInvite {
+  id         String        @id @default(cuid())
+  businessId String
+  email      String?
+  role       RequestedRole
+  token      String        @unique
+  expiresAt  DateTime
+  createdAt  DateTime      @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([token])
 }
 
 model LookupEntry {

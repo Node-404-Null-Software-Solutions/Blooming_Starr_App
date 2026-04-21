@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import Link from "next/link";
 
-export default async function AcceptCoOwnerPage({
+export default async function JoinPage({
   searchParams,
 }: {
   searchParams: Promise<{ token?: string }>;
@@ -14,7 +14,7 @@ export default async function AcceptCoOwnerPage({
     return <ErrorScreen message="Invalid or missing invite link." />;
   }
 
-  const invite = await db.pendingCoOwnerInvite.findUnique({ where: { token } });
+  const invite = await db.pendingMemberInvite.findUnique({ where: { token } });
 
   if (!invite) {
     return <ErrorScreen message="This invite link is invalid or has already been used." />;
@@ -26,7 +26,7 @@ export default async function AcceptCoOwnerPage({
 
   const { userId } = await auth();
   if (!userId) {
-    redirect(`/sign-in?redirect_url=/accept-co-owner?token=${token}`);
+    redirect(`/sign-in?redirect_url=/join?token=${token}`);
   }
 
   const business = await db.business.findUnique({
@@ -43,36 +43,31 @@ export default async function AcceptCoOwnerPage({
   });
 
   if (existing) {
-    await db.$transaction([
-      db.membership.update({
-        where: { id: existing.id },
-        data: { role: "OWNER", status: "ACTIVE" },
-      }),
-      db.profile.upsert({
-        where: { userId },
-        update: { activeBusinessId: business.id },
-        create: { userId, activeBusinessId: business.id },
-      }),
-      db.pendingCoOwnerInvite.delete({ where: { token } }),
-    ]);
-  } else {
-    await db.$transaction([
-      db.membership.create({
-        data: {
-          businessId: business.id,
-          userId,
-          role: "OWNER",
-          status: "ACTIVE",
-        },
-      }),
-      db.profile.upsert({
-        where: { userId },
-        update: { activeBusinessId: business.id },
-        create: { userId, activeBusinessId: business.id },
-      }),
-      db.pendingCoOwnerInvite.delete({ where: { token } }),
-    ]);
+    await db.profile.upsert({
+      where: { userId },
+      update: { activeBusinessId: business.id },
+      create: { userId, activeBusinessId: business.id },
+    });
+    await db.pendingMemberInvite.delete({ where: { token } });
+    redirect(`/app/${business.slug}`);
   }
+
+  await db.$transaction([
+    db.membership.create({
+      data: {
+        businessId: business.id,
+        userId,
+        role: invite.role,
+        status: "ACTIVE",
+      },
+    }),
+    db.profile.upsert({
+      where: { userId },
+      update: { activeBusinessId: business.id },
+      create: { userId, activeBusinessId: business.id },
+    }),
+    db.pendingMemberInvite.delete({ where: { token } }),
+  ]);
 
   redirect(`/app/${business.slug}`);
 }
@@ -81,7 +76,7 @@ function ErrorScreen({ message }: { message: string }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f4f5f1]">
       <div className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 bg-white p-8 shadow-sm text-center">
-        <h1 className="text-xl font-bold text-gray-900">Unable to accept invite</h1>
+        <h1 className="text-xl font-bold text-gray-900">Unable to join</h1>
         <p className="text-sm text-gray-600">{message}</p>
         <Link
           href="/app"
