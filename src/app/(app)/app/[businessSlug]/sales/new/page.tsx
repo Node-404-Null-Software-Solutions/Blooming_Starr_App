@@ -33,7 +33,6 @@ export default async function NewSalesEntryPage({
     <div className="space-y-6">
       <ModuleHeader
         title="Add sale"
-        importHref={`/app/${businessSlug}/sales/import`}
         addHref={`/app/${businessSlug}/sales/new`}
       />
       <div className="rounded-md border border-gray-200 bg-white p-6">

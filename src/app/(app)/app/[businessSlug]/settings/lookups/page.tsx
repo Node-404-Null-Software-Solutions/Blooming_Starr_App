@@ -17,6 +17,14 @@ const ALL_TABLES: { key: LookupTable; label: string }[] = [
   { key: "origin", label: "Origins" },
   { key: "status", label: "Statuses" },
   { key: "environment", label: "Environments" },
+  { key: "transplantAction", label: "Transplant Actions" },
+  { key: "transplantMedia", label: "Transplant Media" },
+  { key: "potSize", label: "Pot Sizes" },
+  { key: "potColor", label: "Pot Colors" },
+  { key: "expenseCategory", label: "Expense Categories" },
+  { key: "expenseVendor", label: "Expense Vendors" },
+  { key: "fertilizerProduct", label: "Fertilizer Products" },
+  { key: "treatmentProduct", label: "Treatment Products" },
 ];
 
 export default async function LookupsSettingsPage({

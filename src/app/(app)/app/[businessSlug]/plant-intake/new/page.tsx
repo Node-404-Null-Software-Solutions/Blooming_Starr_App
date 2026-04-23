@@ -34,7 +34,6 @@ export default async function NewPlantIntakePage({
     <div className="space-y-6">
       <ModuleHeader
         title="Add plant intake"
-        importHref={`/app/${businessSlug}/plant-intake/import`}
         addHref={`/app/${businessSlug}/plant-intake/new`}
       />
       <div className="rounded-md border border-gray-200 bg-white p-6">

@@ -160,7 +160,7 @@ export default async function PlantInventoryPage({
         <div className="rounded-md border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
           No plant inventory data.{" "}
           <Link
-            href={`/app/${businessSlug}/plant-intake/import`}
+            href={`/app/${businessSlug}/settings/import`}
             className="text-(--primary) hover:underline"
           >
             Import plant intake data

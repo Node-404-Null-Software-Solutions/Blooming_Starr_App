@@ -35,7 +35,6 @@ export default function SalesModuleClient({
       <div className="relative">
         <ModuleHeader
           title="Sales"
-          importHref={`/app/${businessSlug}/sales/import`}
           addHref={`/app/${businessSlug}/sales/new`}
           onFilterClick={() => setIsOpen((prev) => !prev)}
           filterActive={hasActiveFilters}
@@ -61,7 +60,7 @@ export default function SalesModuleClient({
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
             <Link
-              href={`/app/${businessSlug}/sales/import`}
+              href={`/app/${businessSlug}/settings/import`}
               className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
             >
               Import

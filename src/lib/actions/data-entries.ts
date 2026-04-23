@@ -812,3 +812,82 @@ export async function updateFertilizerLog(
   revalidatePath(`/app/${businessSlug}/fertilizer-log`);
   return { ok: true };
 }
+
+// ── Delete actions ────────────────────────────────────────────────
+
+export async function deleteSalesEntry(id: string, businessSlug: string) {
+  const { profile } = await requireActiveMembership();
+  const businessId = profile.activeBusinessId;
+  if (!businessId) return { ok: false, error: "No business" };
+  const existing = await db.salesEntry.findFirst({ where: { id, businessId } });
+  if (!existing) return { ok: false, error: "Not found" };
+  await db.salesEntry.delete({ where: { id } });
+  revalidatePath(`/app/${businessSlug}/sales`);
+  return { ok: true };
+}
+
+export async function deletePlantIntake(id: string, businessSlug: string) {
+  const { profile } = await requireActiveMembership();
+  const businessId = profile.activeBusinessId;
+  if (!businessId) return { ok: false, error: "No business" };
+  const existing = await db.plantIntake.findFirst({ where: { id, businessId } });
+  if (!existing) return { ok: false, error: "Not found" };
+  await db.plantIntake.delete({ where: { id } });
+  revalidatePath(`/app/${businessSlug}/plant-intake`);
+  return { ok: true };
+}
+
+export async function deleteProductIntake(id: string, businessSlug: string) {
+  const { profile } = await requireActiveMembership();
+  const businessId = profile.activeBusinessId;
+  if (!businessId) return { ok: false, error: "No business" };
+  const existing = await db.productIntake.findFirst({ where: { id, businessId } });
+  if (!existing) return { ok: false, error: "Not found" };
+  await db.productIntake.delete({ where: { id } });
+  revalidatePath(`/app/${businessSlug}/product-intake`);
+  return { ok: true };
+}
+
+export async function deleteOverheadExpense(id: string, businessSlug: string) {
+  const { profile } = await requireActiveMembership();
+  const businessId = profile.activeBusinessId;
+  if (!businessId) return { ok: false, error: "No business" };
+  const existing = await db.overheadExpense.findFirst({ where: { id, businessId } });
+  if (!existing) return { ok: false, error: "Not found" };
+  await db.overheadExpense.delete({ where: { id } });
+  revalidatePath(`/app/${businessSlug}/overhead-expenses`);
+  return { ok: true };
+}
+
+export async function deleteTransplantLog(id: string, businessSlug: string) {
+  const { profile } = await requireActiveMembership();
+  const businessId = profile.activeBusinessId;
+  if (!businessId) return { ok: false, error: "No business" };
+  const existing = await db.transplantLog.findFirst({ where: { id, businessId } });
+  if (!existing) return { ok: false, error: "Not found" };
+  await db.transplantLog.delete({ where: { id } });
+  revalidatePath(`/app/${businessSlug}/transplant-log`);
+  return { ok: true };
+}
+
+export async function deleteFertilizerLog(id: string, businessSlug: string) {
+  const { profile } = await requireActiveMembership();
+  const businessId = profile.activeBusinessId;
+  if (!businessId) return { ok: false, error: "No business" };
+  const existing = await db.fertilizerLog.findFirst({ where: { id, businessId } });
+  if (!existing) return { ok: false, error: "Not found" };
+  await db.fertilizerLog.delete({ where: { id } });
+  revalidatePath(`/app/${businessSlug}/fertilizer-log`);
+  return { ok: true };
+}
+
+export async function deleteTreatmentTracking(id: string, businessSlug: string) {
+  const { profile } = await requireActiveMembership();
+  const businessId = profile.activeBusinessId;
+  if (!businessId) return { ok: false, error: "No business" };
+  const existing = await db.treatmentTracking.findFirst({ where: { id, businessId } });
+  if (!existing) return { ok: false, error: "Not found" };
+  await db.treatmentTracking.delete({ where: { id } });
+  revalidatePath(`/app/${businessSlug}/treatment-tracking`);
+  return { ok: true };
+}

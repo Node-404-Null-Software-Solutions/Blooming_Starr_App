@@ -6,7 +6,6 @@ import { Filter, Plus } from "lucide-react";
 
 type ModuleHeaderProps = {
   title: string;
-  importHref?: string;
   addHref?: string;
   showFilter?: boolean;
   rightSlot?: ReactNode;
@@ -16,7 +15,6 @@ type ModuleHeaderProps = {
 
 export default function ModuleHeader({
   title,
-  importHref,
   addHref,
   showFilter = true,
   rightSlot,
@@ -28,14 +26,6 @@ export default function ModuleHeader({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          {importHref && (
-            <Link
-              href={importHref}
-              className="inline-flex items-center gap-2 rounded-md border border-[#83BC39] px-3 py-2 text-sm font-medium text-[#0E4D3A] hover:bg-[#83BC39]/10"
-            >
-              Import
-            </Link>
-          )}
         </div>
         <div className="relative flex items-center gap-2">
           {addHref ? (

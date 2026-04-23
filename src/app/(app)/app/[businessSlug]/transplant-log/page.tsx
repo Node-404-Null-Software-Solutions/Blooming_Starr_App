@@ -1,6 +1,7 @@
 import { requireActiveMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { sortByDateDescNullsLast } from "@/lib/sort";
+import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import TransplantLogClient from "./TransplantLogClient";
 
 export default async function TransplantLogPage({
@@ -32,7 +33,9 @@ export default async function TransplantLogPage({
   const dateFilter =
     validFrom || validTo ? { gte: validFrom ?? undefined, lte: validTo ?? undefined } : undefined;
 
-  const rows = await db.transplantLog.findMany({
+  const [lookups, rows] = await Promise.all([
+    getLookupEntriesMulti(["transplantAction", "transplantMedia", "potSize", "potColor"]),
+    db.transplantLog.findMany({
     where: {
       businessId,
       ...(dateFilter ? { date: dateFilter } : {}),
@@ -41,8 +44,9 @@ export default async function TransplantLogPage({
       ...(fromPotRaw ? { fromPot: { contains: fromPotRaw, mode: "insensitive" as const } } : {}),
       ...(toPotRaw ? { toPot: { contains: toPotRaw, mode: "insensitive" as const } } : {}),
     },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-  });
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    }),
+  ]);
   const sortedRows = sortByDateDescNullsLast(rows);
 
   const hasRows = sortedRows.length > 0;
@@ -62,11 +66,20 @@ export default async function TransplantLogPage({
     notes: row.notes,
   }));
 
+  const actionOptions = lookups.transplantAction?.map((e) => e.name) ?? [];
+  const mediaOptions = lookups.transplantMedia?.map((e) => e.name) ?? [];
+  const potSizeOptions = lookups.potSize?.map((e) => e.name) ?? [];
+  const potColorOptions = lookups.potColor?.map((e) => e.name) ?? [];
+
   return (
     <TransplantLogClient
       businessSlug={businessSlug}
       rows={serialized}
       hasRows={hasRows}
+      actionOptions={actionOptions}
+      mediaOptions={mediaOptions}
+      potSizeOptions={potSizeOptions}
+      potColorOptions={potColorOptions}
     />
   );
 }

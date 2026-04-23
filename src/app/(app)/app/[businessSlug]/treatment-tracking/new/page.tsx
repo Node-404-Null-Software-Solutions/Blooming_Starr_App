@@ -24,7 +24,6 @@ export default async function NewTreatmentTrackingPage({
     <div className="space-y-6">
       <ModuleHeader
         title="Add treatment"
-        importHref={`/app/${businessSlug}/treatment-tracking/import`}
         addHref={`/app/${businessSlug}/treatment-tracking/new`}
       />
       <div className="rounded-md border border-gray-200 bg-white p-6">

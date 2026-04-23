@@ -27,6 +27,14 @@ const VALID_TABLES = [
   "status",
   "environment",
   "salesChannel",
+  "transplantAction",
+  "transplantMedia",
+  "potSize",
+  "potColor",
+  "expenseCategory",
+  "expenseVendor",
+  "fertilizerProduct",
+  "treatmentProduct",
 ] as const;
 
 export type LookupTable = (typeof VALID_TABLES)[number];
