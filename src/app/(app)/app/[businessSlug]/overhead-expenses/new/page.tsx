@@ -28,7 +28,6 @@ export default async function NewOverheadExpensePage({
     <div className="space-y-6">
       <ModuleHeader
         title="Add overhead expense"
-        importHref={`/app/${businessSlug}/overhead-expenses/import`}
         addHref={`/app/${businessSlug}/overhead-expenses/new`}
       />
       <div className="rounded-md border border-gray-200 bg-white p-6">

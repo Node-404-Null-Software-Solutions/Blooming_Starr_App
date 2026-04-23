@@ -141,7 +141,7 @@ export async function getTaxSummary(businessId: string, year: number): Promise<T
       distinct: ["sku"],
     }),
     db.plantIntake.findMany({
-      where: { businessId },
+      where: { businessId, ...(rangeWhere ?? {}) },
       select: { sku: true, status: true, costCents: true, msrpCents: true, qty: true },
     }),
   ]);

@@ -24,7 +24,6 @@ export default async function NewFertilizerLogPage({
     <div className="space-y-6">
       <ModuleHeader
         title="Add fertilizer log"
-        importHref={`/app/${businessSlug}/fertilizer-log/import`}
         addHref={`/app/${businessSlug}/fertilizer-log/new`}
       />
       <div className="rounded-md border border-gray-200 bg-white p-6">

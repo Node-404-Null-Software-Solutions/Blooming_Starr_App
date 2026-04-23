@@ -111,7 +111,6 @@ export default function PlantIntakeToolbar({
   return (
     <ModuleHeader
       title="Plant Intake"
-      importHref={`/app/${businessSlug}/plant-intake/import`}
       addHref={`/app/${businessSlug}/plant-intake/new`}
       onFilterClick={() => setIsOpen((prev) => !prev)}
       filterActive={hasActiveFilters}

@@ -33,7 +33,6 @@ export default async function NewProductIntakePage({
     <div className="space-y-6">
       <ModuleHeader
         title="Add product intake"
-        importHref={`/app/${businessSlug}/product-intake/import`}
         addHref={`/app/${businessSlug}/product-intake/new`}
       />
       <div className="rounded-md border border-gray-200 bg-white p-6">

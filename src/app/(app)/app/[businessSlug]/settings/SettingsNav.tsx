@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Calculator, Table, Users, UserCircle } from "lucide-react";
+import { Building2, Calculator, Table, Upload, Users } from "lucide-react";
 
 const navItems = [
   { label: "Business", icon: Building2, segment: "business" },
   { label: "Team", icon: Users, segment: "team" },
-  { label: "Employees", icon: UserCircle, segment: "employees" },
   { label: "Lookups", icon: Table, segment: "lookups" },
+  { label: "Import", icon: Upload, segment: "import" },
   { label: "Formulas", icon: Calculator, segment: "formulas" },
 ];
 

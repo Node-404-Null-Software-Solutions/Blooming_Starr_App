@@ -121,7 +121,7 @@ export default async function ProductInventoryPage({
         <div className="rounded-md border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
           No product inventory data.{" "}
           <Link
-            href={`/app/${businessSlug}/product-intake/import`}
+            href={`/app/${businessSlug}/settings/import`}
             className="text-(--primary) hover:underline"
           >
             Import product intake data

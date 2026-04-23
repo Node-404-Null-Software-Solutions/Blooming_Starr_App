@@ -128,7 +128,7 @@ export default async function PlantIntakePage({
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
             <Link
-              href={`/app/${businessSlug}/plant-intake/import`}
+              href={`/app/${businessSlug}/settings/import`}
               className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
             >
               Import
