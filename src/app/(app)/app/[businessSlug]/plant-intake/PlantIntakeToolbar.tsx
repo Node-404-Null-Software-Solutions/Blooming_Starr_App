@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import ModuleHeader from "../_components/ModuleHeader";
 
@@ -42,7 +42,6 @@ function filtersFromSearchParams(params: URLSearchParams): Filters {
 
 export default function PlantIntakeToolbar({
   businessSlug,
-  isOwner,
   genusOptions,
 }: PlantIntakeToolbarProps) {
   const router = useRouter();
@@ -53,11 +52,13 @@ export default function PlantIntakeToolbar({
     filtersFromSearchParams(searchParams)
   );
 
-  useEffect(() => {
-    if (!isOpen) {
+  const setOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof value === "function" ? value(isOpen) : value;
+    if (next) {
       setFilters(filtersFromSearchParams(searchParams));
     }
-  }, [isOpen, searchParams]);
+    setIsOpen(next);
+  };
 
   const hasActiveFilters = useMemo(() => {
     return [
@@ -112,7 +113,7 @@ export default function PlantIntakeToolbar({
     <ModuleHeader
       title="Plant Intake"
       addHref={`/app/${businessSlug}/plant-intake/new`}
-      onFilterClick={() => setIsOpen((prev) => !prev)}
+      onFilterClick={() => setOpen((prev) => !prev)}
       filterActive={hasActiveFilters}
       rightSlot={
         isOpen ? (

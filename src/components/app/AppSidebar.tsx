@@ -11,6 +11,7 @@ import {
   Leaf,
   Package,
   PackageCheck,
+  QrCode,
   Receipt,
   Settings,
   ShoppingCart,
@@ -42,6 +43,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Product Intake", modulePath: "/product-intake", icon: Package },
       { label: "Product Inventory", modulePath: "/product-inventory", icon: PackageCheck },
+      { label: "SKU Scanner", modulePath: "/sku-scanner", icon: QrCode },
     ],
   },
   {
