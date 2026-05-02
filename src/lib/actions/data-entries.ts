@@ -3,11 +3,12 @@
 import { db } from "@/lib/db";
 import { requireActiveMembership } from "@/lib/authz";
 import {
-  computeSalesDerived,
-  computeProductIntakeUnitCost,
-  computeOverheadDerived,
-  computeDivisionCost,
-} from "@/lib/formulas";
+  calculateDivisionCost,
+  calculateOverheadDerived,
+  calculateProductIntakeDerived,
+  calculateSalesDerived,
+  loadSalesDerivedCalculator,
+} from "@/lib/app-logic-engine";
 import { revalidatePath } from "next/cache";
 
 type ProductMasterFields = {
@@ -59,12 +60,14 @@ async function syncProductToSales(
     where: { businessId, sku },
     select: { id: true, qty: true },
   });
+  const calculateSales = await loadSalesDerivedCalculator(businessId);
+
   for (const row of salesRows) {
-    const derived = computeSalesDerived(
-      row.qty,
-      defaultSalePriceCents,
-      defaultCostCents
-    );
+    const derived = calculateSales({
+      qty: row.qty,
+      salePriceCents: defaultSalePriceCents,
+      costCents: defaultCostCents,
+    });
     await db.salesEntry.update({
       where: { id: row.id },
       data: {
@@ -111,7 +114,12 @@ export async function updateSalesEntry(
   const qty = data.qty ?? existing.qty;
   const salePriceCents = data.salePriceCents ?? existing.salePriceCents;
   const costCents = data.costCents ?? existing.costCents;
-  const derived = computeSalesDerived(qty, salePriceCents, costCents);
+  const derived = await calculateSalesDerived(
+    businessId,
+    qty,
+    salePriceCents,
+    costCents
+  );
 
   const dateValue =
     data.date !== undefined
@@ -186,7 +194,12 @@ export async function createSalesEntry(businessSlug: string, formData: FormData)
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const salePriceCents = formCents(formData, "salePrice");
   const costCents = formCents(formData, "cost");
-  const derived = computeSalesDerived(qty, salePriceCents, costCents);
+  const derived = await calculateSalesDerived(
+    businessId,
+    qty,
+    salePriceCents,
+    costCents
+  );
 
   const entry = await db.salesEntry.create({
     data: {
@@ -264,7 +277,11 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
 
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const totalCostCents = formCents(formData, "totalCost");
-  const { unitCostCents } = computeProductIntakeUnitCost(totalCostCents, qty);
+  const { unitCostCents } = await calculateProductIntakeDerived(
+    businessId,
+    totalCostCents,
+    qty
+  );
 
   await db.productIntake.create({
     data: {
@@ -297,7 +314,13 @@ export async function createOverheadExpense(businessSlug: string, formData: Form
   const shippingCents = formCents(formData, "shipping");
   const discountCents = formCents(formData, "discount");
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
-  const { unitCostCents, totalCents } = computeOverheadDerived(subTotalCents, shippingCents, discountCents, qty);
+  const { unitCostCents, totalCents } = await calculateOverheadDerived(
+    businessId,
+    subTotalCents,
+    shippingCents,
+    discountCents,
+    qty
+  );
 
   await db.overheadExpense.create({
     data: {
@@ -353,7 +376,9 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
     if (originalPlant && originalPlant.costCents > 0) {
       // +2: the original plant itself + the new division being created
       const totalParts = existingDivisions + 2;
-      costCents = computeDivisionCost(originalPlant.costCents, totalParts).costCents;
+      costCents = (
+        await calculateDivisionCost(businessId, originalPlant.costCents, totalParts)
+      ).costCents;
     }
   }
 
@@ -538,7 +563,11 @@ export async function updateProductIntake(
 
   const qty = data.qty ?? existing.qty;
   const totalCents = data.totalCostCents ?? existing.totalCostCents;
-  const { unitCostCents } = computeProductIntakeUnitCost(totalCents, qty);
+  const { unitCostCents } = await calculateProductIntakeDerived(
+    businessId,
+    totalCents,
+    qty
+  );
 
   const dateValue =
     data.date !== undefined
@@ -719,7 +748,13 @@ export async function updateOverheadExpense(
   const shippingCents = data.shippingCents ?? existing.shippingCents;
   const discountCents = data.discountCents ?? existing.discountCents;
   const qty = data.qty ?? existing.qty;
-  const { unitCostCents, totalCents } = computeOverheadDerived(subTotalCents, shippingCents, discountCents, qty);
+  const { unitCostCents, totalCents } = await calculateOverheadDerived(
+    businessId,
+    subTotalCents,
+    shippingCents,
+    discountCents,
+    qty
+  );
 
   const dateValue =
     data.date !== undefined

@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Calculator, Table, Upload, Users } from "lucide-react";
+import { Building2, ScrollText, Table, Upload, Users } from "lucide-react";
 
 const navItems = [
   { label: "Business", icon: Building2, segment: "business" },
   { label: "Team", icon: Users, segment: "team" },
   { label: "Lookups", icon: Table, segment: "lookups" },
   { label: "Import", icon: Upload, segment: "import" },
-  { label: "Formulas", icon: Calculator, segment: "formulas" },
+  { label: "App Logic", icon: ScrollText, segment: "app-logic" },
 ];
 
 export default function SettingsNav({ businessSlug }: { businessSlug: string }) {
