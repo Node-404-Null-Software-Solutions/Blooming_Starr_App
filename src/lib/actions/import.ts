@@ -3,7 +3,11 @@
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
-import { computeSalesDerived } from "@/lib/formulas";
+import {
+  loadOverheadDerivedCalculator,
+  loadProductIntakeDerivedCalculator,
+  loadSalesDerivedCalculator,
+} from "@/lib/app-logic-engine";
 import {
   buildHeaderMap,
   chunk,
@@ -646,6 +650,9 @@ async function importProductIntake(
   type T = NonNullable<Parameters<typeof db.productIntake.createMany>[0]>["data"];
   type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
   const toCreate: Item[] = [];
+  const calculateProductIntake = await loadProductIntakeDerivedCalculator(
+    businessId
+  );
 
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
@@ -664,6 +671,18 @@ async function importProductIntake(
       seenComposite.add(key);
     }
 
+    const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
+    const importedUnitCostCents = cUnitCost
+      ? parseCurrencyToCents(row.getCell(cUnitCost).value)
+      : 0;
+    const totalCostCents = cTotalCost
+      ? parseCurrencyToCents(row.getCell(cTotalCost).value)
+      : importedUnitCostCents * qty;
+    const { unitCostCents } = calculateProductIntake({
+      totalCostCents,
+      qty,
+    });
+
     toCreate.push({
       businessId, date, sku,
       vendor: cVendor ? toStringCell(row.getCell(cVendor).value) || null : null,
@@ -672,9 +691,9 @@ async function importProductIntake(
       size: cSize ? toStringCell(row.getCell(cSize).value) || null : null,
       style: cStyle ? toStringCell(row.getCell(cStyle).value) || null : null,
       purchaseNumber: cPurchase ? toStringCell(row.getCell(cPurchase).value) || null : null,
-      qty: cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1,
-      totalCostCents: cTotalCost ? parseCurrencyToCents(row.getCell(cTotalCost).value) : 0,
-      unitCostCents: cUnitCost ? parseCurrencyToCents(row.getCell(cUnitCost).value) : 0,
+      qty,
+      totalCostCents,
+      unitCostCents,
       paymentMethod: cPayment ? toStringCell(row.getCell(cPayment).value) || null : null,
       cardLast4: cCard ? last4FromCell(row.getCell(cCard).value) : null,
       invoiceNumber: cInvoice ? toStringCell(row.getCell(cInvoice).value) || null : null,
@@ -750,6 +769,7 @@ async function importSales(
   type T = NonNullable<Parameters<typeof db.salesEntry.createMany>[0]>["data"];
   type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
   const toCreate: Item[] = [];
+  const calculateSales = await loadSalesDerivedCalculator(businessId);
 
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
@@ -771,7 +791,7 @@ async function importSales(
     const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
     const salePriceCents = cSalePrice ? parseCurrencyToCents(row.getCell(cSalePrice).value) : 0;
     const costCents = cCost ? parseCurrencyToCents(row.getCell(cCost).value) : 0;
-    const derived = computeSalesDerived(qty, salePriceCents, costCents);
+    const derived = calculateSales({ qty, salePriceCents, costCents });
 
     const channelVal = cChannel ? toStringCell(row.getCell(cChannel).value).trim() : "";
     if (channelVal) channelNames.add(channelVal);
@@ -827,7 +847,6 @@ async function importOverheadExpenses(
   const cSubTotal = col("Sub Tot");
   const cShipping = col("Ship.");
   const cDiscount = col("Disc.");
-  const cUnitCost = col("Un. Cost");
   const cTotal = col("Act. Tot");
   const cPayment = col("Pmt. M.");
   const cCard = col("Card #");
@@ -862,14 +881,15 @@ async function importOverheadExpenses(
   type T = NonNullable<Parameters<typeof db.overheadExpense.createMany>[0]>["data"];
   type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
   const toCreate: Item[] = [];
+  const calculateOverhead = await loadOverheadDerivedCalculator(businessId);
 
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
     const date = cDate ? parseDate(row.getCell(cDate).value) : null;
     const vendor = cVendor ? toStringCell(row.getCell(cVendor).value) || null : null;
-    const totalCents = cTotal ? parseCurrencyToCents(row.getCell(cTotal).value) : 0;
+    const importedTotalCents = cTotal ? parseCurrencyToCents(row.getCell(cTotal).value) : 0;
 
-    if (!date || (!vendor && totalCents === 0)) { skippedMissing++; return; }
+    if (!date || (!vendor && importedTotalCents === 0)) { skippedMissing++; return; }
 
     const externalUid = cExternal ? toStringCell(row.getCell(cExternal).value) || null : null;
 
@@ -878,21 +898,38 @@ async function importOverheadExpenses(
       seenExt.add(externalUid);
     } else {
       const invoiceNumber = cInvoice ? toStringCell(row.getCell(cInvoice).value) || "" : "";
-      const key = `${invoiceNumber}|${date.toISOString().slice(0, 10)}|${totalCents}`;
+      const key = `${invoiceNumber}|${date.toISOString().slice(0, 10)}|${importedTotalCents}`;
       if (seenComposite.has(key)) { skippedDuplicates++; return; }
       seenComposite.add(key);
     }
+
+    const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
+    const subTotalCents = cSubTotal
+      ? parseCurrencyToCents(row.getCell(cSubTotal).value)
+      : importedTotalCents;
+    const shippingCents = cShipping
+      ? parseCurrencyToCents(row.getCell(cShipping).value)
+      : 0;
+    const discountCents = cDiscount
+      ? parseCurrencyToCents(row.getCell(cDiscount).value)
+      : 0;
+    const { unitCostCents, totalCents } = calculateOverhead({
+      subTotalCents,
+      shippingCents,
+      discountCents,
+      qty,
+    });
 
     toCreate.push({
       businessId, date, vendor,
       brand: cBrand ? toStringCell(row.getCell(cBrand).value) || null : null,
       category: cCategory ? toStringCell(row.getCell(cCategory).value) || null : null,
       description: cDescription ? toStringCell(row.getCell(cDescription).value) || null : null,
-      qty: cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1,
-      subTotalCents: cSubTotal ? parseCurrencyToCents(row.getCell(cSubTotal).value) : 0,
-      shippingCents: cShipping ? parseCurrencyToCents(row.getCell(cShipping).value) : 0,
-      discountCents: cDiscount ? parseCurrencyToCents(row.getCell(cDiscount).value) : 0,
-      unitCostCents: cUnitCost ? parseCurrencyToCents(row.getCell(cUnitCost).value) : 0,
+      qty,
+      subTotalCents,
+      shippingCents,
+      discountCents,
+      unitCostCents,
       totalCents,
       paymentMethod: cPayment ? toStringCell(row.getCell(cPayment).value) || null : null,
       cardLast4: cCard ? last4FromCell(row.getCell(cCard).value) : null,
