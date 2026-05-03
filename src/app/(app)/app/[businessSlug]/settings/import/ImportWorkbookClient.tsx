@@ -121,7 +121,7 @@ export default function ImportWorkbookClient({
             {Object.keys(report.lookups).length === 0 && (
               <p className="text-sm italic text-gray-500">
                 No KEY sheets found — lookup tables were not seeded. Make sure your workbook
-                includes sheets named "Plant KEY", "Product KEY", etc.
+                includes sheets named &quot;Plant KEY&quot;, &quot;Product KEY&quot;, etc.
               </p>
             )}
           </div>

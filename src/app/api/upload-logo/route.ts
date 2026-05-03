@@ -7,18 +7,30 @@ import path from "path";
 
 const PNG_MIME = "image/png";
 const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 5;
 
 // Simple in-memory rate limiting (5 uploads per minute per user)
 const uploadCounts = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now();
+
+  for (const [key, value] of uploadCounts) {
+    if (now > value.resetAt) {
+      uploadCounts.delete(key);
+    }
+  }
+
   const entry = uploadCounts.get(userId);
   if (!entry || now > entry.resetAt) {
-    uploadCounts.set(userId, { count: 1, resetAt: now + 60_000 });
+    uploadCounts.set(userId, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    });
     return true;
   }
-  if (entry.count >= 5) return false;
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) return false;
   entry.count++;
   return true;
 }

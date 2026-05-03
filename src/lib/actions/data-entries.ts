@@ -3,11 +3,13 @@
 import { db } from "@/lib/db";
 import { requireActiveMembership } from "@/lib/authz";
 import {
-  computeSalesDerived,
-  computeProductIntakeUnitCost,
-  computeOverheadDerived,
-  computeDivisionCost,
-} from "@/lib/formulas";
+  calculateDivisionCost,
+  calculateOverheadDerived,
+  calculateProductIntakeDerived,
+  calculateSalesDerived,
+  loadSalesDerivedCalculator,
+} from "@/lib/app-logic-engine";
+import { buildPlantSku, buildProductSku, suggestLookupCode } from "@/lib/sku";
 import { revalidatePath } from "next/cache";
 
 type ProductMasterFields = {
@@ -59,12 +61,14 @@ async function syncProductToSales(
     where: { businessId, sku },
     select: { id: true, qty: true },
   });
+  const calculateSales = await loadSalesDerivedCalculator(businessId);
+
   for (const row of salesRows) {
-    const derived = computeSalesDerived(
-      row.qty,
-      defaultSalePriceCents,
-      defaultCostCents
-    );
+    const derived = calculateSales({
+      qty: row.qty,
+      salePriceCents: defaultSalePriceCents,
+      costCents: defaultCostCents,
+    });
     await db.salesEntry.update({
       where: { id: row.id },
       data: {
@@ -111,7 +115,12 @@ export async function updateSalesEntry(
   const qty = data.qty ?? existing.qty;
   const salePriceCents = data.salePriceCents ?? existing.salePriceCents;
   const costCents = data.costCents ?? existing.costCents;
-  const derived = computeSalesDerived(qty, salePriceCents, costCents);
+  const derived = await calculateSalesDerived(
+    businessId,
+    qty,
+    salePriceCents,
+    costCents
+  );
 
   const dateValue =
     data.date !== undefined
@@ -175,6 +184,213 @@ function formDate(formData: FormData, key: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+type SkuLookupTable =
+  | "plantSource"
+  | "genus"
+  | "cultivar"
+  | "plantId"
+  | "productSource"
+  | "productCategory"
+  | "productSize"
+  | "productStyle";
+
+type EnsuredLookup = {
+  name: string;
+  code: string;
+  created: boolean;
+};
+
+type EnsureLookupOptions = {
+  parentCode?: string | null;
+  matchCode?: boolean;
+  maxLength?: number;
+  preserveCodeLike?: boolean;
+  preserveNumericCodeLike?: boolean;
+};
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "P2002"
+  );
+}
+
+async function findLookupForValue(
+  businessId: string,
+  table: SkuLookupTable,
+  value: string,
+  matchCode = false
+): Promise<Omit<EnsuredLookup, "created"> | null> {
+  const name = value.trim();
+  if (!name) return null;
+
+  const byName = await db.lookupEntry.findFirst({
+    where: {
+      businessId,
+      table,
+      name: { equals: name, mode: "insensitive" },
+    },
+    select: { name: true, code: true },
+  });
+  if (byName) return byName;
+
+  if (!matchCode) return null;
+
+  return db.lookupEntry.findFirst({
+    where: {
+      businessId,
+      table,
+      code: { equals: name.toUpperCase(), mode: "insensitive" },
+    },
+    select: { name: true, code: true },
+  });
+}
+
+async function ensureLookupEntry(
+  businessId: string,
+  table: SkuLookupTable,
+  value: string,
+  options: EnsureLookupOptions = {}
+): Promise<EnsuredLookup> {
+  const name = value.trim();
+  if (!name) throw new Error("Lookup name is required");
+
+  const existing = await findLookupForValue(
+    businessId,
+    table,
+    name,
+    options.matchCode
+  );
+  if (existing) return { ...existing, created: false };
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const existingCodes = await db.lookupEntry.findMany({
+      where: { businessId, table },
+      select: { code: true },
+    });
+    const code = suggestLookupCode(
+      name,
+      existingCodes.map((row) => row.code),
+      {
+        maxLength: options.maxLength,
+        preserveCodeLike: options.preserveCodeLike,
+        preserveNumericCodeLike: options.preserveNumericCodeLike,
+      }
+    );
+
+    try {
+      const created = await db.lookupEntry.create({
+        data: {
+          businessId,
+          table,
+          name,
+          code,
+          parentCode: options.parentCode?.trim() || null,
+        },
+        select: { name: true, code: true },
+      });
+      return { ...created, created: true };
+    } catch (error: unknown) {
+      if (!isUniqueConstraintError(error)) throw error;
+
+      const nowExisting = await findLookupForValue(
+        businessId,
+        table,
+        name,
+        options.matchCode
+      );
+      if (nowExisting) return { ...nowExisting, created: false };
+    }
+  }
+
+  throw new Error(`Unable to create lookup entry for ${table}: ${name}`);
+}
+
+async function ensurePlantSkuLookups(
+  businessId: string,
+  input: {
+    source: string;
+    genus: string;
+    cultivar: string;
+    locationCode?: string | null;
+  }
+) {
+  const source = await ensureLookupEntry(businessId, "plantSource", input.source);
+  const genus = await ensureLookupEntry(businessId, "genus", input.genus);
+  const cultivar = await ensureLookupEntry(businessId, "cultivar", input.cultivar, {
+    parentCode: genus.code,
+  });
+  const plantId = input.locationCode
+    ? await ensureLookupEntry(businessId, "plantId", input.locationCode, {
+        matchCode: true,
+        maxLength: 10,
+        preserveCodeLike: true,
+      })
+    : null;
+  const sku = buildPlantSku(
+    source.code,
+    genus.code,
+    cultivar.code,
+    plantId?.code ?? ""
+  );
+
+  return {
+    sourceName: source.name,
+    genusName: genus.name,
+    cultivarName: cultivar.name,
+    locationCode: plantId?.code ?? null,
+    sku,
+    createdLookup: source.created || genus.created || cultivar.created || Boolean(plantId?.created),
+  };
+}
+
+async function ensureProductSkuLookups(
+  businessId: string,
+  input: {
+    source: string;
+    category: string;
+    size?: string | null;
+    style?: string | null;
+    purchaseNumber?: string | null;
+  }
+) {
+  const source = await ensureLookupEntry(businessId, "productSource", input.source);
+  const category = await ensureLookupEntry(
+    businessId,
+    "productCategory",
+    input.category
+  );
+  const size = input.size
+    ? await ensureLookupEntry(businessId, "productSize", input.size, {
+        matchCode: true,
+        maxLength: 10,
+        preserveNumericCodeLike: true,
+      })
+    : null;
+  const style = input.style
+    ? await ensureLookupEntry(businessId, "productStyle", input.style)
+    : null;
+  const sku = buildProductSku(
+    source.code,
+    category.code,
+    size?.code ?? "",
+    style?.code ?? "",
+    input.purchaseNumber ?? ""
+  );
+
+  return {
+    sourceName: source.name,
+    categoryName: category.name,
+    sizeCode: size?.code ?? null,
+    styleName: style?.name ?? null,
+    sku,
+    createdLookup:
+      source.created || category.created || Boolean(size?.created) || Boolean(style?.created),
+  };
+}
+
 export async function createSalesEntry(businessSlug: string, formData: FormData) {
   const { profile } = await requireActiveMembership();
   const businessId = profile.activeBusinessId;
@@ -186,7 +402,12 @@ export async function createSalesEntry(businessSlug: string, formData: FormData)
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const salePriceCents = formCents(formData, "salePrice");
   const costCents = formCents(formData, "cost");
-  const derived = computeSalesDerived(qty, salePriceCents, costCents);
+  const derived = await calculateSalesDerived(
+    businessId,
+    qty,
+    salePriceCents,
+    costCents
+  );
 
   const entry = await db.salesEntry.create({
     data: {
@@ -223,22 +444,32 @@ export async function createPlantIntake(businessSlug: string, formData: FormData
   const businessId = profile.activeBusinessId;
   if (!businessId) return { ok: false, error: "No business" };
 
-  const sku = formStr(formData, "sku");
+  const submittedSku = formStr(formData, "sku");
+  const skuWasManual = formStr(formData, "skuWasManual") === "1";
   const source = formStr(formData, "source");
   const genus = formStr(formData, "genus");
   const cultivar = formStr(formData, "cultivar");
-  if (!sku || !source || !genus || !cultivar)
-    return { ok: false, error: "SKU, Source, Genus, and Cultivar are required" };
+  if (!source || !genus || !cultivar)
+    return { ok: false, error: "Source, Genus, and Cultivar are required" };
+
+  const lookupParts = await ensurePlantSkuLookups(businessId, {
+    source,
+    genus,
+    cultivar,
+    locationCode: formStr(formData, "locationCode") || null,
+  });
+  const sku = skuWasManual ? submittedSku : lookupParts.sku;
+  if (!sku) return { ok: false, error: "SKU is required" };
 
   await db.plantIntake.create({
     data: {
       businessId,
       date: formDate(formData, "date"),
-      source,
-      genus,
-      cultivar,
+      source: lookupParts.sourceName,
+      genus: lookupParts.genusName,
+      cultivar: lookupParts.cultivarName,
       sku,
-      locationCode: formStr(formData, "locationCode") || null,
+      locationCode: lookupParts.locationCode,
       qty: Math.max(1, Math.floor(Number(formData.get("qty")) || 1)),
       costCents: formCents(formData, "cost"),
       msrpCents: formCents(formData, "msrp"),
@@ -251,6 +482,9 @@ export async function createPlantIntake(businessSlug: string, formData: FormData
   });
 
   revalidatePath(`/app/${businessSlug}/plant-intake`);
+  if (lookupParts.createdLookup) {
+    revalidatePath(`/app/${businessSlug}/settings/lookups`);
+  }
   return { ok: true };
 }
 
@@ -259,12 +493,30 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
   const businessId = profile.activeBusinessId;
   if (!businessId) return { ok: false, error: "No business" };
 
-  const sku = formStr(formData, "sku");
+  const submittedSku = formStr(formData, "sku");
+  const skuWasManual = formStr(formData, "skuWasManual") === "1";
+  const source = formStr(formData, "source");
+  const category = formStr(formData, "category");
+  if (!source || !category)
+    return { ok: false, error: "Source and Category are required" };
+
+  const lookupParts = await ensureProductSkuLookups(businessId, {
+    source,
+    category,
+    size: formStr(formData, "size") || null,
+    style: formStr(formData, "style") || null,
+    purchaseNumber: formStr(formData, "purchaseNumber") || null,
+  });
+  const sku = skuWasManual ? submittedSku : lookupParts.sku;
   if (!sku) return { ok: false, error: "SKU is required" };
 
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const totalCostCents = formCents(formData, "totalCost");
-  const { unitCostCents } = computeProductIntakeUnitCost(totalCostCents, qty);
+  const { unitCostCents } = await calculateProductIntakeDerived(
+    businessId,
+    totalCostCents,
+    qty
+  );
 
   await db.productIntake.create({
     data: {
@@ -272,8 +524,11 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
       date: formDate(formData, "date"),
       sku,
       vendor: formStr(formData, "vendor") || null,
-      source: formStr(formData, "source") || null,
-      category: formStr(formData, "category") || null,
+      source: lookupParts.sourceName,
+      category: lookupParts.categoryName,
+      size: lookupParts.sizeCode,
+      style: lookupParts.styleName,
+      purchaseNumber: formStr(formData, "purchaseNumber") || null,
       qty,
       totalCostCents,
       unitCostCents,
@@ -285,6 +540,9 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
   });
 
   revalidatePath(`/app/${businessSlug}/product-intake`);
+  if (lookupParts.createdLookup) {
+    revalidatePath(`/app/${businessSlug}/settings/lookups`);
+  }
   return { ok: true };
 }
 
@@ -297,7 +555,13 @@ export async function createOverheadExpense(businessSlug: string, formData: Form
   const shippingCents = formCents(formData, "shipping");
   const discountCents = formCents(formData, "discount");
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
-  const { unitCostCents, totalCents } = computeOverheadDerived(subTotalCents, shippingCents, discountCents, qty);
+  const { unitCostCents, totalCents } = await calculateOverheadDerived(
+    businessId,
+    subTotalCents,
+    shippingCents,
+    discountCents,
+    qty
+  );
 
   await db.overheadExpense.create({
     data: {
@@ -353,7 +617,9 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
     if (originalPlant && originalPlant.costCents > 0) {
       // +2: the original plant itself + the new division being created
       const totalParts = existingDivisions + 2;
-      costCents = computeDivisionCost(originalPlant.costCents, totalParts).costCents;
+      costCents = (
+        await calculateDivisionCost(businessId, originalPlant.costCents, totalParts)
+      ).costCents;
     }
   }
 
@@ -485,26 +751,57 @@ export async function updatePlantIntake(
         : new Date(data.date)
       : undefined;
 
+  const skuLookupChanged =
+    data.source !== undefined ||
+    data.genus !== undefined ||
+    data.cultivar !== undefined ||
+    data.locationCode !== undefined;
+  let lookupCreated = false;
+  const updateData: Record<string, string | number | Date | null> = {};
+  if (dateValue !== undefined) updateData.date = dateValue;
+  if (skuLookupChanged) {
+    const nextSource = data.source ?? existing.source;
+    const nextGenus = data.genus ?? existing.genus;
+    const nextCultivar = data.cultivar ?? existing.cultivar;
+    const nextLocationCode =
+      data.locationCode !== undefined ? data.locationCode : existing.locationCode;
+
+    if (nextSource && nextGenus && nextCultivar) {
+      const lookupParts = await ensurePlantSkuLookups(businessId, {
+        source: nextSource,
+        genus: nextGenus,
+        cultivar: nextCultivar,
+        locationCode: nextLocationCode,
+      });
+      updateData.source = lookupParts.sourceName;
+      updateData.genus = lookupParts.genusName;
+      updateData.cultivar = lookupParts.cultivarName;
+      updateData.locationCode = lookupParts.locationCode;
+      if (data.sku === undefined) updateData.sku = lookupParts.sku;
+      lookupCreated = lookupParts.createdLookup;
+    } else {
+      if (data.source !== undefined) updateData.source = data.source;
+      if (data.genus !== undefined) updateData.genus = data.genus;
+      if (data.cultivar !== undefined) updateData.cultivar = data.cultivar;
+      if (data.locationCode !== undefined) updateData.locationCode = data.locationCode;
+    }
+  }
+  if (data.sku !== undefined) updateData.sku = data.sku;
+  if (data.qty !== undefined) updateData.qty = data.qty;
+  if (data.costCents !== undefined) updateData.costCents = data.costCents;
+  if (data.msrpCents !== undefined) updateData.msrpCents = data.msrpCents;
+  if (data.potType !== undefined) updateData.potType = data.potType;
+  if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
+  if (data.cardLast4 !== undefined) updateData.cardLast4 = data.cardLast4;
+  if (data.location !== undefined) updateData.location = data.location;
+  if (data.status !== undefined) updateData.status = data.status;
+
   await db.plantIntake.update({
     where: { id },
-    data: {
-      ...(dateValue !== undefined && { date: dateValue }),
-      ...(data.source !== undefined && { source: data.source }),
-      ...(data.genus !== undefined && { genus: data.genus }),
-      ...(data.cultivar !== undefined && { cultivar: data.cultivar }),
-      ...(data.locationCode !== undefined && { locationCode: data.locationCode }),
-      ...(data.sku !== undefined && { sku: data.sku }),
-      ...(data.qty !== undefined && { qty: data.qty }),
-      ...(data.costCents !== undefined && { costCents: data.costCents }),
-      ...(data.msrpCents !== undefined && { msrpCents: data.msrpCents }),
-      ...(data.potType !== undefined && { potType: data.potType }),
-      ...(data.paymentMethod !== undefined && { paymentMethod: data.paymentMethod }),
-      ...(data.cardLast4 !== undefined && { cardLast4: data.cardLast4 }),
-      ...(data.location !== undefined && { location: data.location }),
-      ...(data.status !== undefined && { status: data.status }),
-    },
+    data: updateData,
   });
   revalidatePath(`/app/${businessSlug}/plant-intake`);
+  if (lookupCreated) revalidatePath(`/app/${businessSlug}/settings/lookups`);
   return { ok: true };
 }
 
@@ -521,6 +818,7 @@ export type ProductIntakeUpdate = {
   totalCostCents?: number;
   unitCostCents?: number;
   paymentMethod?: string | null;
+  cardLast4?: string | null;
   invoiceNumber?: string | null;
   notes?: string | null;
 };
@@ -538,7 +836,11 @@ export async function updateProductIntake(
 
   const qty = data.qty ?? existing.qty;
   const totalCents = data.totalCostCents ?? existing.totalCostCents;
-  const { unitCostCents } = computeProductIntakeUnitCost(totalCents, qty);
+  const { unitCostCents } = await calculateProductIntakeDerived(
+    businessId,
+    totalCents,
+    qty
+  );
 
   const dateValue =
     data.date !== undefined
@@ -547,26 +849,68 @@ export async function updateProductIntake(
         : new Date(data.date)
       : undefined;
 
+  const skuLookupChanged =
+    data.source !== undefined ||
+    data.category !== undefined ||
+    data.size !== undefined ||
+    data.style !== undefined ||
+    data.purchaseNumber !== undefined;
+  let lookupCreated = false;
+  const updateData: Record<string, string | number | Date | null> = {
+    unitCostCents,
+  };
+  if (dateValue !== undefined) updateData.date = dateValue;
+  if (skuLookupChanged) {
+    const nextSource = data.source !== undefined ? data.source : existing.source;
+    const nextCategory =
+      data.category !== undefined ? data.category : existing.category;
+    const nextSize = data.size !== undefined ? data.size : existing.size;
+    const nextStyle = data.style !== undefined ? data.style : existing.style;
+    const nextPurchaseNumber =
+      data.purchaseNumber !== undefined
+        ? data.purchaseNumber
+        : existing.purchaseNumber;
+
+    if (nextSource && nextCategory) {
+      const lookupParts = await ensureProductSkuLookups(businessId, {
+        source: nextSource,
+        category: nextCategory,
+        size: nextSize,
+        style: nextStyle,
+        purchaseNumber: nextPurchaseNumber,
+      });
+      updateData.source = lookupParts.sourceName;
+      updateData.category = lookupParts.categoryName;
+      updateData.size = lookupParts.sizeCode;
+      updateData.style = lookupParts.styleName;
+      updateData.purchaseNumber = nextPurchaseNumber;
+      if (data.sku === undefined) updateData.sku = lookupParts.sku;
+      lookupCreated = lookupParts.createdLookup;
+    } else {
+      if (data.source !== undefined) updateData.source = data.source;
+      if (data.category !== undefined) updateData.category = data.category;
+      if (data.size !== undefined) updateData.size = data.size;
+      if (data.style !== undefined) updateData.style = data.style;
+      if (data.purchaseNumber !== undefined)
+        updateData.purchaseNumber = data.purchaseNumber;
+    }
+  }
+  if (data.vendor !== undefined) updateData.vendor = data.vendor;
+  if (data.qty !== undefined) updateData.qty = data.qty;
+  if (data.sku !== undefined) updateData.sku = data.sku;
+  if (data.totalCostCents !== undefined)
+    updateData.totalCostCents = data.totalCostCents;
+  if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
+  if (data.cardLast4 !== undefined) updateData.cardLast4 = data.cardLast4;
+  if (data.invoiceNumber !== undefined) updateData.invoiceNumber = data.invoiceNumber;
+  if (data.notes !== undefined) updateData.notes = data.notes;
+
   await db.productIntake.update({
     where: { id },
-    data: {
-      ...(dateValue !== undefined && { date: dateValue }),
-      ...(data.vendor !== undefined && { vendor: data.vendor }),
-      ...(data.source !== undefined && { source: data.source }),
-      ...(data.category !== undefined && { category: data.category }),
-      ...(data.size !== undefined && { size: data.size }),
-      ...(data.style !== undefined && { style: data.style }),
-      ...(data.purchaseNumber !== undefined && { purchaseNumber: data.purchaseNumber }),
-      ...(data.qty !== undefined && { qty: data.qty }),
-      ...(data.sku !== undefined && { sku: data.sku }),
-      ...(data.totalCostCents !== undefined && { totalCostCents: data.totalCostCents }),
-      unitCostCents,
-      ...(data.paymentMethod !== undefined && { paymentMethod: data.paymentMethod }),
-      ...(data.invoiceNumber !== undefined && { invoiceNumber: data.invoiceNumber }),
-      ...(data.notes !== undefined && { notes: data.notes }),
-    },
+    data: updateData,
   });
   revalidatePath(`/app/${businessSlug}/product-intake`);
+  if (lookupCreated) revalidatePath(`/app/${businessSlug}/settings/lookups`);
   return { ok: true };
 }
 
@@ -719,7 +1063,13 @@ export async function updateOverheadExpense(
   const shippingCents = data.shippingCents ?? existing.shippingCents;
   const discountCents = data.discountCents ?? existing.discountCents;
   const qty = data.qty ?? existing.qty;
-  const { unitCostCents, totalCents } = computeOverheadDerived(subTotalCents, shippingCents, discountCents, qty);
+  const { unitCostCents, totalCents } = await calculateOverheadDerived(
+    businessId,
+    subTotalCents,
+    shippingCents,
+    discountCents,
+    qty
+  );
 
   const dateValue =
     data.date !== undefined
