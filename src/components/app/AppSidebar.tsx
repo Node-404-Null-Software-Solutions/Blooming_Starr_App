@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,6 +12,7 @@ import {
   Leaf,
   Package,
   PackageCheck,
+  QrCode,
   Receipt,
   Settings,
   ShoppingCart,
@@ -42,6 +44,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Product Intake", modulePath: "/product-intake", icon: Package },
       { label: "Product Inventory", modulePath: "/product-inventory", icon: PackageCheck },
+      { label: "SKU Scanner", modulePath: "/sku-scanner", icon: QrCode },
     ],
   },
   {
@@ -73,10 +76,12 @@ const APP_BASE = "/app";
 export default function AppSidebar({
   businessName,
   businessSlug,
+  logoUrl,
   onNavClick,
 }: {
   businessName?: string | null;
   businessSlug?: string;
+  logoUrl?: string | null;
   onNavClick?: () => void;
 }) {
   const pathname = usePathname();
@@ -84,17 +89,28 @@ export default function AppSidebar({
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col bg-[#0E4D3A]">
-      {/* Brand header */}
+
       <div className="flex items-center gap-2.5 border-b border-white/15 px-4 py-4">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10">
-          <Sprout className="h-4 w-4 text-[#16BE1B]" />
+          {logoUrl ? (
+            <Image
+              src={logoUrl}
+              alt=""
+              width={32}
+              height={32}
+              unoptimized
+              className="h-8 w-8 rounded-md object-contain"
+            />
+          ) : (
+            <Sprout className="h-4 w-4 text-[#16BE1B]" />
+          )}
         </div>
         <span className="truncate text-sm font-semibold tracking-wide text-white">
           {businessName ?? "Bloomingstarr"}
         </span>
       </div>
 
-      {/* Nav */}
+
       <nav className="flex-1 overflow-y-auto py-2">
         {navGroups.map((group, gi) => (
           <div key={gi}>

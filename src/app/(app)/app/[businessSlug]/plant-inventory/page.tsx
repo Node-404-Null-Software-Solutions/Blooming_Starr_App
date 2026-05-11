@@ -48,7 +48,7 @@ export default async function PlantInventoryPage({
     }),
   ]);
 
-  // Build inventory by SKU
+
   const skuMap = new Map<
     string,
     {
@@ -90,7 +90,7 @@ export default async function PlantInventoryPage({
     }
   }
 
-  // Add transplant divisions as new inventory (qty 1 each)
+
   for (const t of transplantRows) {
     if (!t.divisionSku || skuMap.has(t.divisionSku)) continue;
     const parent = skuMap.get(t.originalSku ?? "");
@@ -105,7 +105,7 @@ export default async function PlantInventoryPage({
     });
   }
 
-  // Tally sales by SKU
+
   for (const sale of salesRows) {
     const entry = skuMap.get(sale.sku);
     if (entry) {
@@ -113,7 +113,7 @@ export default async function PlantInventoryPage({
     }
   }
 
-  // Build final rows
+
   const rows: InventoryRow[] = [];
   for (const [sku, data] of skuMap) {
     const qtyRemaining = data.qtyPurchased - data.qtySold - data.qtyUsed;

@@ -1,73 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Blooming Starr
 
-## Getting Started
+Inventory, scheduling, sales, expenses, and plant operations tracking for Blooming Starr.
 
-First, run the development server:
+## Local Development
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Production Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Geist, a modern font family.
+- Next.js standalone server
+- Prisma with Supabase Postgres
+- Clerk authentication
+- Caddy reverse proxy
+- systemd process service
+- Persistent local upload directory for logos
 
-## Learn More
+## Environment
 
-To learn more about Next.js, take a look at the following resources:
+Create `.env` locally or `/etc/blooming-starr.env` on the VPS.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```env
+DATABASE_URL=postgresql://postgres.xxxx:YOUR_PASSWORD@aws-0-xx.pooler.supabase.com:6543/postgres
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_your_clerk_publishable_key
+CLERK_SECRET_KEY=sk_live_your_clerk_secret_key
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+UPLOADS_DIR=/var/www/blooming-starr/uploads
+UPLOADS_PUBLIC_PATH=/uploads
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Web app & VPS deployment
-
-This app runs as a web-only Next.js application. Use Supabase as the PostgreSQL database and deploy on a VPS.
-
-**Local development:** `npm run dev`
-
-**Production build and run:**
+## Build
 
 ```bash
+npm ci
+npm run db:migrate
 npm run build
+```
+
+## Run
+
+Full project checkout:
+
+```bash
 npm run start
 ```
 
-**Environment variables:** Set in `.env` or your host environment:
+Standalone production server:
 
-- `DATABASE_URL` — Supabase Postgres connection string (use the Transaction pooler, port 6543; see Supabase Dashboard → Settings → Database).
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` — from [Clerk](https://dashboard.clerk.com).
-- `NEXT_PUBLIC_APP_URL` — your app URL (e.g. `https://yourdomain.com` or `http://localhost:3000`).
+```bash
+npm run start:standalone
+```
 
-**On a VPS:** Install Node (LTS), clone the repo, run `npm ci`, `npm run db:generate` (and `npm run db:migrate` if you use migrations). Set the env vars above, then `npm run build` and `npm run start`. Use a process manager (e.g. systemd or PM2) and a reverse proxy (e.g. Nginx or Caddy) in front, and set `NEXT_PUBLIC_APP_URL` to your public URL.
+## Namecheap VPS
 
-### Supabase database sync (match this version)
+Use Ubuntu with Node.js LTS, Caddy, and systemd. Example templates are in:
 
-To bring your Supabase database in line with the current app schema:
+- [`deploy/Caddyfile.example`](deploy/Caddyfile.example)
+- [`deploy/blooming-starr.service.example`](deploy/blooming-starr.service.example)
 
-1. Set `DATABASE_URL` in `.env` to your Supabase Postgres connection string (Supabase Dashboard → Settings → Database → Connection string; use the **Transaction** pooler, port 6543).
-2. Run:
-   ```bash
-   npm run db:migrate
-   ```
-   This applies all pending Prisma migrations. If the database is empty, every migration runs and you get the full schema. If it is outdated, only missing migrations run.
+Recommended server paths:
 
-**Reset and reapply (destructive):** If you need to wipe the DB and start from the current schema, in Supabase SQL Editor run:
-   ```sql
-   DROP SCHEMA public CASCADE;
-   CREATE SCHEMA public;
-   GRANT ALL ON SCHEMA public TO postgres;
-   GRANT ALL ON SCHEMA public TO public;
-   ```
-   Then run `npm run db:migrate` again so all migrations apply from scratch.
+```text
+/var/www/blooming-starr/app/current
+/var/www/blooming-starr/uploads
+/etc/blooming-starr.env
+```
 
-A full schema SQL file is also in `prisma/supabase_schema.sql` (for reference or for running manually in Supabase SQL Editor on an empty project).
+After copying the service file to `/etc/systemd/system/blooming-starr.service`:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable blooming-starr
+sudo systemctl restart blooming-starr
+```
+
+Health check:
+
+```text
+https://yourdomain.com/api/health
+```

@@ -21,7 +21,7 @@ export async function createScheduleEntry(
   if (!dateStr) return { ok: false, error: "Date is required." };
   if (!startTime || !endTime) return { ok: false, error: "Start and end times are required." };
 
-  // Verify employee belongs to this business
+
   const employee = await db.employee.findFirst({
     where: { id: employeeId, businessId: business.id },
   });

@@ -74,7 +74,7 @@ export default function PlantIntakeTable({
 
   return (
     <div>
-      {/* Mobile cards */}
+
       {rows.length === 0 ? (
         <p className="md:hidden py-4 text-center text-sm text-gray-500">No plant intake records yet.</p>
       ) : (
@@ -95,7 +95,7 @@ export default function PlantIntakeTable({
         </div>
       )}
 
-      {/* Desktop table */}
+
       <div className="hidden md:block overflow-x-auto">
         <div className="rounded-md border border-gray-200 bg-white">
           <table className="w-full min-w-[1000px] border-collapse">

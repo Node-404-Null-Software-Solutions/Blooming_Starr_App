@@ -26,7 +26,7 @@ export default function EmployeeForm({ businessSlug }: { businessSlug: string })
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 rounded-lg border border-gray-200 bg-white p-6">
-      {/* Name */}
+
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">
           Name <span className="text-red-500">*</span>
@@ -41,7 +41,7 @@ export default function EmployeeForm({ businessSlug }: { businessSlug: string })
         />
       </div>
 
-      {/* Email + Phone */}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
@@ -63,7 +63,7 @@ export default function EmployeeForm({ businessSlug }: { businessSlug: string })
         </div>
       </div>
 
-      {/* Position */}
+
       <div>
         <label htmlFor="position" className="block text-sm font-medium text-gray-700">Position</label>
         <input
@@ -75,7 +75,7 @@ export default function EmployeeForm({ businessSlug }: { businessSlug: string })
         />
       </div>
 
-      {/* Pay Rates */}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="hourlyRate" className="block text-sm font-medium text-gray-700">
@@ -107,7 +107,7 @@ export default function EmployeeForm({ businessSlug }: { businessSlug: string })
         </div>
       </div>
 
-      {/* Notes */}
+
       <div>
         <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Notes</label>
         <textarea

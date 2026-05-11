@@ -53,7 +53,7 @@ export default async function BusinessDashboardPage({
         </div>
       </div>
 
-      {/* Profit & Loss summary */}
+
       <section className="rounded-lg border-2 border-amber-200 bg-amber-50/50 p-4 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900">Profit &amp; Loss — {taxYear}</h2>
@@ -95,7 +95,7 @@ export default async function BusinessDashboardPage({
         </div>
       </section>
 
-      {/* Sales KPIs + Channel Revenue */}
+
       <section className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900">Sales — {taxYear}</h2>
@@ -168,7 +168,7 @@ export default async function BusinessDashboardPage({
         </div>
       </section>
 
-      {/* Plant Inventory Stats */}
+
       <section className="rounded-lg border border-green-200 bg-green-50/50 p-4 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900">Plant inventory</h2>
@@ -243,7 +243,7 @@ export default async function BusinessDashboardPage({
         )}
       </section>
 
-      {/* Expense sections — one per category */}
+
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900">Expenses by category — {taxYear}</h2>

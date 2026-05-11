@@ -22,7 +22,7 @@ export async function createBusinessAndProfile(
     return { ok: false, error: "Business name is required (max 100 chars)." };
   }
 
-  // Check if user already has a profile (idempotent)
+
   const existingProfile = await db.profile.findUnique({ where: { userId } });
   if (existingProfile?.activeBusinessId) {
     const biz = await db.business.findUnique({
@@ -32,7 +32,7 @@ export async function createBusinessAndProfile(
     if (biz) return { ok: true, slug: biz.slug };
   }
 
-  // Generate a unique slug
+
   let baseSlug = slugify(businessName);
   if (!baseSlug) baseSlug = "my-business";
   let slug = baseSlug;
@@ -42,7 +42,6 @@ export async function createBusinessAndProfile(
     slug = `${baseSlug}-${attempt}`;
   }
 
-  // Create everything in a transaction
   const result = await db.$transaction(async (tx) => {
     const business = await tx.business.create({
       data: {

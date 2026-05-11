@@ -12,7 +12,7 @@ export default async function PlantIntakePage({
   params: Promise<{ businessSlug: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // バ. Next 16: params must be awaited
+
   const { businessSlug } = await params;
   const sp = (await searchParams) ?? {};
 

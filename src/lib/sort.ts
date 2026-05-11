@@ -1,7 +1,4 @@
-/**
- * Default list order for all date-based modules: newest at top, oldest at bottom,
- * blank/null dates at the very bottom. Use after findMany on any page that lists by date.
- */
+
 export function sortByDateDescNullsLast<T extends { date: Date | null }>(
   rows: T[]
 ): T[] {

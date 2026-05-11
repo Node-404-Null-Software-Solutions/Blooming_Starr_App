@@ -47,7 +47,7 @@ export default function ImportWorkbookClient({
 
   return (
     <div className="space-y-8">
-      {/* ── Import form ─────────────────────────────────────────────────── */}
+
       <section className="space-y-4">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:flex-row sm:items-end">
           <div className="flex-1">
@@ -83,7 +83,7 @@ export default function ImportWorkbookClient({
           </button>
         </form>
 
-        {/* Import error */}
+
         {report?.error && (
           <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -91,7 +91,7 @@ export default function ImportWorkbookClient({
           </div>
         )}
 
-        {/* Import report */}
+
         {report && !report.error && (
           <div className="space-y-4">
             <div>
@@ -121,14 +121,14 @@ export default function ImportWorkbookClient({
             {Object.keys(report.lookups).length === 0 && (
               <p className="text-sm italic text-gray-500">
                 No KEY sheets found — lookup tables were not seeded. Make sure your workbook
-                includes sheets named "Plant KEY", "Product KEY", etc.
+                includes sheets named &quot;Plant KEY&quot;, &quot;Product KEY&quot;, etc.
               </p>
             )}
           </div>
         )}
       </section>
 
-      {/* ── Danger zone ─────────────────────────────────────────────────── */}
+
       <section className="rounded-lg border border-red-200 bg-red-50/40 p-5 space-y-4">
         <div>
           <h2 className="text-sm font-semibold text-red-700">Danger Zone</h2>
@@ -138,7 +138,7 @@ export default function ImportWorkbookClient({
           </p>
         </div>
 
-        {/* Clear result */}
+
         {clearResult && (
           clearResult.ok ? (
             <div className="rounded-md border border-emerald-200 bg-white p-4 space-y-2">
@@ -218,7 +218,6 @@ export default function ImportWorkbookClient({
   );
 }
 
-// ── Report row components ────────────────────────────────────────────────────
 
 function SheetRow({ name, result }: { name: string; result: SheetResult }) {
   if (result.notFound) {

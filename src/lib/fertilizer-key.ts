@@ -1,9 +1,4 @@
-/**
- * Fertilizer product lookup for auto-calculating next application dates.
- * Matches the spreadsheet's "Fertilizer Key" sheet.
- *
- * MinDays/MaxDays = days after application date for next earliest/latest.
- */
+
 export type FertilizerKeyEntry = {
   product: string;
   minDays: number;
@@ -15,10 +10,7 @@ const FERTILIZER_KEY: FertilizerKeyEntry[] = [
   { product: "Arber", minDays: 7, maxDays: 14 },
 ];
 
-/**
- * Look up min/max days for a fertilizer product name.
- * Case-insensitive partial match.
- */
+
 export function lookupFertilizerDays(
   productName: string
 ): { minDays: number; maxDays: number } | null {
@@ -28,9 +20,7 @@ export function lookupFertilizerDays(
   return entry ? { minDays: entry.minDays, maxDays: entry.maxDays } : null;
 }
 
-/**
- * Calculate next application dates from an application date and product name.
- */
+
 export function calcNextApplicationDates(
   applicationDate: Date,
   productName: string

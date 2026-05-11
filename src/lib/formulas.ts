@@ -1,15 +1,3 @@
-/**
- * App-owned formulas for all modules so the app is the single source of truth
- * instead of relying on client spreadsheet formulas.
- *
- * Covers: Sales, Product Intake, Overhead Expenses, Transplant Log.
- */
-
-// ---------------------------------------------------------------------------
-// Currency formatting
-// ---------------------------------------------------------------------------
-
-/** "$1,234" — whole-dollar display for dashboard summary tiles. */
 export function centsToUsd(cents: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -18,7 +6,6 @@ export function centsToUsd(cents: number): string {
   }).format(cents / 100);
 }
 
-/** "$12.34" — two-decimal display for inventory and expense tables. */
 export function centsToUsdFixed(cents: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -27,12 +14,10 @@ export function centsToUsdFixed(cents: number): string {
   }).format(cents / 100);
 }
 
-/** "12.34" — plain decimal string for CSV export (no currency symbol). */
 export function centsToDecimal(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
-/** "1.5%" — percentage string for margin/rate display. */
 export function formatPct(value: number): string {
   return `${value.toFixed(1)}%`;
 }
@@ -48,12 +33,6 @@ function safePct(numerator: number, denominator: number): number {
   return (numerator / denominator) * 100;
 }
 
-/**
- * Compute total sale, profit, and margin % for a sales entry.
- * - totalSale = qty * salePrice
- * - profit = totalSale - cost
- * - margin = (profit / totalSale) * 100 (margin on revenue); 0 when totalSale is 0.
- */
 export function computeSalesDerived(
   qty: number,
   salePriceCents: number,
@@ -70,10 +49,6 @@ export function computeSalesDerived(
   return { totalSaleCents, profitCents, marginPct };
 }
 
-/**
- * Compute unit cost for a product intake entry.
- * - unitCost = totalCost / qty; 0 when either is 0.
- */
 export function computeProductIntakeUnitCost(
   totalCostCents: number,
   qty: number
@@ -84,11 +59,6 @@ export function computeProductIntakeUnitCost(
   return { unitCostCents };
 }
 
-/**
- * Compute derived values for an overhead expense entry.
- * - unitCost = (subTotal - discount) / qty; 0 when qty is 0.
- * - total = subTotal + shipping - discount.
- */
 export function computeOverheadDerived(
   subTotalCents: number,
   shippingCents: number,
@@ -104,10 +74,6 @@ export function computeOverheadDerived(
   return { unitCostCents, totalCents };
 }
 
-/**
- * Compute cost per division when splitting a plant.
- * - costCents = originalCost / totalParts; 0 when original cost is 0.
- */
 export function computeDivisionCost(
   originalCostCents: number,
   totalParts: number

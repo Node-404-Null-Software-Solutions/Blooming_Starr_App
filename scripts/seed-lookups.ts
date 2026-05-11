@@ -1,9 +1,4 @@
-/**
- * Seed lookup entries from the spreadsheet KEY data.
- *
- * Run: npx tsx scripts/seed-lookups.ts [--business-slug=blooming-starr-nursery]
- * Requires DATABASE_URL in .env.
- */
+
 
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";

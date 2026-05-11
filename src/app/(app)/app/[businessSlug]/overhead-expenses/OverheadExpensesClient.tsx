@@ -113,7 +113,7 @@ export default function OverheadExpensesClient({
         </div>
       ) : (
         <>
-          {/* Mobile cards */}
+
           <div className="md:hidden space-y-2">
             {rows.map((row) => (
               <div
@@ -132,7 +132,7 @@ export default function OverheadExpensesClient({
             ))}
           </div>
 
-          {/* Desktop table */}
+
           <div className="hidden md:block overflow-x-auto">
             <div className="rounded-lg border border-gray-200 bg-white">
               <table className="w-full min-w-[1700px] border-collapse">

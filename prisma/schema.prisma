@@ -63,6 +63,7 @@ model Business {
   lookupEntries  LookupEntry[]
   employees      Employee[]
   schedules      ScheduleEntry[]
+  appLogicRules  AppLogicRule[]
 }
 
 model Product {
@@ -391,8 +392,8 @@ model ScheduleEntry {
   businessId String
   employeeId String
   date       DateTime
-  startTime  String   // "HH:mm" format
-  endTime    String   // "HH:mm" format
+  startTime  String
+  endTime    String
   title      String?
   notes      String?
   createdAt  DateTime @default(now())
@@ -436,4 +437,24 @@ model LookupEntry {
   @@unique([businessId, table, code])
   @@unique([businessId, table, name])
   @@index([businessId, table])
+}
+
+model AppLogicRule {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  module      String
+  trigger     String
+  mode        String   @default("FORMULA")
+  expression  String
+  notes       String?
+  enabled     Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, module])
+  @@index([businessId, enabled])
 }

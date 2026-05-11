@@ -130,7 +130,7 @@ export default function ProductIntakeClient({
         </div>
       ) : (
         <>
-          {/* Mobile cards */}
+
           <div className="md:hidden space-y-2">
             {filteredRows.map((row) => (
               <div
@@ -149,7 +149,7 @@ export default function ProductIntakeClient({
             ))}
           </div>
 
-          {/* Desktop table */}
+
           <div className="hidden md:block overflow-x-auto">
             <div className="rounded-lg border border-gray-200 bg-white">
               <table className="w-full min-w-[1800px] border-collapse">

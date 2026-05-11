@@ -43,10 +43,10 @@ export default async function ProductInventoryPage({
     }),
   ]);
 
-  // Collect product SKUs for matching
+
   const productSkuSet = new Set(productIntakeRows.map((p) => p.sku));
 
-  // Build inventory by SKU
+
   const skuMap = new Map<
     string,
     {
@@ -62,7 +62,7 @@ export default async function ProductInventoryPage({
     const existing = skuMap.get(row.sku);
     if (existing) {
       existing.qtyPurchased += row.qty;
-      // Weighted average would be complex; use latest unit cost
+
       if (row.unitCostCents) existing.unitCostCents = row.unitCostCents;
     } else {
       skuMap.set(row.sku, {
@@ -74,7 +74,7 @@ export default async function ProductInventoryPage({
     }
   }
 
-  // Tally sales (only for product SKUs)
+
   for (const sale of salesRows) {
     if (!productSkuSet.has(sale.sku)) continue;
     const entry = skuMap.get(sale.sku);
@@ -83,7 +83,7 @@ export default async function ProductInventoryPage({
     }
   }
 
-  // Build final rows
+
   const rows: InventoryRow[] = [];
   for (const [sku, data] of skuMap) {
     const qtyRemaining = data.qtyPurchased - data.qtySold;

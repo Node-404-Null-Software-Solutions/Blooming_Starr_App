@@ -146,10 +146,10 @@ export async function getTaxSummary(businessId: string, year: number): Promise<T
     }),
   ]);
 
-  // Product SKU set for COGS splitting
+
   const productSkuSet = new Set(productSkus.map((p) => p.sku));
 
-  // Revenue, COGS split, channel revenue, monthly breakdown
+
   let revenueCents = 0;
   let plantCogsCents = 0;
   let productCogsCents = 0;
@@ -184,7 +184,7 @@ export async function getTaxSummary(businessId: string, year: number): Promise<T
   const grossProfitCents = revenueCents - cogsCents;
   const grossMarginPct = revenueCents > 0 ? (grossProfitCents / revenueCents) * 100 : 0;
 
-  // Expenses
+
   type OverheadGroupRow = (typeof overheadByCategory)[number];
   const expensesByCategory: ExpenseByCategory[] = overheadByCategory.map((row: OverheadGroupRow) => ({
     category: row.category?.trim() || "Uncategorized",
@@ -194,17 +194,17 @@ export async function getTaxSummary(businessId: string, year: number): Promise<T
   const netProfitCents = grossProfitCents - totalExpensesCents;
   const netMarginPct = revenueCents > 0 ? (netProfitCents / revenueCents) * 100 : 0;
 
-  // Sales KPIs
+
   const totalTransactions = salesEntries.length;
   const avgSaleValueCents = totalTransactions > 0 ? Math.round(revenueCents / totalTransactions) : 0;
   const avgProfitPerSaleCents = totalTransactions > 0 ? Math.round(netProfitCents / totalTransactions) : 0;
 
-  // Channel revenue
+
   const channelRevenue: ChannelRevenue[] = Array.from(channelMap.entries())
     .map(([channel, rev]) => ({ channel, revenueCents: rev }))
     .sort((a, b) => b.revenueCents - a.revenueCents);
 
-  // Sales by month
+
   const salesByMonth: SalesByMonth[] = MONTH_LABELS.map((label, i) => ({
     monthLabel: `${label} ${year}`,
     monthIndex: i,
@@ -212,7 +212,6 @@ export async function getTaxSummary(businessId: string, year: number): Promise<T
     profitCents: monthProfit[i],
   }));
 
-  // Expense sections
   const categoryMap = new Map<string, ExpenseSectionEntry[]>();
   for (const row of overheadEntries) {
     const cat = row.category?.trim() || "Uncategorized";
@@ -234,7 +233,6 @@ export async function getTaxSummary(businessId: string, year: number): Promise<T
     }))
     .sort((a, b) => b.totalCents - a.totalCents);
 
-  // Plant inventory stats
   let availableCount = 0;
   let soldCount = 0;
   let deadCount = 0;
@@ -288,7 +286,6 @@ export async function getTaxSummary(businessId: string, year: number): Promise<T
   }
   const totalInventoryLossCents = deadLossCents + damagedLossCents + giveawayLossCents + donationLossCents;
 
-  // Genus-level counts for available plants (matched by SKU code)
   const genusDefinitions: { genus: string; code: string }[] = [
     { genus: "Philodendron", code: "-PH-" },
     { genus: "Hoya", code: "-HO-" },

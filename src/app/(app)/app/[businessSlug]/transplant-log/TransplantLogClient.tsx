@@ -117,7 +117,7 @@ export default function TransplantLogClient({
         </div>
       ) : (
         <>
-          {/* Mobile cards */}
+
           <div className="md:hidden space-y-2">
             {rows.map((row) => (
               <div
@@ -134,7 +134,7 @@ export default function TransplantLogClient({
             ))}
           </div>
 
-          {/* Desktop table */}
+
           <div className="hidden md:block overflow-x-auto">
             <div className="rounded-lg border border-gray-200 bg-white">
               <table className="w-full min-w-[1400px] border-collapse">

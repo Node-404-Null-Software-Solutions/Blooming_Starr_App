@@ -44,7 +44,7 @@ export default async function TeamSettingsPage({
         <p className="mt-1 text-sm text-gray-500">Manage members, send invites, and approve join requests.</p>
       </div>
 
-      {/* Invite Members */}
+
       <section className="rounded-md border border-gray-200 bg-white">
         <div className="flex items-center gap-2 border-b border-gray-200 px-6 py-4 text-lg font-semibold text-gray-900">
           <LinkIcon className="h-5 w-5 text-gray-400" />
@@ -55,7 +55,7 @@ export default async function TeamSettingsPage({
         </div>
       </section>
 
-      {/* Current Members */}
+
       <section className="rounded-md border border-gray-200 bg-white">
         <div className="flex items-center gap-2 border-b border-gray-200 px-6 py-4 text-lg font-semibold text-gray-900">
           <Users className="h-5 w-5 text-gray-400" />
@@ -108,7 +108,7 @@ export default async function TeamSettingsPage({
         )}
       </section>
 
-      {/* Join Requests */}
+
       <section className="rounded-md border border-gray-200 bg-white">
         <div className="flex items-center gap-2 border-b border-gray-200 px-6 py-4 text-lg font-semibold text-gray-900">
           <UserPlus className="h-5 w-5 text-gray-400" />

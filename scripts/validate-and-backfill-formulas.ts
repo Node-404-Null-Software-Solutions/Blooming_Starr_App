@@ -1,12 +1,4 @@
-/**
- * Check if existing Sales data follows the app formulas,
- * and optionally backfill so every row matches.
- *
- * Run: npx tsx scripts/validate-and-backfill-formulas.ts [--fix]
- * (Install tsx if needed: npm i -D tsx)
- *
- * Requires DATABASE_URL (e.g. in .env).
- */
+
 
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";

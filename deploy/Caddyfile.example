@@ -1,0 +1,10 @@
+yourdomain.com {
+    encode zstd gzip
+
+    handle_path /uploads/* {
+        root * /var/www/blooming-starr/uploads
+        file_server
+    }
+
+    reverse_proxy 127.0.0.1:3000
+}
