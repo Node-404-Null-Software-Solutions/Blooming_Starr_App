@@ -36,7 +36,6 @@ function extractSku(value: string) {
     const pathSku = url.pathname.split("/").filter(Boolean).pop();
     if (pathSku) return decodeURIComponent(pathSku).trim();
   } catch {
-
   }
 
   return trimmed;

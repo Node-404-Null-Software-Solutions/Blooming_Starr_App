@@ -57,7 +57,6 @@ export default function AppShell({
       <TopBar logoUrl={logoUrl ?? null} onMenuClick={toggleSidebar} />
 
       <div className="flex">
-
         {isSidebarOpen && (
           <div
             className="fixed inset-0 z-20 bg-black/50 md:hidden"
