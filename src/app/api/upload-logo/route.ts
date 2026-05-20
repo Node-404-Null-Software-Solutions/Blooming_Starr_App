@@ -1,24 +1,34 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+
+export const runtime = "nodejs";
 
 const PNG_MIME = "image/png";
-const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_SIZE = 2 * 1024 * 1024;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 5;
 
-// Simple in-memory rate limiting (5 uploads per minute per user)
 const uploadCounts = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now();
+
+  for (const [key, value] of uploadCounts) {
+    if (now > value.resetAt) {
+      uploadCounts.delete(key);
+    }
+  }
+
   const entry = uploadCounts.get(userId);
   if (!entry || now > entry.resetAt) {
-    uploadCounts.set(userId, { count: 1, resetAt: now + 60_000 });
+    uploadCounts.set(userId, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    });
     return true;
   }
-  if (entry.count >= 5) return false;
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) return false;
   entry.count++;
   return true;
 }
@@ -33,7 +43,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Too many uploads. Try again in a minute." }, { status: 429 });
   }
 
-  // Resolve the user's active business
+  const { db } = await import("@/lib/db");
   const profile = await db.profile.findUnique({ where: { userId } });
   if (!profile?.activeBusinessId) {
     return NextResponse.json({ error: "No active business" }, { status: 403 });
@@ -74,18 +84,27 @@ export async function POST(request: Request) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const dir = path.join(process.cwd(), "public", "uploads", "logos");
-  await mkdir(dir, { recursive: true });
-  const filename = `${businessId}.png`;
-  const filepath = path.join(dir, filename);
-  await writeFile(filepath, buffer);
+  const url = `/api/business-logo/${businessId}?v=${Date.now()}`;
 
-  const url = `/uploads/logos/${filename}`;
+  const business = await db.$transaction(async (tx) => {
+    await tx.businessLogo.upsert({
+      where: { businessId },
+      create: {
+        businessId,
+        contentType: PNG_MIME,
+        data: buffer,
+      },
+      update: {
+        contentType: PNG_MIME,
+        data: buffer,
+      },
+    });
 
-  const business = await db.business.update({
-    where: { id: businessId },
-    data: { logoUrl: url },
-    select: { slug: true },
+    return tx.business.update({
+      where: { id: businessId },
+      data: { logoUrl: url },
+      select: { slug: true },
+    });
   });
 
   revalidatePath(`/app/${business.slug}`);

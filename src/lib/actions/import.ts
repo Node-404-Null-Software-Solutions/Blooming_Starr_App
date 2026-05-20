@@ -3,7 +3,11 @@
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
-import { computeSalesDerived } from "@/lib/formulas";
+import {
+  loadOverheadDerivedCalculator,
+  loadProductIntakeDerivedCalculator,
+  loadSalesDerivedCalculator,
+} from "@/lib/app-logic-engine";
 import {
   buildHeaderMap,
   chunk,
@@ -17,9 +21,6 @@ import {
 } from "@/lib/import/xlsx";
 import type ExcelJS from "exceljs";
 
-// ---------------------------------------------------------------------------
-// Strict worksheet lookup (no fallback to sheet[0])
-// ---------------------------------------------------------------------------
 
 function findSheetStrict(
   workbook: ExcelJS.Workbook,
@@ -29,9 +30,6 @@ function findSheetStrict(
   return workbook.worksheets.find((ws) => normalized.has(ws.name.trim().toLowerCase())) ?? null;
 }
 
-// ---------------------------------------------------------------------------
-// Report types
-// ---------------------------------------------------------------------------
 
 export type SheetResult = {
   inserted: number;
@@ -51,13 +49,10 @@ export type ImportReport = {
   error?: string;
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 type NameCode = { name: string; code: string };
 
-/** Generate a short unique code from a name. Appends a counter to avoid duplicates. */
+
 function autoCode(name: string, seen: Set<string>): string {
   let base = name
     .toUpperCase()
@@ -73,10 +68,7 @@ function autoCode(name: string, seen: Set<string>): string {
   return code;
 }
 
-/**
- * Seed a single lookup table, skipping duplicates.
- * Returns how many were added vs already existed.
- */
+
 async function seedLookup(
   businessId: string,
   table: string,
@@ -84,7 +76,7 @@ async function seedLookup(
 ): Promise<LookupResult> {
   if (!entries.length) return { added: 0, alreadyExisted: 0 };
 
-  // Deduplicate within this batch (by name)
+
   const seenNames = new Set<string>();
   const seenCodes = new Set<string>();
   const deduped: NameCode[] = [];
@@ -118,14 +110,7 @@ async function seedLookup(
   return { added, alreadyExisted: deduped.length - added };
 }
 
-// ---------------------------------------------------------------------------
-// KEY sheet parsers
-// ---------------------------------------------------------------------------
 
-/**
- * Read name+code pairs from two specific columns of a worksheet,
- * skipping the header row and any rows where either cell is empty.
- */
 function readColumnPairs(
   ws: ExcelJS.Worksheet,
   nameCol: number,
@@ -142,9 +127,7 @@ function readColumnPairs(
   return pairs;
 }
 
-/**
- * Read all non-empty string values from a single column, skipping the header row.
- */
+
 function readColumnNames(
   ws: ExcelJS.Worksheet,
   nameCol: number,
@@ -159,7 +142,7 @@ function readColumnNames(
   return names;
 }
 
-/** Build NameCode[] from a list of names, auto-generating unique codes. */
+
 function namesToNameCode(names: string[]): NameCode[] {
   const usedCodes = new Set<string>();
   return [...new Set(names)].filter(Boolean).map((n) => ({
@@ -168,16 +151,12 @@ function namesToNameCode(names: string[]): NameCode[] {
   }));
 }
 
-/** Add two LookupResult objects together (for additive seeding across sheets). */
+
 function addResults(a: LookupResult, b: LookupResult): LookupResult {
   return { added: a.added + b.added, alreadyExisted: a.alreadyExisted + b.alreadyExisted };
 }
 
-/**
- * Plant KEY layout (row 1 = header, sections side-by-side):
- *   Col 1+2 → plantSource     Col 3+4 → genus      Col 5+6 → cultivar
- *   Col 7   → card# (skip)    Col 8   → plantId     Col 9   → paymentMethod
- */
+
 async function parsePlantKey(
   ws: ExcelJS.Worksheet,
   businessId: string,
@@ -195,7 +174,7 @@ async function parsePlantKey(
     businessId, "cultivar", readColumnPairs(ws, 5, 6, HEADER_ROW)
   );
 
-  // Plant IDs (col 8): value IS the code — "1A", "1A-2", etc.
+
   const idNames = readColumnNames(ws, 8, HEADER_ROW);
   const plantIds = [...new Set(idNames)].filter(Boolean).map((n) => ({
     name: n,
@@ -203,19 +182,13 @@ async function parsePlantKey(
   }));
   lookups["Plant IDs"] = await seedLookup(businessId, "plantId", plantIds);
 
-  // Payment Methods (col 9): name-only, auto-code
+
   lookups["Payment Methods"] = await seedLookup(
     businessId, "paymentMethod", namesToNameCode(readColumnNames(ws, 9, HEADER_ROW))
   );
 }
 
-/**
- * Product KEY layout (row 1 = header, sections side-by-side):
- *   Col 1 → vendor platform (skip)
- *   Col 2+3 → productSource    Col 4+5 → productCategory
- *   Col 6+7 → productSize      Col 8+9 → productStyle
- *   Col 10  → Pur # (skip)
- */
+
 async function parseProductKey(
   ws: ExcelJS.Worksheet,
   businessId: string,
@@ -237,16 +210,13 @@ async function parseProductKey(
   );
 }
 
-/**
- * Transplant KEY: columnar layout  Media | Action | From Pot Size | To Pot Size
- * → seeds: transplantMedia, transplantAction, potSize
- */
+
 async function parseTransplantKey(
   ws: ExcelJS.Worksheet,
   businessId: string,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
-  // Try to find header row with at least one of the known column names
+
   const headerRow = findHeaderRow(ws, ["Media"]) ??
     findHeaderRow(ws, ["Action"]) ??
     findHeaderRow(ws, ["Pot Size"]);
@@ -310,7 +280,7 @@ async function parseTransplantKey(
   }
 }
 
-/** Treatment KEY: Product | Target | ... → seeds: treatmentProduct (from Product column) */
+
 async function parseTreatmentKey(
   ws: ExcelJS.Worksheet,
   businessId: string,
@@ -339,7 +309,7 @@ async function parseTreatmentKey(
   lookups["Treatment Products"] = await seedLookup(businessId, "treatmentProduct", entries);
 }
 
-/** Fertilizer KEY: Product Name | ... → seeds: fertilizerProduct */
+
 async function parseFertilizerKey(
   ws: ExcelJS.Worksheet,
   businessId: string,
@@ -372,12 +342,7 @@ async function parseFertilizerKey(
   lookups["Fertilizer Products"] = await seedLookup(businessId, "fertilizerProduct", entries);
 }
 
-/**
- * Overhead KEY layout (row 1 = header):
- *   Col 2 → VENDOR (expenseVendor, auto-code)
- *   Col 4 → CATEGORY (expenseCategory, auto-code)
- *   Col 6 → Pmt. Method (paymentMethod, additive with Plant KEY, auto-code)
- */
+
 async function parseOverheadKey(
   ws: ExcelJS.Worksheet,
   businessId: string,
@@ -392,7 +357,7 @@ async function parseOverheadKey(
     businessId, "expenseCategory", namesToNameCode(readColumnNames(ws, 4, HEADER_ROW))
   );
 
-  // Payment Methods — additive with Plant KEY results
+
   const pmtResult = await seedLookup(
     businessId, "paymentMethod", namesToNameCode(readColumnNames(ws, 6, HEADER_ROW))
   );
@@ -402,13 +367,7 @@ async function parseOverheadKey(
   );
 }
 
-/**
- * Sku KEY layout (row 1 = header, sections side-by-side):
- *   Col 1+2  → plantSource (additive)   Col 3+4  → genus (additive)
- *   Col 5+6  → cultivar (additive)      Col 7    → plantId (additive)
- *   Col 9+10 → origin                   Col 12+13 → status
- *   Col 15+16 → environment
- */
+
 async function parseSkuKey(
   ws: ExcelJS.Worksheet,
   businessId: string,
@@ -429,7 +388,7 @@ async function parseSkuKey(
     await seedLookup(businessId, "cultivar", readColumnPairs(ws, 5, 6, HEADER_ROW))
   );
 
-  // Plant IDs (col 7)
+
   const idNames = readColumnNames(ws, 7, HEADER_ROW);
   const plantIds = [...new Set(idNames)].filter(Boolean).map((n) => ({
     name: n,
@@ -440,25 +399,22 @@ async function parseSkuKey(
     await seedLookup(businessId, "plantId", plantIds)
   );
 
-  // Origins (col 9+10)
+
   lookups["Origins"] = await seedLookup(
     businessId, "origin", readColumnPairs(ws, 9, 10, HEADER_ROW)
   );
 
-  // Statuses (col 12+13)
+
   lookups["Statuses"] = await seedLookup(
     businessId, "status", readColumnPairs(ws, 12, 13, HEADER_ROW)
   );
 
-  // Environments (col 15+16)
+
   lookups["Environments"] = await seedLookup(
     businessId, "environment", readColumnPairs(ws, 15, 16, HEADER_ROW)
   );
 }
 
-// ---------------------------------------------------------------------------
-// Operational sheet importers
-// ---------------------------------------------------------------------------
 
 function last4FromCell(value: unknown): string | null {
   const digits = toStringCell(value).replace(/\D/g, "");
@@ -500,7 +456,7 @@ async function importPlantIntake(
     return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
   }
 
-  // Prefetch existing
+
   const externalUids: string[] = [];
   const skus: string[] = [];
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
@@ -646,6 +602,9 @@ async function importProductIntake(
   type T = NonNullable<Parameters<typeof db.productIntake.createMany>[0]>["data"];
   type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
   const toCreate: Item[] = [];
+  const calculateProductIntake = await loadProductIntakeDerivedCalculator(
+    businessId
+  );
 
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
@@ -664,6 +623,18 @@ async function importProductIntake(
       seenComposite.add(key);
     }
 
+    const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
+    const importedUnitCostCents = cUnitCost
+      ? parseCurrencyToCents(row.getCell(cUnitCost).value)
+      : 0;
+    const totalCostCents = cTotalCost
+      ? parseCurrencyToCents(row.getCell(cTotalCost).value)
+      : importedUnitCostCents * qty;
+    const { unitCostCents } = calculateProductIntake({
+      totalCostCents,
+      qty,
+    });
+
     toCreate.push({
       businessId, date, sku,
       vendor: cVendor ? toStringCell(row.getCell(cVendor).value) || null : null,
@@ -672,9 +643,9 @@ async function importProductIntake(
       size: cSize ? toStringCell(row.getCell(cSize).value) || null : null,
       style: cStyle ? toStringCell(row.getCell(cStyle).value) || null : null,
       purchaseNumber: cPurchase ? toStringCell(row.getCell(cPurchase).value) || null : null,
-      qty: cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1,
-      totalCostCents: cTotalCost ? parseCurrencyToCents(row.getCell(cTotalCost).value) : 0,
-      unitCostCents: cUnitCost ? parseCurrencyToCents(row.getCell(cUnitCost).value) : 0,
+      qty,
+      totalCostCents,
+      unitCostCents,
       paymentMethod: cPayment ? toStringCell(row.getCell(cPayment).value) || null : null,
       cardLast4: cCard ? last4FromCell(row.getCell(cCard).value) : null,
       invoiceNumber: cInvoice ? toStringCell(row.getCell(cInvoice).value) || null : null,
@@ -750,6 +721,7 @@ async function importSales(
   type T = NonNullable<Parameters<typeof db.salesEntry.createMany>[0]>["data"];
   type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
   const toCreate: Item[] = [];
+  const calculateSales = await loadSalesDerivedCalculator(businessId);
 
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
@@ -771,7 +743,7 @@ async function importSales(
     const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
     const salePriceCents = cSalePrice ? parseCurrencyToCents(row.getCell(cSalePrice).value) : 0;
     const costCents = cCost ? parseCurrencyToCents(row.getCell(cCost).value) : 0;
-    const derived = computeSalesDerived(qty, salePriceCents, costCents);
+    const derived = calculateSales({ qty, salePriceCents, costCents });
 
     const channelVal = cChannel ? toStringCell(row.getCell(cChannel).value).trim() : "";
     if (channelVal) channelNames.add(channelVal);
@@ -827,7 +799,6 @@ async function importOverheadExpenses(
   const cSubTotal = col("Sub Tot");
   const cShipping = col("Ship.");
   const cDiscount = col("Disc.");
-  const cUnitCost = col("Un. Cost");
   const cTotal = col("Act. Tot");
   const cPayment = col("Pmt. M.");
   const cCard = col("Card #");
@@ -862,14 +833,15 @@ async function importOverheadExpenses(
   type T = NonNullable<Parameters<typeof db.overheadExpense.createMany>[0]>["data"];
   type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
   const toCreate: Item[] = [];
+  const calculateOverhead = await loadOverheadDerivedCalculator(businessId);
 
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
     const date = cDate ? parseDate(row.getCell(cDate).value) : null;
     const vendor = cVendor ? toStringCell(row.getCell(cVendor).value) || null : null;
-    const totalCents = cTotal ? parseCurrencyToCents(row.getCell(cTotal).value) : 0;
+    const importedTotalCents = cTotal ? parseCurrencyToCents(row.getCell(cTotal).value) : 0;
 
-    if (!date || (!vendor && totalCents === 0)) { skippedMissing++; return; }
+    if (!date || (!vendor && importedTotalCents === 0)) { skippedMissing++; return; }
 
     const externalUid = cExternal ? toStringCell(row.getCell(cExternal).value) || null : null;
 
@@ -878,21 +850,38 @@ async function importOverheadExpenses(
       seenExt.add(externalUid);
     } else {
       const invoiceNumber = cInvoice ? toStringCell(row.getCell(cInvoice).value) || "" : "";
-      const key = `${invoiceNumber}|${date.toISOString().slice(0, 10)}|${totalCents}`;
+      const key = `${invoiceNumber}|${date.toISOString().slice(0, 10)}|${importedTotalCents}`;
       if (seenComposite.has(key)) { skippedDuplicates++; return; }
       seenComposite.add(key);
     }
+
+    const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
+    const subTotalCents = cSubTotal
+      ? parseCurrencyToCents(row.getCell(cSubTotal).value)
+      : importedTotalCents;
+    const shippingCents = cShipping
+      ? parseCurrencyToCents(row.getCell(cShipping).value)
+      : 0;
+    const discountCents = cDiscount
+      ? parseCurrencyToCents(row.getCell(cDiscount).value)
+      : 0;
+    const { unitCostCents, totalCents } = calculateOverhead({
+      subTotalCents,
+      shippingCents,
+      discountCents,
+      qty,
+    });
 
     toCreate.push({
       businessId, date, vendor,
       brand: cBrand ? toStringCell(row.getCell(cBrand).value) || null : null,
       category: cCategory ? toStringCell(row.getCell(cCategory).value) || null : null,
       description: cDescription ? toStringCell(row.getCell(cDescription).value) || null : null,
-      qty: cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1,
-      subTotalCents: cSubTotal ? parseCurrencyToCents(row.getCell(cSubTotal).value) : 0,
-      shippingCents: cShipping ? parseCurrencyToCents(row.getCell(cShipping).value) : 0,
-      discountCents: cDiscount ? parseCurrencyToCents(row.getCell(cDiscount).value) : 0,
-      unitCostCents: cUnitCost ? parseCurrencyToCents(row.getCell(cUnitCost).value) : 0,
+      qty,
+      subTotalCents,
+      shippingCents,
+      discountCents,
+      unitCostCents,
       totalCents,
       paymentMethod: cPayment ? toStringCell(row.getCell(cPayment).value) || null : null,
       cardLast4: cCard ? last4FromCell(row.getCell(cCard).value) : null,
@@ -1203,10 +1192,6 @@ async function importTreatmentTracking(
   return { inserted, skippedMissing, skippedDuplicates };
 }
 
-// ---------------------------------------------------------------------------
-// Main export
-// ---------------------------------------------------------------------------
-
 export async function importWorkbook(
   businessSlug: string,
   formData: FormData
@@ -1226,8 +1211,6 @@ export async function importWorkbook(
   }
 
   const report: ImportReport = { sheets: {}, lookups: {} };
-
-  // ── KEY sheets first (seed lookup tables) ────────────────────────────────
 
   const plantKeyWs = findSheetStrict(workbook, ["Plant KEY", "Plant Key", "PLANT KEY"]);
   if (plantKeyWs) {
@@ -1263,8 +1246,6 @@ export async function importWorkbook(
   if (skuKeyWs) {
     await parseSkuKey(skuKeyWs, businessId, report.lookups);
   }
-
-  // ── Operational sheets ───────────────────────────────────────────────────
 
   const plantIntakeWs = findSheetStrict(workbook, [
     "PLANT Intake Coding",
@@ -1327,7 +1308,6 @@ export async function importWorkbook(
     report.sheets["Treatment Tracker"] = { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
   }
 
-  // Revalidate relevant paths
   revalidatePath(`/app/${businessSlug}/settings/lookups`);
   revalidatePath(`/app/${businessSlug}/plant-intake`);
   revalidatePath(`/app/${businessSlug}/product-intake`);
@@ -1339,10 +1319,6 @@ export async function importWorkbook(
 
   return report;
 }
-
-// ---------------------------------------------------------------------------
-// Destructive: clear all business data (operational + lookups)
-// ---------------------------------------------------------------------------
 
 export type ClearResult = {
   ok: boolean;

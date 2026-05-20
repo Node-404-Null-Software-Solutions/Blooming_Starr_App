@@ -1,0 +1,22 @@
+[Unit]
+Description=Blooming Starr Next.js app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bloomingstarr
+Group=www-data
+WorkingDirectory=/var/www/blooming-starr/app/current
+EnvironmentFile=/etc/blooming-starr.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/node .next/standalone/server.js
+Restart=always
+RestartSec=10
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

@@ -1,10 +1,4 @@
-/**
- * One-time script to link the existing "blooming-starr-nursery" business
- * to a real Clerk user after their first sign-up.
- *
- * Usage (PowerShell):
- *   $env:CLERK_USER_ID="user_xxxx"; npx tsx scripts/claim-business.ts
- */
+
 
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";

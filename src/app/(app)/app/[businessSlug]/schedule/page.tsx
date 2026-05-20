@@ -5,7 +5,7 @@ import ScheduleClient from "./ScheduleClient";
 function getMonday(dateStr?: string): Date {
   const d = dateStr ? new Date(dateStr) : new Date();
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(d);
   monday.setDate(diff);
   monday.setHours(0, 0, 0, 0);

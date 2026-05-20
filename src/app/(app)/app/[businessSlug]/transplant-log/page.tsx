@@ -26,18 +26,35 @@ export default async function TransplantLogPage({
   const actionRaw = typeof sp.action === "string" ? sp.action.trim() : "";
   const fromPotRaw = typeof sp.fromPot === "string" ? sp.fromPot.trim() : "";
   const toPotRaw = typeof sp.toPot === "string" ? sp.toPot.trim() : "";
+  const qRaw = typeof sp.q === "string" ? sp.q.trim() : "";
   const fromDate = fromRaw ? new Date(fromRaw) : null;
   const toDate = toRaw ? new Date(toRaw) : null;
   const validFrom = fromDate && !Number.isNaN(fromDate.getTime()) ? fromDate : null;
   const validTo = toDate && !Number.isNaN(toDate.getTime()) ? toDate : null;
   const dateFilter =
     validFrom || validTo ? { gte: validFrom ?? undefined, lte: validTo ?? undefined } : undefined;
+  const searchFilter = qRaw
+    ? {
+        OR: [
+          { originalSku: { contains: qRaw, mode: "insensitive" as const } },
+          { divisionSku: { contains: qRaw, mode: "insensitive" as const } },
+          { action: { contains: qRaw, mode: "insensitive" as const } },
+          { media: { contains: qRaw, mode: "insensitive" as const } },
+          { fromPot: { contains: qRaw, mode: "insensitive" as const } },
+          { toPot: { contains: qRaw, mode: "insensitive" as const } },
+          { idCode: { contains: qRaw, mode: "insensitive" as const } },
+          { potColor: { contains: qRaw, mode: "insensitive" as const } },
+          { notes: { contains: qRaw, mode: "insensitive" as const } },
+        ],
+      }
+    : undefined;
 
   const [lookups, rows] = await Promise.all([
     getLookupEntriesMulti(["transplantAction", "transplantMedia", "potSize", "potColor"]),
     db.transplantLog.findMany({
     where: {
       businessId,
+      ...(searchFilter ? searchFilter : {}),
       ...(dateFilter ? { date: dateFilter } : {}),
       ...(originalSkuRaw ? { originalSku: { contains: originalSkuRaw, mode: "insensitive" as const } } : {}),
       ...(actionRaw ? { action: { contains: actionRaw, mode: "insensitive" as const } } : {}),

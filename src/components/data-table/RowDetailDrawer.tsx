@@ -27,7 +27,7 @@ export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Pr
 
   return (
     <>
-      {/* Backdrop */}
+
       <div
         aria-hidden={!isOpen}
         onClick={onClose}
@@ -36,7 +36,7 @@ export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Pr
         }`}
       />
 
-      {/* Drawer panel */}
+
       <div
         role="dialog"
         aria-modal={isOpen}
@@ -45,7 +45,7 @@ export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Pr
           isOpen ? "translate-y-0" : "translate-y-full"
         }`}
       >
-        {/* Header */}
+
         <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
           <p className="truncate text-sm font-semibold text-gray-900">{title}</p>
           <button
@@ -59,7 +59,7 @@ export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Pr
           </button>
         </div>
 
-        {/* Body */}
+
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 text-sm">
             {fields.map(({ label, node }) => (
@@ -71,7 +71,7 @@ export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Pr
           </dl>
         </div>
 
-        {/* Footer */}
+
         <div className="flex shrink-0 items-center justify-between border-t border-gray-200 px-4 py-3">
           <button
             onClick={onDelete}

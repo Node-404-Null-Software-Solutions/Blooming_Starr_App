@@ -37,10 +37,20 @@ export async function updateBusinessTheme(
   if (secondary !== null) updateData.secondaryColor = secondary;
   if (logoUrl !== undefined) updateData.logoUrl = logoUrl || null;
 
-  await db.business.update({
-    where: { id: businessId },
-    data: updateData,
-  });
+  if (logoUrl === null) {
+    await db.$transaction([
+      db.business.update({
+        where: { id: businessId },
+        data: updateData,
+      }),
+      db.businessLogo.deleteMany({ where: { businessId } }),
+    ]);
+  } else {
+    await db.business.update({
+      where: { id: businessId },
+      data: updateData,
+    });
+  }
 
   revalidatePath(`/app/${businessSlug}`);
   revalidatePath(`/app/${businessSlug}/settings`);

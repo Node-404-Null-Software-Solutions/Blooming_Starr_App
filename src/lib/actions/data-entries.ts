@@ -3,11 +3,13 @@
 import { db } from "@/lib/db";
 import { requireActiveMembership } from "@/lib/authz";
 import {
-  computeSalesDerived,
-  computeProductIntakeUnitCost,
-  computeOverheadDerived,
-  computeDivisionCost,
-} from "@/lib/formulas";
+  calculateDivisionCost,
+  calculateOverheadDerived,
+  calculateProductIntakeDerived,
+  calculateSalesDerived,
+  loadSalesDerivedCalculator,
+} from "@/lib/app-logic-engine";
+import { generateSku } from "@/lib/plant-sku-service";
 import { revalidatePath } from "next/cache";
 
 type ProductMasterFields = {
@@ -59,12 +61,14 @@ async function syncProductToSales(
     where: { businessId, sku },
     select: { id: true, qty: true },
   });
+  const calculateSales = await loadSalesDerivedCalculator(businessId);
+
   for (const row of salesRows) {
-    const derived = computeSalesDerived(
-      row.qty,
-      defaultSalePriceCents,
-      defaultCostCents
-    );
+    const derived = calculateSales({
+      qty: row.qty,
+      salePriceCents: defaultSalePriceCents,
+      costCents: defaultCostCents,
+    });
     await db.salesEntry.update({
       where: { id: row.id },
       data: {
@@ -111,7 +115,12 @@ export async function updateSalesEntry(
   const qty = data.qty ?? existing.qty;
   const salePriceCents = data.salePriceCents ?? existing.salePriceCents;
   const costCents = data.costCents ?? existing.costCents;
-  const derived = computeSalesDerived(qty, salePriceCents, costCents);
+  const derived = await calculateSalesDerived(
+    businessId,
+    qty,
+    salePriceCents,
+    costCents
+  );
 
   const dateValue =
     data.date !== undefined
@@ -175,6 +184,15 @@ function formDate(formData: FormData, key: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "P2002"
+  );
+}
+
 export async function createSalesEntry(businessSlug: string, formData: FormData) {
   const { profile } = await requireActiveMembership();
   const businessId = profile.activeBusinessId;
@@ -186,7 +204,12 @@ export async function createSalesEntry(businessSlug: string, formData: FormData)
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const salePriceCents = formCents(formData, "salePrice");
   const costCents = formCents(formData, "cost");
-  const derived = computeSalesDerived(qty, salePriceCents, costCents);
+  const derived = await calculateSalesDerived(
+    businessId,
+    qty,
+    salePriceCents,
+    costCents
+  );
 
   const entry = await db.salesEntry.create({
     data: {
@@ -223,34 +246,65 @@ export async function createPlantIntake(businessSlug: string, formData: FormData
   const businessId = profile.activeBusinessId;
   if (!businessId) return { ok: false, error: "No business" };
 
-  const sku = formStr(formData, "sku");
   const source = formStr(formData, "source");
   const genus = formStr(formData, "genus");
   const cultivar = formStr(formData, "cultivar");
-  if (!sku || !source || !genus || !cultivar)
-    return { ok: false, error: "SKU, Source, Genus, and Cultivar are required" };
+  if (!genus) return { ok: false, error: "Plant name is required" };
 
-  await db.plantIntake.create({
-    data: {
-      businessId,
-      date: formDate(formData, "date"),
-      source,
-      genus,
-      cultivar,
-      sku,
-      locationCode: formStr(formData, "locationCode") || null,
-      qty: Math.max(1, Math.floor(Number(formData.get("qty")) || 1)),
-      costCents: formCents(formData, "cost"),
-      msrpCents: formCents(formData, "msrp"),
-      potType: formStr(formData, "potType") || null,
-      paymentMethod: formStr(formData, "paymentMethod") || null,
-      cardLast4: formStr(formData, "cardLast4") || null,
-      location: formStr(formData, "location") || null,
-      status: formStr(formData, "status") || null,
-    },
-  });
+  let createdReference = false;
+  try {
+    await db.$transaction(async (tx) => {
+      const generated = await generateSku(tx, businessId, {
+        plantName: genus,
+        categoryName: source || null,
+        varietyName: cultivar || null,
+        suffix: formStr(formData, "locationCode") || null,
+      });
+      createdReference = generated.createdReference;
+      const costCents = formCents(formData, "cost");
+      const msrpCents = formCents(formData, "msrp");
+
+      await tx.product.create({
+        data: {
+          businessId,
+          sku: generated.sku,
+          productName: [genus, cultivar].filter(Boolean).join(" ") || genus,
+          defaultCostCents: costCents,
+          defaultSalePriceCents: msrpCents,
+        },
+      });
+
+      await tx.plantIntake.create({
+        data: {
+          businessId,
+          date: formDate(formData, "date"),
+          source,
+          genus,
+          cultivar,
+          sku: generated.sku,
+          locationCode: formStr(formData, "locationCode") || null,
+          qty: Math.max(1, Math.floor(Number(formData.get("qty")) || 1)),
+          costCents,
+          msrpCents,
+          potType: formStr(formData, "potType") || null,
+          paymentMethod: formStr(formData, "paymentMethod") || null,
+          cardLast4: formStr(formData, "cardLast4") || null,
+          location: formStr(formData, "location") || null,
+          status: formStr(formData, "status") || null,
+        },
+      });
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return { ok: false, error: "Unable to create a unique SKU. Please retry." };
+    }
+    throw error;
+  }
 
   revalidatePath(`/app/${businessSlug}/plant-intake`);
+  if (createdReference) {
+    revalidatePath(`/app/${businessSlug}/settings/lookups`);
+  }
   return { ok: true };
 }
 
@@ -259,32 +313,74 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
   const businessId = profile.activeBusinessId;
   if (!businessId) return { ok: false, error: "No business" };
 
-  const sku = formStr(formData, "sku");
-  if (!sku) return { ok: false, error: "SKU is required" };
+  const source = formStr(formData, "source");
+  const category = formStr(formData, "category");
+  if (!source || !category)
+    return { ok: false, error: "Source and Category are required" };
 
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const totalCostCents = formCents(formData, "totalCost");
-  const { unitCostCents } = computeProductIntakeUnitCost(totalCostCents, qty);
+  const { unitCostCents } = await calculateProductIntakeDerived(
+    businessId,
+    totalCostCents,
+    qty
+  );
 
-  await db.productIntake.create({
-    data: {
-      businessId,
-      date: formDate(formData, "date"),
-      sku,
-      vendor: formStr(formData, "vendor") || null,
-      source: formStr(formData, "source") || null,
-      category: formStr(formData, "category") || null,
-      qty,
-      totalCostCents,
-      unitCostCents,
-      paymentMethod: formStr(formData, "paymentMethod") || null,
-      cardLast4: formStr(formData, "cardLast4") || null,
-      invoiceNumber: formStr(formData, "invoiceNumber") || null,
-      notes: formStr(formData, "notes") || null,
-    },
-  });
+  let createdReference = false;
+  try {
+    await db.$transaction(async (tx) => {
+      const size = formStr(formData, "size");
+      const style = formStr(formData, "style");
+      const generated = await generateSku(tx, businessId, {
+        plantName: source,
+        categoryName: category,
+        varietyName: [size, style].filter(Boolean).join(" ") || null,
+        suffix: formStr(formData, "purchaseNumber") || null,
+      });
+      createdReference = generated.createdReference;
+
+      await tx.product.create({
+        data: {
+          businessId,
+          sku: generated.sku,
+          productName: category,
+          defaultCostCents: unitCostCents,
+          defaultSalePriceCents: 0,
+        },
+      });
+
+      await tx.productIntake.create({
+        data: {
+          businessId,
+          date: formDate(formData, "date"),
+          sku: generated.sku,
+          vendor: formStr(formData, "vendor") || null,
+          source,
+          category,
+          size: size || null,
+          style: style || null,
+          purchaseNumber: formStr(formData, "purchaseNumber") || null,
+          qty,
+          totalCostCents,
+          unitCostCents,
+          paymentMethod: formStr(formData, "paymentMethod") || null,
+          cardLast4: formStr(formData, "cardLast4") || null,
+          invoiceNumber: formStr(formData, "invoiceNumber") || null,
+          notes: formStr(formData, "notes") || null,
+        },
+      });
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return { ok: false, error: "Unable to create a unique SKU. Please retry." };
+    }
+    throw error;
+  }
 
   revalidatePath(`/app/${businessSlug}/product-intake`);
+  if (createdReference) {
+    revalidatePath(`/app/${businessSlug}/settings/lookups`);
+  }
   return { ok: true };
 }
 
@@ -297,7 +393,13 @@ export async function createOverheadExpense(businessSlug: string, formData: Form
   const shippingCents = formCents(formData, "shipping");
   const discountCents = formCents(formData, "discount");
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
-  const { unitCostCents, totalCents } = computeOverheadDerived(subTotalCents, shippingCents, discountCents, qty);
+  const { unitCostCents, totalCents } = await calculateOverheadDerived(
+    businessId,
+    subTotalCents,
+    shippingCents,
+    discountCents,
+    qty
+  );
 
   await db.overheadExpense.create({
     data: {
@@ -333,7 +435,6 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
   const action = formStr(formData, "action") || null;
   let costCents = formCents(formData, "cost");
 
-  // Auto-calculate division cost: original plant cost / total divisions for that SKU
   if (
     costCents === 0 &&
     originalSku &&
@@ -351,9 +452,10 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
       }),
     ]);
     if (originalPlant && originalPlant.costCents > 0) {
-      // +2: the original plant itself + the new division being created
       const totalParts = existingDivisions + 2;
-      costCents = computeDivisionCost(originalPlant.costCents, totalParts).costCents;
+      costCents = (
+        await calculateDivisionCost(businessId, originalPlant.costCents, totalParts)
+      ).costCents;
     }
   }
 
@@ -418,7 +520,6 @@ export async function createFertilizerLog(businessSlug: string, formData: FormDa
   let nextEarliest = formDate(formData, "nextEarliest");
   let nextLatest = formDate(formData, "nextLatest");
 
-  // Auto-calculate next application dates if not manually provided
   if (!nextEarliest && !nextLatest && date && product) {
     const { calcNextApplicationDates } = await import("@/lib/fertilizer-key");
     const calc = calcNextApplicationDates(date, product);
@@ -448,15 +549,12 @@ export async function createFertilizerLog(businessSlug: string, formData: FormDa
   return { ok: true };
 }
 
-// --- Update actions for inline editing ---
-
 export type PlantIntakeUpdate = {
   date?: string | null;
   source?: string;
   genus?: string;
   cultivar?: string;
   locationCode?: string | null;
-  sku?: string;
   qty?: number;
   costCents?: number;
   msrpCents?: number;
@@ -485,26 +583,85 @@ export async function updatePlantIntake(
         : new Date(data.date)
       : undefined;
 
-  await db.plantIntake.update({
-    where: { id },
-    data: {
-      ...(dateValue !== undefined && { date: dateValue }),
-      ...(data.source !== undefined && { source: data.source }),
-      ...(data.genus !== undefined && { genus: data.genus }),
-      ...(data.cultivar !== undefined && { cultivar: data.cultivar }),
-      ...(data.locationCode !== undefined && { locationCode: data.locationCode }),
-      ...(data.sku !== undefined && { sku: data.sku }),
-      ...(data.qty !== undefined && { qty: data.qty }),
-      ...(data.costCents !== undefined && { costCents: data.costCents }),
-      ...(data.msrpCents !== undefined && { msrpCents: data.msrpCents }),
-      ...(data.potType !== undefined && { potType: data.potType }),
-      ...(data.paymentMethod !== undefined && { paymentMethod: data.paymentMethod }),
-      ...(data.cardLast4 !== undefined && { cardLast4: data.cardLast4 }),
-      ...(data.location !== undefined && { location: data.location }),
-      ...(data.status !== undefined && { status: data.status }),
-    },
-  });
+  const skuLookupChanged =
+    data.source !== undefined ||
+    data.genus !== undefined ||
+    data.cultivar !== undefined ||
+    data.locationCode !== undefined;
+  let referenceCreated = false;
+  let productUpsert: {
+    sku: string;
+    productName: string;
+    defaultCostCents: number;
+    defaultSalePriceCents: number;
+  } | null = null;
+  const updateData: Record<string, string | number | Date | null> = {};
+  if (dateValue !== undefined) updateData.date = dateValue;
+  if (skuLookupChanged) {
+    const nextSource = data.source ?? existing.source;
+    const nextGenus = data.genus ?? existing.genus;
+    const nextCultivar = data.cultivar ?? existing.cultivar;
+    const nextLocationCode =
+      data.locationCode !== undefined ? data.locationCode : existing.locationCode;
+
+    if (nextGenus) {
+      const generated = await db.$transaction((tx) =>
+        generateSku(tx, businessId, {
+          plantName: nextGenus,
+          categoryName: nextSource || null,
+          varietyName: nextCultivar || null,
+          suffix: nextLocationCode || null,
+        })
+      );
+      referenceCreated = generated.createdReference;
+      updateData.source = nextSource;
+      updateData.genus = nextGenus;
+      updateData.cultivar = nextCultivar;
+      updateData.locationCode = nextLocationCode;
+      updateData.sku = generated.sku;
+      productUpsert = {
+        sku: generated.sku,
+        productName: [nextGenus, nextCultivar].filter(Boolean).join(" ") || nextGenus,
+        defaultCostCents: data.costCents ?? existing.costCents,
+        defaultSalePriceCents: data.msrpCents ?? existing.msrpCents,
+      };
+    } else {
+      if (data.source !== undefined) updateData.source = data.source;
+      if (data.genus !== undefined) updateData.genus = data.genus;
+      if (data.cultivar !== undefined) updateData.cultivar = data.cultivar;
+      if (data.locationCode !== undefined) updateData.locationCode = data.locationCode;
+    }
+  }
+  if (data.qty !== undefined) updateData.qty = data.qty;
+  if (data.costCents !== undefined) updateData.costCents = data.costCents;
+  if (data.msrpCents !== undefined) updateData.msrpCents = data.msrpCents;
+  if (data.potType !== undefined) updateData.potType = data.potType;
+  if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
+  if (data.cardLast4 !== undefined) updateData.cardLast4 = data.cardLast4;
+  if (data.location !== undefined) updateData.location = data.location;
+  if (data.status !== undefined) updateData.status = data.status;
+
+  if (productUpsert) {
+    await db.$transaction(async (tx) => {
+      await tx.product.upsert({
+        where: { businessId_sku: { businessId, sku: productUpsert.sku } },
+        create: { businessId, ...productUpsert },
+        update: {
+          productName: productUpsert.productName,
+          defaultCostCents: productUpsert.defaultCostCents,
+          defaultSalePriceCents: productUpsert.defaultSalePriceCents,
+        },
+      });
+      await tx.plantIntake.update({ where: { id }, data: updateData });
+    });
+  } else {
+    await db.plantIntake.update({
+      where: { id },
+      data: updateData,
+    });
+  }
   revalidatePath(`/app/${businessSlug}/plant-intake`);
+  if (referenceCreated) revalidatePath(`/app/${businessSlug}/settings/lookups`);
   return { ok: true };
 }
 
@@ -517,10 +674,10 @@ export type ProductIntakeUpdate = {
   style?: string | null;
   purchaseNumber?: string | null;
   qty?: number;
-  sku?: string;
   totalCostCents?: number;
   unitCostCents?: number;
   paymentMethod?: string | null;
+  cardLast4?: string | null;
   invoiceNumber?: string | null;
   notes?: string | null;
 };
@@ -538,7 +695,11 @@ export async function updateProductIntake(
 
   const qty = data.qty ?? existing.qty;
   const totalCents = data.totalCostCents ?? existing.totalCostCents;
-  const { unitCostCents } = computeProductIntakeUnitCost(totalCents, qty);
+  const { unitCostCents } = await calculateProductIntakeDerived(
+    businessId,
+    totalCents,
+    qty
+  );
 
   const dateValue =
     data.date !== undefined
@@ -547,26 +708,94 @@ export async function updateProductIntake(
         : new Date(data.date)
       : undefined;
 
-  await db.productIntake.update({
-    where: { id },
-    data: {
-      ...(dateValue !== undefined && { date: dateValue }),
-      ...(data.vendor !== undefined && { vendor: data.vendor }),
-      ...(data.source !== undefined && { source: data.source }),
-      ...(data.category !== undefined && { category: data.category }),
-      ...(data.size !== undefined && { size: data.size }),
-      ...(data.style !== undefined && { style: data.style }),
-      ...(data.purchaseNumber !== undefined && { purchaseNumber: data.purchaseNumber }),
-      ...(data.qty !== undefined && { qty: data.qty }),
-      ...(data.sku !== undefined && { sku: data.sku }),
-      ...(data.totalCostCents !== undefined && { totalCostCents: data.totalCostCents }),
-      unitCostCents,
-      ...(data.paymentMethod !== undefined && { paymentMethod: data.paymentMethod }),
-      ...(data.invoiceNumber !== undefined && { invoiceNumber: data.invoiceNumber }),
-      ...(data.notes !== undefined && { notes: data.notes }),
-    },
-  });
+  const skuLookupChanged =
+    data.source !== undefined ||
+    data.category !== undefined ||
+    data.size !== undefined ||
+    data.style !== undefined ||
+    data.purchaseNumber !== undefined;
+  let referenceCreated = false;
+  let productUpsert: {
+    sku: string;
+    productName: string;
+    defaultCostCents: number;
+    defaultSalePriceCents: number;
+  } | null = null;
+  const updateData: Record<string, string | number | Date | null> = {
+    unitCostCents,
+  };
+  if (dateValue !== undefined) updateData.date = dateValue;
+  if (skuLookupChanged) {
+    const nextSource = data.source !== undefined ? data.source : existing.source;
+    const nextCategory =
+      data.category !== undefined ? data.category : existing.category;
+    const nextSize = data.size !== undefined ? data.size : existing.size;
+    const nextStyle = data.style !== undefined ? data.style : existing.style;
+    const nextPurchaseNumber =
+      data.purchaseNumber !== undefined
+        ? data.purchaseNumber
+        : existing.purchaseNumber;
+
+    if (nextSource && nextCategory) {
+      const generated = await db.$transaction((tx) =>
+        generateSku(tx, businessId, {
+          plantName: nextSource,
+          categoryName: nextCategory,
+          varietyName: [nextSize, nextStyle].filter(Boolean).join(" ") || null,
+          suffix: nextPurchaseNumber || null,
+        })
+      );
+      referenceCreated = generated.createdReference;
+      updateData.source = nextSource;
+      updateData.category = nextCategory;
+      updateData.size = nextSize;
+      updateData.style = nextStyle;
+      updateData.purchaseNumber = nextPurchaseNumber;
+      updateData.sku = generated.sku;
+      productUpsert = {
+        sku: generated.sku,
+        productName: nextCategory,
+        defaultCostCents: unitCostCents,
+        defaultSalePriceCents: 0,
+      };
+    } else {
+      if (data.source !== undefined) updateData.source = data.source;
+      if (data.category !== undefined) updateData.category = data.category;
+      if (data.size !== undefined) updateData.size = data.size;
+      if (data.style !== undefined) updateData.style = data.style;
+      if (data.purchaseNumber !== undefined)
+        updateData.purchaseNumber = data.purchaseNumber;
+    }
+  }
+  if (data.vendor !== undefined) updateData.vendor = data.vendor;
+  if (data.qty !== undefined) updateData.qty = data.qty;
+  if (data.totalCostCents !== undefined)
+    updateData.totalCostCents = data.totalCostCents;
+  if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
+  if (data.cardLast4 !== undefined) updateData.cardLast4 = data.cardLast4;
+  if (data.invoiceNumber !== undefined) updateData.invoiceNumber = data.invoiceNumber;
+  if (data.notes !== undefined) updateData.notes = data.notes;
+
+  if (productUpsert) {
+    await db.$transaction(async (tx) => {
+      await tx.product.upsert({
+        where: { businessId_sku: { businessId, sku: productUpsert.sku } },
+        create: { businessId, ...productUpsert },
+        update: {
+          productName: productUpsert.productName,
+          defaultCostCents: productUpsert.defaultCostCents,
+        },
+      });
+      await tx.productIntake.update({ where: { id }, data: updateData });
+    });
+  } else {
+    await db.productIntake.update({
+      where: { id },
+      data: updateData,
+    });
+  }
   revalidatePath(`/app/${businessSlug}/product-intake`);
+  if (referenceCreated) revalidatePath(`/app/${businessSlug}/settings/lookups`);
   return { ok: true };
 }
 
@@ -719,7 +948,13 @@ export async function updateOverheadExpense(
   const shippingCents = data.shippingCents ?? existing.shippingCents;
   const discountCents = data.discountCents ?? existing.discountCents;
   const qty = data.qty ?? existing.qty;
-  const { unitCostCents, totalCents } = computeOverheadDerived(subTotalCents, shippingCents, discountCents, qty);
+  const { unitCostCents, totalCents } = await calculateOverheadDerived(
+    businessId,
+    subTotalCents,
+    shippingCents,
+    discountCents,
+    qty
+  );
 
   const dateValue =
     data.date !== undefined
@@ -812,8 +1047,6 @@ export async function updateFertilizerLog(
   revalidatePath(`/app/${businessSlug}/fertilizer-log`);
   return { ok: true };
 }
-
-// ── Delete actions ────────────────────────────────────────────────
 
 export async function deleteSalesEntry(id: string, businessSlug: string) {
   const { profile } = await requireActiveMembership();

@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Calculator, Table, Upload, Users } from "lucide-react";
+import { Building2, ScrollText, Table, Upload, Users } from "lucide-react";
 
 const navItems = [
   { label: "Business", icon: Building2, segment: "business" },
   { label: "Team", icon: Users, segment: "team" },
   { label: "Lookups", icon: Table, segment: "lookups" },
   { label: "Import", icon: Upload, segment: "import" },
-  { label: "Formulas", icon: Calculator, segment: "formulas" },
+  { label: "App Logic", icon: ScrollText, segment: "app-logic" },
 ];
 
 export default function SettingsNav({ businessSlug }: { businessSlug: string }) {
@@ -17,7 +17,7 @@ export default function SettingsNav({ businessSlug }: { businessSlug: string }) 
 
   return (
     <>
-      {/* Mobile: horizontal scrollable tabs */}
+
       <nav className="flex overflow-x-auto md:hidden">
         <p className="sr-only">Settings</p>
         {navItems.map(({ label, icon: Icon, segment }) => {
@@ -40,7 +40,7 @@ export default function SettingsNav({ businessSlug }: { businessSlug: string }) 
         })}
       </nav>
 
-      {/* Desktop: vertical sidebar list */}
+
       <nav className="hidden py-4 md:block">
         <p className="mb-2 px-4 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
           Settings

@@ -28,6 +28,12 @@ enum RequestedRole {
   EMPLOYEE
 }
 
+enum PlantSkuReferenceScope {
+  plant
+  category
+  variety
+}
+
 model Profile {
   id               String   @id @default(cuid())
   userId           String   @unique
@@ -63,6 +69,19 @@ model Business {
   lookupEntries  LookupEntry[]
   employees      Employee[]
   schedules      ScheduleEntry[]
+  appLogicRules  AppLogicRule[]
+  plantSkuReferences PlantSkuReference[]
+  logo           BusinessLogo?
+}
+
+model BusinessLogo {
+  businessId  String   @id
+  contentType String   @default("image/png")
+  data        Bytes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model Product {
@@ -391,8 +410,8 @@ model ScheduleEntry {
   businessId String
   employeeId String
   date       DateTime
-  startTime  String   // "HH:mm" format
-  endTime    String   // "HH:mm" format
+  startTime  String
+  endTime    String
   title      String?
   notes      String?
   createdAt  DateTime @default(now())
@@ -436,4 +455,43 @@ model LookupEntry {
   @@unique([businessId, table, code])
   @@unique([businessId, table, name])
   @@index([businessId, table])
+}
+
+model PlantSkuReference {
+  id             String                 @id @default(cuid())
+  businessId     String
+  scope          PlantSkuReferenceScope
+  displayName    String
+  normalizedName String
+  code           String
+  active         Boolean                @default(true)
+  notes          String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, scope, normalizedName])
+  @@unique([businessId, scope, code])
+  @@index([businessId, scope, active])
+}
+
+model AppLogicRule {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  module      String
+  trigger     String
+  mode        String   @default("FORMULA")
+  expression  String
+  notes       String?
+  enabled     Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, module])
+  @@index([businessId, enabled])
 }

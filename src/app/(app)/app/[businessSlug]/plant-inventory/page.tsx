@@ -1,163 +1,330 @@
 import Link from "next/link";
+import { ChevronDown, ChevronRight, ImageIcon, ListFilter, Pencil, CheckSquare } from "lucide-react";
 import { requireActiveMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { centsToUsdFixed as money } from "@/lib/formulas";
 
 type InventoryRow = {
   sku: string;
-  productName: string;
-  costCents: number;
-  msrpCents: number;
+  date: string | null;
+  plantName: string;
+  status: string;
+  plantCostCents: number;
+  otherCostCents: number;
+  totalCostCents: number;
+  plantMsrpCents: number;
+  otherMsrpCents: number;
+  totalMsrpCents: number;
+  estimatedSalePriceCents: number;
+  actualSellPriceCents: number;
+  profitCents: number;
+  marginPct: number | null;
   qtyPurchased: number;
   qtySold: number;
   qtyUsed: number;
   qtyRemaining: number;
-  status: string;
+  notes: string | null;
 };
+
+function formatDate(value: Date | null) {
+  return value ? value.toLocaleDateString("en-US") : "";
+}
+
+function normalizeStatus(value: string | null | undefined, qtyRemaining: number, qtySold: number) {
+  const trimmed = value?.trim();
+  if (trimmed) return trimmed;
+  if (qtyRemaining <= 0 && qtySold > 0) return "Sold";
+  return "For Sale";
+}
+
+function isUsedStatus(status: string | null | undefined) {
+  const normalized = status?.toLowerCase().trim();
+  return (
+    normalized === "dead" ||
+    normalized === "damaged" ||
+    normalized === "giveaway" ||
+    normalized === "donation" ||
+    normalized === "not for sale"
+  );
+}
+
+function profitFor(status: string, saleBasisCents: number, totalCostCents: number) {
+  if (saleBasisCents > 0) return saleBasisCents - totalCostCents;
+  return isUsedStatus(status) ? -totalCostCents : 0;
+}
+
+function marginFor(profitCents: number, saleBasisCents: number) {
+  if (saleBasisCents > 0) return (profitCents / saleBasisCents) * 100;
+  if (profitCents < 0) return -100;
+  return null;
+}
+
+function pct(value: number | null) {
+  return value == null ? "" : `${value.toFixed(2)}%`;
+}
 
 export default async function PlantInventoryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ businessSlug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { businessSlug } = await params;
+  const sp = (await searchParams) ?? {};
+  const qRaw = typeof sp.q === "string" ? sp.q.trim() : "";
   const { profile } = await requireActiveMembership();
   const businessId = profile.activeBusinessId;
   if (!businessId) return null;
 
-  const [plantIntakeRows, salesRows, transplantRows] = await Promise.all([
+  const [plantIntakeRows, salesRows, pricingRows, transplantRows] = await Promise.all([
     db.plantIntake.findMany({
       where: { businessId },
       select: {
         sku: true,
+        date: true,
         genus: true,
         cultivar: true,
         costCents: true,
         msrpCents: true,
         qty: true,
         status: true,
+        createdAt: true,
       },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
     db.salesEntry.findMany({
       where: { businessId },
-      select: { sku: true, qty: true },
+      select: {
+        sku: true,
+        qty: true,
+        salePriceCents: true,
+        totalSaleCents: true,
+        profitCents: true,
+        marginPct: true,
+      },
+    }),
+    db.pricingEntry.findMany({
+      where: { businessId },
+      select: {
+        sku: true,
+        date: true,
+        productName: true,
+        plantCostCents: true,
+        potOrProdCostCents: true,
+        overheadCents: true,
+        totalCostCents: true,
+        estimatedSellPriceCents: true,
+        actualSellPriceCents: true,
+        profitCents: true,
+        marginPct: true,
+        status: true,
+        notes: true,
+        msrpCents: true,
+        updatedAt: true,
+      },
+      orderBy: [{ updatedAt: "desc" }],
     }),
     db.transplantLog.findMany({
-      where: { businessId, divisionSku: { not: null } },
-      select: { divisionSku: true, originalSku: true },
+      where: { businessId },
+      select: { originalSku: true, divisionSku: true, costCents: true },
     }),
   ]);
 
-  // Build inventory by SKU
-  const skuMap = new Map<
+  const salesMap = new Map<
     string,
     {
-      productName: string;
-      costCents: number;
-      msrpCents: number;
-      qtyPurchased: number;
       qtySold: number;
+      totalSaleCents: number;
+      lastUnitSaleCents: number;
+    }
+  >();
+  for (const sale of salesRows) {
+    const entry = salesMap.get(sale.sku) ?? {
+      qtySold: 0,
+      totalSaleCents: 0,
+      lastUnitSaleCents: 0,
+    };
+    entry.qtySold += sale.qty;
+    entry.totalSaleCents += sale.totalSaleCents || sale.salePriceCents * sale.qty;
+    if (sale.salePriceCents > 0) entry.lastUnitSaleCents = sale.salePriceCents;
+    salesMap.set(sale.sku, entry);
+  }
+
+  const pricingMap = new Map<string, (typeof pricingRows)[number]>();
+  for (const row of pricingRows) {
+    if (!pricingMap.has(row.sku)) pricingMap.set(row.sku, row);
+  }
+
+  const intakeMap = new Map<
+    string,
+    {
+      sku: string;
+      date: Date | null;
+      createdAt: Date;
+      plantName: string;
+      plantCostCents: number;
+      plantMsrpCents: number;
+      qtyPurchased: number;
       qtyUsed: number;
       statuses: string[];
     }
   >();
 
   for (const row of plantIntakeRows) {
-    const existing = skuMap.get(row.sku);
-    const name = [row.genus, row.cultivar].filter(Boolean).join(" ");
-    const status = (row.status ?? "").toLowerCase().trim();
+    const existing = intakeMap.get(row.sku);
+    const plantName = [row.genus, row.cultivar].filter(Boolean).join(" ");
+    const status = row.status ?? "";
     if (existing) {
       existing.qtyPurchased += row.qty;
-      existing.costCents += row.costCents;
-      existing.msrpCents += row.msrpCents;
-      if (status === "dead" || status === "giveaway" || status === "donation") {
-        existing.qtyUsed += row.qty;
-      }
+      existing.plantCostCents += row.costCents;
+      existing.plantMsrpCents += row.msrpCents;
       existing.statuses.push(status);
+      if (isUsedStatus(status)) existing.qtyUsed += row.qty;
+      if ((row.date ?? row.createdAt) > (existing.date ?? existing.createdAt)) {
+        existing.date = row.date;
+        existing.createdAt = row.createdAt;
+        existing.plantName = plantName;
+      }
     } else {
-      skuMap.set(row.sku, {
-        productName: name,
-        costCents: row.costCents,
-        msrpCents: row.msrpCents,
+      intakeMap.set(row.sku, {
+        sku: row.sku,
+        date: row.date,
+        createdAt: row.createdAt,
+        plantName,
+        plantCostCents: row.costCents,
+        plantMsrpCents: row.msrpCents,
         qtyPurchased: row.qty,
-        qtySold: 0,
-        qtyUsed:
-          status === "dead" || status === "giveaway" || status === "donation"
-            ? row.qty
-            : 0,
+        qtyUsed: isUsedStatus(status) ? row.qty : 0,
         statuses: [status],
       });
     }
   }
 
-  // Add transplant divisions as new inventory (qty 1 each)
-  for (const t of transplantRows) {
-    if (!t.divisionSku || skuMap.has(t.divisionSku)) continue;
-    const parent = skuMap.get(t.originalSku ?? "");
-    skuMap.set(t.divisionSku, {
-      productName: parent?.productName ?? t.divisionSku,
-      costCents: 0,
-      msrpCents: 0,
+  for (const transplant of transplantRows) {
+    if (!transplant.divisionSku || intakeMap.has(transplant.divisionSku)) continue;
+    const parent = intakeMap.get(transplant.originalSku ?? "");
+    intakeMap.set(transplant.divisionSku, {
+      sku: transplant.divisionSku,
+      date: null,
+      createdAt: new Date(0),
+      plantName: parent?.plantName ?? transplant.divisionSku,
+      plantCostCents: transplant.costCents,
+      plantMsrpCents: 0,
       qtyPurchased: 1,
-      qtySold: 0,
       qtyUsed: 0,
-      statuses: ["available"],
+      statuses: ["For Sale"],
     });
   }
 
-  // Tally sales by SKU
-  for (const sale of salesRows) {
-    const entry = skuMap.get(sale.sku);
-    if (entry) {
-      entry.qtySold += sale.qty;
-    }
-  }
+  let rows: InventoryRow[] = Array.from(intakeMap.values()).map((item) => {
+    const pricing = pricingMap.get(item.sku);
+    const sales = salesMap.get(item.sku);
+    const qtySold = sales?.qtySold ?? 0;
+    const status = normalizeStatus(pricing?.status ?? item.statuses[0], item.qtyPurchased - qtySold - item.qtyUsed, qtySold);
+    const qtyUsed = item.qtyUsed;
+    const qtyRemaining = Math.max(0, item.qtyPurchased - qtySold - qtyUsed);
+    const plantCostCents = pricing?.plantCostCents || item.plantCostCents;
+    const otherCostCents = pricing
+      ? pricing.potOrProdCostCents + pricing.overheadCents
+      : 0;
+    const totalCostCents =
+      pricing?.totalCostCents || plantCostCents + otherCostCents;
+    const plantMsrpCents = item.plantMsrpCents;
+    const otherMsrpCents = pricing?.msrpCents ?? 0;
+    const totalMsrpCents = plantMsrpCents + otherMsrpCents;
+    const estimatedSalePriceCents = pricing?.estimatedSellPriceCents ?? 0;
+    const actualSellPriceCents =
+      sales && sales.qtySold > 0
+        ? Math.round(sales.totalSaleCents / sales.qtySold)
+        : pricing?.actualSellPriceCents ?? 0;
+    const saleBasisCents = actualSellPriceCents || estimatedSalePriceCents;
+    const profitCents =
+      pricing && (pricing.actualSellPriceCents > 0 || pricing.estimatedSellPriceCents > 0)
+        ? pricing.profitCents || profitFor(status, saleBasisCents, totalCostCents)
+        : profitFor(status, saleBasisCents, totalCostCents);
+    const marginPct =
+      pricing?.marginPct ?? marginFor(profitCents, saleBasisCents);
 
-  // Build final rows
-  const rows: InventoryRow[] = [];
-  for (const [sku, data] of skuMap) {
-    const qtyRemaining = data.qtyPurchased - data.qtySold - data.qtyUsed;
-    let status = "Available";
-    if (qtyRemaining <= 0 && data.qtySold > 0) status = "Sold";
-    if (data.statuses.every((s) => s === "dead")) status = "Dead";
-    if (data.statuses.every((s) => s === "damaged")) status = "Damaged";
-    if (data.statuses.every((s) => s === "giveaway")) status = "Giveaway";
-    if (data.statuses.every((s) => s === "donation")) status = "Donation";
-
-    rows.push({
-      sku,
-      productName: data.productName,
-      costCents: data.costCents,
-      msrpCents: data.msrpCents,
-      qtyPurchased: data.qtyPurchased,
-      qtySold: data.qtySold,
-      qtyUsed: data.qtyUsed,
-      qtyRemaining: Math.max(0, qtyRemaining),
+    return {
+      sku: item.sku,
+      date: formatDate(item.date),
+      plantName: pricing?.productName || item.plantName,
       status,
-    });
+      plantCostCents,
+      otherCostCents,
+      totalCostCents,
+      plantMsrpCents,
+      otherMsrpCents,
+      totalMsrpCents,
+      estimatedSalePriceCents,
+      actualSellPriceCents,
+      profitCents,
+      marginPct,
+      qtyPurchased: item.qtyPurchased,
+      qtySold,
+      qtyUsed,
+      qtyRemaining,
+      notes: pricing?.notes ?? null,
+    };
+  });
+
+  if (qRaw) {
+    const q = qRaw.toLowerCase();
+    rows = rows.filter((row) =>
+      [
+        row.date,
+        row.plantName,
+        row.sku,
+        row.status,
+        row.notes ?? "",
+      ].some((value) => (value ?? "").toLowerCase().includes(q))
+    );
   }
 
-  rows.sort((a, b) => a.sku.localeCompare(b.sku));
+  rows.sort((a, b) => {
+    const dateCompare = (b.date || "").localeCompare(a.date || "");
+    return dateCompare || a.plantName.localeCompare(b.plantName) || a.sku.localeCompare(b.sku);
+  });
+
+  const headCell =
+    "sticky top-0 z-10 border-b border-r border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-800";
+  const bodyCell =
+    "border-b border-r border-gray-200 px-3 py-1.5 align-middle text-xs text-gray-700";
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-gray-900">Plant Inventory</h1>
-          <p className="text-sm text-gray-600">
-            Computed from plant intake, sales, and transplant records.
-          </p>
+    <div className="min-h-[calc(100vh-3.5rem)] bg-white">
+      <div className="border-b border-gray-200 bg-white">
+        <div className="flex h-12 items-center justify-between px-4">
+          <h1 className="text-base font-normal text-gray-800">Plant Inventory</h1>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-gray-600 hover:bg-gray-100"
+              aria-label="Filter"
+            >
+              <ListFilter className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-gray-600 hover:bg-gray-100"
+              aria-label="Select rows"
+            >
+              <CheckSquare className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-gray-600 hover:bg-gray-100"
+              aria-label="Edit rows"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <Link
-          href={`/app/${businessSlug}/plant-intake`}
-          className="text-sm font-medium text-(--primary) hover:underline"
-        >
-          View plant intake →
-        </Link>
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-md border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
+        <div className="m-4 rounded-md border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
           No plant inventory data.{" "}
           <Link
             href={`/app/${businessSlug}/settings/import`}
@@ -168,61 +335,77 @@ export default async function PlantInventoryPage({
           to populate this view.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-          <table className="w-full border-collapse text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1880px] border-collapse bg-white">
             <thead>
-              <tr className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-600">
-                <th className="px-3 py-2">SKU</th>
-                <th className="px-3 py-2">Product Name</th>
-                <th className="px-3 py-2 text-right">Cost</th>
-                <th className="px-3 py-2 text-right">MSRP</th>
-                <th className="px-3 py-2 text-right">Purchased</th>
-                <th className="px-3 py-2 text-right">Sold</th>
-                <th className="px-3 py-2 text-right">Used</th>
-                <th className="px-3 py-2 text-right">Remaining</th>
-                <th className="px-3 py-2">Status</th>
+              <tr>
+                <th className={`${headCell} w-24`}>
+                  <span className="inline-flex items-center gap-1">
+                    Date <ChevronDown className="h-3 w-3" />
+                  </span>
+                </th>
+                <th className={`${headCell} w-44`}>Plant Name</th>
+                <th className={`${headCell} w-32`}>SKU</th>
+                <th className={`${headCell} w-28`}>Status</th>
+                <th className={`${headCell} w-24`}>Plant Cost</th>
+                <th className={`${headCell} w-24`}>Other Cost</th>
+                <th className={`${headCell} w-24`}>Total Cost</th>
+                <th className={`${headCell} w-24`}>Plant MSRP</th>
+                <th className={`${headCell} w-24`}>Other MSRP</th>
+                <th className={`${headCell} w-24`}>Total MSRP</th>
+                <th className={`${headCell} w-28`}>Est. Sale Price</th>
+                <th className={`${headCell} w-28`}>Act. Sell Price</th>
+                <th className={`${headCell} w-24`}>Profit</th>
+                <th className={`${headCell} w-24`}>Margin</th>
+                <th className={`${headCell} w-28`}>QTY Purchased...</th>
+                <th className={`${headCell} w-24`}>QTY Sold</th>
+                <th className={`${headCell} w-24`}>QTY Used</th>
+                <th className={`${headCell} w-32`}>QTY Remaining...</th>
+                <th className={`${headCell} w-20`}>Photo</th>
+                <th className={`${headCell} w-44`}>Notes</th>
+                <th
+                  className="sticky top-0 z-10 w-8 border-b border-gray-200 bg-white px-2 py-2"
+                  aria-label="Open row"
+                />
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr
-                  key={row.sku}
-                  className="border-t border-gray-100 text-gray-700"
-                >
-                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">
-                    {row.sku}
+                <tr key={row.sku} className="h-9 hover:bg-green-50/50">
+                  <td className={`${bodyCell} whitespace-nowrap`}>{row.date}</td>
+                  <td className={`${bodyCell} max-w-44 truncate`} title={row.plantName}>
+                    {row.plantName}
                   </td>
-                  <td className="max-w-[200px] truncate px-3 py-2" title={row.productName}>
-                    {row.productName}
+                  <td className={`${bodyCell} whitespace-nowrap font-mono`}>{row.sku}</td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>{row.status}</td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>{money(row.plantCostCents)}</td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>{money(row.otherCostCents)}</td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>{money(row.totalCostCents)}</td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>{money(row.plantMsrpCents)}</td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>{money(row.otherMsrpCents)}</td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>{money(row.totalMsrpCents)}</td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>
+                    {row.estimatedSalePriceCents ? money(row.estimatedSalePriceCents) : ""}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right">
-                    {money(row.costCents)}
+                  <td className={`${bodyCell} whitespace-nowrap`}>
+                    {row.actualSellPriceCents ? money(row.actualSellPriceCents) : ""}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right">
-                    {money(row.msrpCents)}
-                  </td>
-                  <td className="px-3 py-2 text-right">{row.qtyPurchased}</td>
-                  <td className="px-3 py-2 text-right">{row.qtySold}</td>
-                  <td className="px-3 py-2 text-right">{row.qtyUsed}</td>
-                  <td className="px-3 py-2 text-right font-semibold">
-                    {row.qtyRemaining}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                        row.status === "Available"
-                          ? "bg-green-100 text-green-700"
-                          : row.status === "Sold"
-                          ? "bg-blue-100 text-blue-700"
-                          : row.status === "Dead"
-                          ? "bg-red-100 text-red-700"
-                          : row.status === "Damaged"
-                          ? "bg-orange-100 text-orange-700"
-                          : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {row.status}
+                  <td className={`${bodyCell} whitespace-nowrap`}>{money(row.profitCents)}</td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>{pct(row.marginPct)}</td>
+                  <td className={`${bodyCell} text-center`}>{row.qtyPurchased}</td>
+                  <td className={`${bodyCell} text-center`}>{row.qtySold}</td>
+                  <td className={`${bodyCell} text-center`}>{row.qtyUsed}</td>
+                  <td className={`${bodyCell} text-center`}>{row.qtyRemaining}</td>
+                  <td className={`${bodyCell} text-center`}>
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-sm bg-gray-100 text-gray-400">
+                      <ImageIcon className="h-3.5 w-3.5" />
                     </span>
+                  </td>
+                  <td className={`${bodyCell} max-w-44 truncate`} title={row.notes ?? ""}>
+                    {row.notes ?? ""}
+                  </td>
+                  <td className="border-b border-gray-200 px-2 py-1.5 text-gray-900">
+                    <ChevronRight className="h-4 w-4" />
                   </td>
                 </tr>
               ))}

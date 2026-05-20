@@ -68,7 +68,6 @@ export default function ProductIntakeClient({
     else if (field === "style") payload.style = value || null;
     else if (field === "purchaseNumber") payload.purchaseNumber = value || null;
     else if (field === "qty" && numVal !== undefined) payload.qty = numVal;
-    else if (field === "sku") payload.sku = value;
     else if (field === "totalCostCents" && numVal !== undefined) payload.totalCostCents = numVal;
     else if (field === "paymentMethod") payload.paymentMethod = value || null;
     else if (field === "cardLast4") payload.cardLast4 = value || null;
@@ -130,7 +129,7 @@ export default function ProductIntakeClient({
         </div>
       ) : (
         <>
-          {/* Mobile cards */}
+
           <div className="md:hidden space-y-2">
             {filteredRows.map((row) => (
               <div
@@ -149,7 +148,7 @@ export default function ProductIntakeClient({
             ))}
           </div>
 
-          {/* Desktop table */}
+
           <div className="hidden md:block overflow-x-auto">
             <div className="rounded-lg border border-gray-200 bg-white">
               <table className="w-full min-w-[1800px] border-collapse">
@@ -206,7 +205,7 @@ export default function ProductIntakeClient({
                           <EditableCell value={String(row.qty)} onSave={(v) => handleSave(row.id, "qty", v)} type="number" />
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
-                          <EditableCell value={row.sku} onSave={(v) => handleSave(row.id, "sku", v)} />
+                          <span className="font-mono text-gray-700">{row.sku}</span>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">${unitCostDollars.toFixed(2)}</td>
                         <td className="px-3 py-2 whitespace-nowrap">
@@ -252,7 +251,7 @@ export default function ProductIntakeClient({
                 { label: "Style", node: <EditableCell value={selectedRow.style === "—" ? "" : selectedRow.style} onSave={(v) => handleSave(selectedRow.id, "style", v)} /> },
                 { label: "Purchase #", node: <EditableCell value={selectedRow.purchaseNumber === "—" ? "" : selectedRow.purchaseNumber} onSave={(v) => handleSave(selectedRow.id, "purchaseNumber", v)} /> },
                 { label: "Qty", node: <EditableCell value={String(selectedRow.qty)} onSave={(v) => handleSave(selectedRow.id, "qty", v)} type="number" /> },
-                { label: "SKU", node: <EditableCell value={selectedRow.sku} onSave={(v) => handleSave(selectedRow.id, "sku", v)} /> },
+                { label: "SKU", node: <span className="font-mono text-gray-700">{selectedRow.sku}</span> },
                 { label: "Unit Cost", node: <span className="text-gray-700">${selectedRow.qty > 0 ? (selectedRow.totalCostCents / 100 / selectedRow.qty).toFixed(2) : "0.00"}</span> },
                 { label: "Total Cost", node: <EditableCell value={String(selectedRow.totalCostCents)} onSave={(v) => handleSave(selectedRow.id, "totalCostCents", v)} type="currency" /> },
                 { label: "Payment Method", node: <EditableCell value={selectedRow.paymentMethod === "—" ? "" : selectedRow.paymentMethod} onSave={(v) => handleSave(selectedRow.id, "paymentMethod", v)} /> },

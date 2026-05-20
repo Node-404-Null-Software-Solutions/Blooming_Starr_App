@@ -70,7 +70,7 @@ export default function ScheduleClient({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
         <div className="flex items-center gap-2">
@@ -168,7 +168,7 @@ export default function ScheduleClient({
 
       {isPending && <p className="text-xs text-gray-500">Saving…</p>}
 
-      {/* Shift Form Modal */}
+
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">

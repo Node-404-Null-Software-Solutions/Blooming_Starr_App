@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import ModuleHeader from "../_components/ModuleHeader";
+import { CheckSquare, Filter, ListFilter, Pencil, Plus } from "lucide-react";
 
 type Filters = {
   priceType: "msrp" | "cost" | "";
@@ -17,6 +18,10 @@ type PlantIntakeToolbarProps = {
   businessSlug: string;
   isOwner: boolean;
   genusOptions?: string[];
+  selectMode?: boolean;
+  editMode?: boolean;
+  onToggleSelectMode?: () => void;
+  onToggleEditMode?: () => void;
 };
 
 const emptyFilters: Filters = {
@@ -42,8 +47,11 @@ function filtersFromSearchParams(params: URLSearchParams): Filters {
 
 export default function PlantIntakeToolbar({
   businessSlug,
-  isOwner,
   genusOptions,
+  selectMode = false,
+  editMode = false,
+  onToggleSelectMode,
+  onToggleEditMode,
 }: PlantIntakeToolbarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -53,11 +61,13 @@ export default function PlantIntakeToolbar({
     filtersFromSearchParams(searchParams)
   );
 
-  useEffect(() => {
-    if (!isOpen) {
+  const setOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof value === "function" ? value(isOpen) : value;
+    if (next) {
       setFilters(filtersFromSearchParams(searchParams));
     }
-  }, [isOpen, searchParams]);
+    setIsOpen(next);
+  };
 
   const hasActiveFilters = useMemo(() => {
     return [
@@ -109,15 +119,56 @@ export default function PlantIntakeToolbar({
   const genusHasOptions = Boolean(genusOptions && genusOptions.length > 0);
 
   return (
-    <ModuleHeader
-      title="Plant Intake"
-      addHref={`/app/${businessSlug}/plant-intake/new`}
-      onFilterClick={() => setIsOpen((prev) => !prev)}
-      filterActive={hasActiveFilters}
-      rightSlot={
-        isOpen ? (
-          <div className="absolute right-0 top-12 z-20 w-80 rounded-md border border-gray-200 bg-white p-4 shadow-lg">
+    <div className="border-b border-gray-200 bg-white">
+      <div className="flex h-12 items-center justify-between px-4">
+        <h1 className="text-base font-normal text-gray-800">Plant Intake</h1>
+        <div className="relative flex items-center gap-2">
+          <Link
+            href={`/app/${businessSlug}/plant-intake/new`}
+            className="inline-flex h-8 items-center gap-1 rounded-sm bg-[#08bd12] px-3 text-sm font-medium text-white hover:bg-[#08aa12]"
+          >
+            <Plus className="h-4 w-4" />
+            Add
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOpen((prev) => !prev)}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-sm text-gray-600 hover:bg-gray-100 ${
+              hasActiveFilters ? "text-[#08bd12]" : ""
+            }`}
+            aria-label="Filter"
+          >
+            <ListFilter className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onToggleSelectMode}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-sm hover:bg-gray-100 ${
+              selectMode ? "bg-green-50 text-[#08bd12]" : "text-gray-600"
+            }`}
+            aria-label="Select rows"
+            aria-pressed={selectMode}
+          >
+            <CheckSquare className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onToggleEditMode}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-sm hover:bg-gray-100 ${
+              editMode ? "bg-green-50 text-[#08bd12]" : "text-gray-600"
+            }`}
+            aria-label="Edit rows"
+            aria-pressed={editMode}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          {isOpen ? (
+            <div className="absolute right-0 top-10 z-20 w-80 rounded-md border border-gray-200 bg-white p-4 shadow-lg">
             <div className="space-y-3 text-sm text-gray-700">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2 text-sm font-medium text-gray-800">
+                <Filter className="h-4 w-4" />
+                Filters
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -270,8 +321,9 @@ export default function PlantIntakeToolbar({
               </div>
             </div>
           </div>
-        ) : null
-      }
-    />
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }

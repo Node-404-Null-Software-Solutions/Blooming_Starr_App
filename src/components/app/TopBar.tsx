@@ -1,7 +1,10 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { Menu, Search } from "lucide-react";
+import { FormEvent } from "react";
+import Image from "next/image";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ChevronDown, Menu, RefreshCw, Search, Sprout } from "lucide-react";
+import QrScanButton from "@/components/qr/QrScanButton";
 
 const placeholderMap: Record<string, string> = {
   "plant-intake": "Search Plant Intake",
@@ -24,32 +27,103 @@ const getModuleFromPathname = (pathname: string) => {
 type TopBarProps = {
   onMenuClick?: () => void;
   logoUrl?: string | null;
+  businessName?: string | null;
 };
 
-export default function TopBar({ onMenuClick }: TopBarProps) {
+export default function TopBar({ onMenuClick, logoUrl, businessName }: TopBarProps) {
+  const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const moduleKey = getModuleFromPathname(pathname);
   const placeholder = placeholderMap[moduleKey] ?? "Search";
 
+  function updateSearch(nextQuery: string) {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    const trimmed = nextQuery.trim();
+
+    if (trimmed) nextParams.set("q", trimmed);
+    else nextParams.delete("q");
+
+    const nextUrl = nextParams.toString() ? `${pathname}?${nextParams}` : pathname;
+    router.push(nextUrl);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    updateSearch(String(formData.get("q") ?? ""));
+  }
+
+  function handleScan(value: string) {
+    updateSearch(value);
+  }
+
   return (
-    <header className="sticky top-0 z-50 h-14 border-b border-white/10 bg-[#0E4D3A] shadow-sm">
-      <div className="flex h-14 items-center gap-3 px-4">
+    <header className="sticky top-0 z-50 h-14 border-b border-[#10aa15] bg-[#08bd12] shadow-sm">
+      <div className="flex h-14 items-center gap-3 px-3">
         <button
           type="button"
           onClick={onMenuClick}
-          className="rounded-md p-2 text-white/80 hover:bg-white/10 hover:text-white"
+          className="rounded-sm p-2 text-white hover:bg-white/15"
           aria-label="Toggle sidebar"
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="ml-2 flex min-w-0 flex-1">
-          <div className="relative w-full md:max-w-xl">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <div className="flex min-w-[11rem] items-center gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-white">
+            {logoUrl ? (
+              <Image
+                src={logoUrl}
+                alt=""
+                width={36}
+                height={36}
+                unoptimized
+                className="h-9 w-9 object-contain"
+              />
+            ) : (
+              <Sprout className="h-5 w-5 text-[#08bd12]" />
+            )}
+          </div>
+          <span className="truncate text-xl font-medium text-white">
+            {businessName ?? "Blooming Starr"}
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-1 justify-center">
+          <form onSubmit={handleSubmit} className="relative flex w-full max-w-[520px] items-center">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/85" />
             <input
+              key={`${pathname}-${searchParams.get("q") ?? ""}`}
               type="text"
+              name="q"
+              defaultValue={searchParams.get("q") ?? ""}
               placeholder={placeholder}
-              className="w-full rounded-md border border-white/10 bg-white px-3 py-2 pl-9 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#16BE1B]/40"
+              className="h-10 w-full rounded-md border border-white/10 bg-white/25 px-3 py-2 pl-10 pr-10 text-sm text-white placeholder:text-white/90 focus:bg-white focus:text-gray-900 focus:outline-none focus:ring-2 focus:ring-white/50 focus:placeholder:text-gray-500"
             />
+            <QrScanButton
+              label={`${placeholder} by QR`}
+              onScan={handleScan}
+              iconOnly
+              className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-white/85 hover:bg-white/15 hover:text-white"
+            />
+          </form>
+        </div>
+        <div className="ml-auto hidden items-center gap-2 sm:flex">
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/20 text-white hover:bg-white/15"
+            aria-label="Refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-8 items-center gap-1 rounded-sm border border-white/20 px-2 text-white hover:bg-white/15"
+            aria-label="More actions"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#08bd12]">
+            {(businessName ?? "D").trim().charAt(0).toUpperCase() || "D"}
           </div>
         </div>
       </div>

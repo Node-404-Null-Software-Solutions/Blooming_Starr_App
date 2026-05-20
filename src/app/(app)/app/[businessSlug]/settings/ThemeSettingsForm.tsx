@@ -94,7 +94,7 @@ export function ThemeSettingsForm({
       onSubmit={handleSubmit}
       className="mt-4 space-y-6"
     >
-      {/* Logo */}
+
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium text-gray-700">Logo (PNG)</span>
         <div className="flex flex-wrap items-center gap-4">
@@ -140,7 +140,7 @@ export function ThemeSettingsForm({
         </div>
       </div>
 
-      {/* Colors */}
+
       <div className="flex flex-wrap items-end gap-6">
       <div className="flex flex-col gap-2">
         <label

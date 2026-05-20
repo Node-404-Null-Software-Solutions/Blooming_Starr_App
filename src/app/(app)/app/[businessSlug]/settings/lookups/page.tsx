@@ -1,7 +1,9 @@
 import { requireRole } from "@/lib/authz";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
+import { getPlantSkuReferences } from "@/lib/actions/plant-sku-references";
 import type { LookupTable } from "@/lib/actions/lookups";
 import LookupsManager from "./LookupsManager";
+import PlantSkuReferencesManager from "./PlantSkuReferencesManager";
 
 const ALL_TABLES: { key: LookupTable; label: string }[] = [
   { key: "plantSource", label: "Plant Sources" },
@@ -35,7 +37,10 @@ export default async function LookupsSettingsPage({
   const { businessSlug } = await params;
   await requireRole(["OWNER", "MANAGER"]);
 
-  const lookups = await getLookupEntriesMulti(ALL_TABLES.map((t) => t.key));
+  const [lookups, plantSkuReferences] = await Promise.all([
+    getLookupEntriesMulti(ALL_TABLES.map((t) => t.key)),
+    getPlantSkuReferences(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -45,11 +50,22 @@ export default async function LookupsSettingsPage({
           Manage the codes used for SKU generation and form dropdowns.
         </p>
       </div>
-      <LookupsManager
-        businessSlug={businessSlug}
-        tables={ALL_TABLES}
-        initialData={lookups}
-      />
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-gray-900">Plant SKU References</h2>
+        <PlantSkuReferencesManager
+          businessSlug={businessSlug}
+          initialRows={plantSkuReferences}
+        />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-gray-900">General Lookups</h2>
+        <LookupsManager
+          businessSlug={businessSlug}
+          tables={ALL_TABLES}
+          initialData={lookups}
+        />
+      </section>
     </div>
   );
 }

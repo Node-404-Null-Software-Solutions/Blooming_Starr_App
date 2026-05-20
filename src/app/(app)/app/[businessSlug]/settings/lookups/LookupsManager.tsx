@@ -22,14 +22,14 @@ export default function LookupsManager({ businessSlug, tables, initialData }: Pr
   const [data, setData] = useState(initialData);
   const [isPending, startTransition] = useTransition();
 
-  // Add form state
+
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newParentCode, setNewParentCode] = useState("");
   const [addError, setAddError] = useState("");
 
-  // Edit state
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editCode, setEditCode] = useState("");
@@ -70,7 +70,7 @@ export default function LookupsManager({ businessSlug, tables, initialData }: Pr
         setAddError(res.error ?? "Failed to create");
         return;
       }
-      // Optimistic: add to local state
+
       const newRow: LookupRow = {
         id: crypto.randomUUID(),
         table: activeTab,
@@ -137,7 +137,7 @@ export default function LookupsManager({ businessSlug, tables, initialData }: Pr
 
   return (
     <div className="space-y-4">
-      {/* Tabs */}
+
       <div className="flex flex-wrap gap-1 border-b border-gray-200 pb-2">
         {tables.map((t) => (
           <button
@@ -161,7 +161,7 @@ export default function LookupsManager({ businessSlug, tables, initialData }: Pr
         ))}
       </div>
 
-      {/* Table */}
+
       <div className="rounded-md border border-gray-200 bg-white">
         <table className="w-full text-sm">
           <thead>
@@ -261,7 +261,7 @@ export default function LookupsManager({ businessSlug, tables, initialData }: Pr
               </tr>
             ))}
 
-            {/* Add row */}
+
             {adding ? (
               <tr className="bg-green-50/50">
                 <td className="px-4 py-2">

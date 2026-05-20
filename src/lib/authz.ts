@@ -3,10 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import type { Role } from "@prisma/client";
 
-/**
- * Require an authenticated user with an active business membership.
- * Redirects to /sign-in if not authenticated, /onboarding if no profile or business.
- */
+
 export async function requireActiveMembership() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
@@ -31,9 +28,7 @@ export async function requireActiveMembership() {
   return { userId, profile, membership, business };
 }
 
-/**
- * Require specific roles. Bounces to the dashboard if the user lacks permission.
- */
+
 export async function requireRole(allowedRoles: Role[]) {
   const ctx = await requireActiveMembership();
   if (!allowedRoles.includes(ctx.membership.role)) {
@@ -41,11 +36,6 @@ export async function requireRole(allowedRoles: Role[]) {
   }
   return ctx;
 }
-
-/**
- * Get the current Clerk userId without requiring a membership.
- * Returns null if not signed in.
- */
 export async function getOptionalAuth() {
   const { userId } = await auth();
   return userId ?? null;

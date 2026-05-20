@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type Filters = { from: string; to: string; originalSku: string; action: string; fromPot: string; toPot: string };
@@ -25,9 +25,11 @@ export function useTransplantFilter() {
   const sp = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>(() => fromParams(sp));
-  useEffect(() => {
-    if (!isOpen) setFilters(fromParams(sp));
-  }, [isOpen, sp]);
+  const setOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof value === "function" ? value(isOpen) : value;
+    if (next) setFilters(fromParams(sp));
+    setIsOpen(next);
+  };
   const hasActive = useMemo(() => KEYS.some((k) => Boolean(sp.get(k))), [sp]);
   const apply = () => {
     const next = new URLSearchParams(sp.toString());
@@ -46,7 +48,7 @@ export function useTransplantFilter() {
     setFilters(fromParams(sp));
     setIsOpen(false);
   };
-  return { isOpen, setIsOpen, hasActiveFilters: hasActive, filters, setFilters, apply, clear, cancel };
+  return { isOpen, setIsOpen: setOpen, hasActiveFilters: hasActive, filters, setFilters, apply, clear, cancel };
 }
 
 export function TransplantFilterPanel({

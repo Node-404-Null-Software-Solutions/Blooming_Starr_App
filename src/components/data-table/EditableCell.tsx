@@ -22,6 +22,14 @@ function parseCurrencyInput(value: string): number {
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }
 
+function getEditableValue(value: string, type: EditableCellProps["type"]): string {
+  if (type === "currency" && value && /^\d+$/.test(value)) {
+    return formatCurrency(parseInt(value, 10));
+  }
+
+  return value;
+}
+
 export function EditableCell({
   value,
   onSave,
@@ -39,11 +47,6 @@ export function EditableCell({
 
   useEffect(() => {
     if (editing) {
-      const startVal =
-        type === "currency" && value && /^\d+$/.test(value)
-          ? formatCurrency(parseInt(value, 10))
-          : value;
-      setInputValue(startVal);
       if (isSelect) {
         selectRef.current?.focus();
       } else {
@@ -51,7 +54,12 @@ export function EditableCell({
         inputRef.current?.select();
       }
     }
-  }, [editing, value, type, isSelect]);
+  }, [editing, isSelect]);
+
+  const beginEditing = () => {
+    setInputValue(getEditableValue(value, type));
+    setEditing(true);
+  };
 
   const handleBlur = () => {
     setEditing(false);
@@ -88,7 +96,7 @@ export function EditableCell({
     return (
       <select
         ref={selectRef}
-        value={value}
+        value={inputValue}
         onChange={handleSelectChange}
         onBlur={() => setEditing(false)}
         onKeyDown={handleKeyDown}
@@ -133,10 +141,10 @@ export function EditableCell({
     <div
       role="button"
       tabIndex={0}
-      title={title ?? "Double-click to edit"}
-      onDoubleClick={() => setEditing(true)}
-      onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
-      className={`cursor-cell rounded px-1 py-0.5 hover:bg-green-50 ${className}`}
+      title={title ?? "Click to edit"}
+      onClick={beginEditing}
+      onKeyDown={(e) => e.key === "Enter" && beginEditing()}
+      className={`cursor-cell rounded px-1 py-0.5 outline-none hover:bg-green-50 focus:bg-green-50 focus:ring-1 focus:ring-green-500 ${className}`}
     >
       {display}
     </div>

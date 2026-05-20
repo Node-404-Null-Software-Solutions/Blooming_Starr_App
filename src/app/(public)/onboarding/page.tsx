@@ -7,7 +7,7 @@ export default async function OnboardingPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  // If the user already has a profile with an active business, send them to it
+
   const profile = await db.profile.findUnique({ where: { userId } });
   if (profile?.activeBusinessId) {
     const business = await db.business.findUnique({

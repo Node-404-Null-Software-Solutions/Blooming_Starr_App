@@ -5,8 +5,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const db = new PrismaClient({ adapter });
 
-const BAD  = "user_38B3j5RPhyTSDhAFIqBOiXYfg9H ";   // with trailing space
-const GOOD = "user_38B3j5RPhyTSDhAFIqBOiXYfg9H";     // clean
+const BAD  = "user_38B3j5RPhyTSDhAFIqBOiXYfg9H ";
+const GOOD = "user_38B3j5RPhyTSDhAFIqBOiXYfg9H";
 
 async function main() {
   await db.$transaction(async (tx) => {
