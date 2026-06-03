@@ -9,6 +9,7 @@ import { useTransplantFilter, TransplantFilterPanel } from "./TransplantFilterPo
 import { updateTransplantLog, deleteTransplantLog } from "@/lib/actions/data-entries";
 import { EditableCell } from "@/components/data-table/EditableCell";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
+import { formatAppDate } from "@/lib/date-format";
 
 export type TransplantRow = {
   id: string;
@@ -125,7 +126,7 @@ export default function TransplantLogClient({
                 onClick={() => setSelectedId(row.id)}
                 className="rounded-lg border border-gray-200 bg-white p-3 cursor-pointer active:bg-green-50"
               >
-                <p className="text-sm font-medium">{row.date?.slice(0, 10) ?? "—"}</p>
+                <p className="text-sm font-medium">{formatAppDate(row.date, "—")}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {row.originalSku ?? "—"} → {row.divisionSku ?? "—"}
                 </p>
@@ -211,7 +212,7 @@ export default function TransplantLogClient({
       <RowDetailDrawer
         isOpen={selectedId !== null}
         onClose={() => setSelectedId(null)}
-        title={selectedRow ? `${selectedRow.date?.slice(0, 10) ?? "Entry"} — ${selectedRow.originalSku ?? "Entry"}` : ""}
+        title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} — ${selectedRow.originalSku ?? "Entry"}` : ""}
         onDelete={() => selectedRow && handleDelete(selectedRow.id)}
         fields={
           selectedRow

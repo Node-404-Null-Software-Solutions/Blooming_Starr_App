@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { createScheduleEntry, deleteScheduleEntry } from "@/lib/actions/schedule";
+import { formatAppDate } from "@/lib/date-format";
 import ShiftForm from "./ShiftForm";
 
 type Employee = { id: string; name: string };
@@ -27,8 +28,7 @@ function addDays(dateStr: string, days: number): string {
 }
 
 function formatDateShort(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return formatAppDate(dateStr);
 }
 
 export default function ScheduleClient({

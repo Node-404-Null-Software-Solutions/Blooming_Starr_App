@@ -9,6 +9,7 @@ import { useProductIntakeFilter, ProductIntakeFilterPanel } from "./ProductIntak
 import { updateProductIntake, deleteProductIntake } from "@/lib/actions/data-entries";
 import { EditableCell } from "@/components/data-table/EditableCell";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
+import { formatAppDate } from "@/lib/date-format";
 
 type ProductRow = {
   id: string;
@@ -137,7 +138,7 @@ export default function ProductIntakeClient({
                 onClick={() => setSelectedId(row.id)}
                 className="rounded-lg border border-gray-200 bg-white p-3 cursor-pointer active:bg-green-50"
               >
-                <p className="text-sm font-medium">{row.date?.slice(0, 10) ?? "—"}</p>
+                <p className="text-sm font-medium">{formatAppDate(row.date, "—")}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {row.sku} · {row.vendor !== "—" ? row.vendor : "—"} · qty {row.qty}
                 </p>
@@ -238,7 +239,7 @@ export default function ProductIntakeClient({
       <RowDetailDrawer
         isOpen={selectedId !== null}
         onClose={() => setSelectedId(null)}
-        title={selectedRow ? `${selectedRow.date?.slice(0, 10) ?? "Entry"} — ${selectedRow.sku}` : ""}
+        title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} — ${selectedRow.sku}` : ""}
         onDelete={() => selectedRow && handleDelete(selectedRow.id)}
         fields={
           selectedRow

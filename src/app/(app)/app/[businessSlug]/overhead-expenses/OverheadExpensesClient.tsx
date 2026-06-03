@@ -10,6 +10,7 @@ import { updateOverheadExpense, deleteOverheadExpense } from "@/lib/actions/data
 import { centsToUsdFixed } from "@/lib/formulas";
 import { EditableCell } from "@/components/data-table/EditableCell";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
+import { formatAppDate } from "@/lib/date-format";
 
 export type OverheadRow = {
   id: string;
@@ -121,7 +122,7 @@ export default function OverheadExpensesClient({
                 onClick={() => setSelectedId(row.id)}
                 className="rounded-lg border border-gray-200 bg-white p-3 cursor-pointer active:bg-green-50"
               >
-                <p className="text-sm font-medium">{row.date ? row.date.slice(0, 10) : "—"}</p>
+                <p className="text-sm font-medium">{formatAppDate(row.date, "—")}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {row.vendor ?? "—"} · {row.category ?? "—"} · {centsToUsdFixed(row.totalCents ?? 0)}
                 </p>
@@ -228,7 +229,7 @@ export default function OverheadExpensesClient({
       <RowDetailDrawer
         isOpen={selectedId !== null}
         onClose={() => setSelectedId(null)}
-        title={selectedRow ? `${selectedRow.date?.slice(0, 10) ?? "Entry"} — ${selectedRow.vendor ?? "Expense"}` : ""}
+        title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} — ${selectedRow.vendor ?? "Expense"}` : ""}
         onDelete={() => selectedRow && handleDelete(selectedRow.id)}
         fields={
           selectedRow

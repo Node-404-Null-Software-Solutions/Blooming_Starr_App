@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { formatAppDate } from "@/lib/date-format";
 
 type EditableCellProps = {
   value: string;
@@ -25,6 +26,9 @@ function parseCurrencyInput(value: string): number {
 function getEditableValue(value: string, type: EditableCellProps["type"]): string {
   if (type === "currency" && value && /^\d+$/.test(value)) {
     return formatCurrency(parseInt(value, 10));
+  }
+  if (type === "date" && value) {
+    return value.slice(0, 10);
   }
 
   return value;
@@ -134,7 +138,7 @@ export function EditableCell({
     type === "currency" && value && /^\d+$/.test(value)
       ? `$${formatCurrency(parseInt(value, 10))}`
       : type === "date" && value
-        ? value.slice(0, 10)
+        ? formatAppDate(value, "—")
         : value || "—";
 
   return (

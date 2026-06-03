@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/authz";
 import { db } from "@/lib/db";
+import { formatAppDate } from "@/lib/date-format";
 import { Users, UserPlus, Link as LinkIcon } from "lucide-react";
 import TeamActions from "./TeamActions";
 import InvitePanel from "./InvitePanel";
@@ -89,7 +90,7 @@ export default async function TeamSettingsPage({
                     </span>
                   </td>
                   <td className="px-6 py-3 text-gray-500">
-                    {m.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {formatAppDate(m.createdAt)}
                   </td>
                   <td className="px-6 py-3 text-right">
                     {m.userId !== currentUserId && (
@@ -125,7 +126,7 @@ export default async function TeamSettingsPage({
                   <p className="mt-0.5 text-xs text-gray-500">
                     Requesting role: <span className="font-medium">{req.requestedRole.charAt(0) + req.requestedRole.slice(1).toLowerCase()}</span>
                     {" · "}
-                    {req.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {formatAppDate(req.createdAt)}
                   </p>
                 </div>
                 <TeamActions

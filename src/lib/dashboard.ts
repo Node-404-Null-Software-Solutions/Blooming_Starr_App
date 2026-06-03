@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { formatAppDate } from "@/lib/date-format";
 
 export type ExpenseByCategory = { category: string; totalCents: number };
 
@@ -97,7 +98,7 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 
 function formatDateOnly(value: Date | null): string | null {
   if (!value) return null;
-  return value.toISOString().slice(0, 10);
+  return formatAppDate(value);
 }
 
 export async function getTaxSummary(businessId: string, year: number): Promise<TaxSummary> {

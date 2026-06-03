@@ -3,10 +3,12 @@ import { ChevronDown, ChevronRight, ImageIcon, ListFilter, Pencil, CheckSquare }
 import { requireActiveMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { centsToUsdFixed as money } from "@/lib/formulas";
+import { formatAppDate } from "@/lib/date-format";
 
 type InventoryRow = {
   sku: string;
   date: string | null;
+  dateSort: string;
   plantName: string;
   status: string;
   plantCostCents: number;
@@ -27,7 +29,7 @@ type InventoryRow = {
 };
 
 function formatDate(value: Date | null) {
-  return value ? value.toLocaleDateString("en-US") : "";
+  return formatAppDate(value);
 }
 
 function normalizeStatus(value: string | null | undefined, qtyRemaining: number, qtySold: number) {
@@ -249,6 +251,7 @@ export default async function PlantInventoryPage({
     return {
       sku: item.sku,
       date: formatDate(item.date),
+      dateSort: item.date ? item.date.toISOString() : "",
       plantName: pricing?.productName || item.plantName,
       status,
       plantCostCents,
@@ -283,7 +286,7 @@ export default async function PlantInventoryPage({
   }
 
   rows.sort((a, b) => {
-    const dateCompare = (b.date || "").localeCompare(a.date || "");
+    const dateCompare = b.dateSort.localeCompare(a.dateSort);
     return dateCompare || a.plantName.localeCompare(b.plantName) || a.sku.localeCompare(b.sku);
   });
 

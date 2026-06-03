@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ChevronRight, ImageIcon, Save, X } from "lucide-react";
 import { updatePlantIntake, deletePlantIntake } from "@/lib/actions/data-entries";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
+import { formatAppDate } from "@/lib/date-format";
 
 export type PlantIntakeRow = {
   id: string;
@@ -189,6 +190,7 @@ export default function PlantIntakeTable({
 
   function renderEditable(row: PlantIntakeRow, field: EditablePlantField, type = "text") {
     if (!editMode) {
+      if (field === "date") return formatAppDate(row.date, "-");
       if (field === "costCents") return displayCurrency(row.costCents);
       if (field === "msrpCents") return displayCurrency(row.msrpCents);
       return rowFieldValue(row, field) || "-";
@@ -271,7 +273,7 @@ export default function PlantIntakeTable({
                   </span>
                 ) : null}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{row.date?.slice(0, 10) ?? "-"}</p>
+                  <p className="text-sm font-medium">{formatAppDate(row.date, "-")}</p>
                   <p className="mt-0.5 text-xs text-gray-500">
                     {row.sku} - {row.source} - qty {row.qty}
                   </p>
@@ -413,14 +415,14 @@ export default function PlantIntakeTable({
         onClose={() => setSelectedId(null)}
         title={
           selectedRow
-            ? `${selectedRow.date?.slice(0, 10) ?? "Entry"} - ${selectedRow.sku}`
+            ? `${formatAppDate(selectedRow.date, "Entry")} - ${selectedRow.sku}`
             : ""
         }
         onDelete={() => selectedRow && handleDelete(selectedRow.id)}
         fields={
           selectedRow
             ? [
-                { label: "Date", node: <span>{selectedRow.date ?? "-"}</span> },
+                { label: "Date", node: <span>{formatAppDate(selectedRow.date, "-")}</span> },
                 { label: "Source", node: <span>{selectedRow.source || "-"}</span> },
                 { label: "Genus", node: <span>{selectedRow.genus || "-"}</span> },
                 { label: "Cultivar", node: <span>{selectedRow.cultivar || "-"}</span> },

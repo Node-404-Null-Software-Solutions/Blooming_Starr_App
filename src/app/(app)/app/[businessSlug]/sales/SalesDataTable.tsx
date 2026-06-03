@@ -6,6 +6,7 @@ import { useTransition } from "react";
 import { updateSalesEntry, deleteSalesEntry } from "@/lib/actions/data-entries";
 import { EditableCell } from "@/components/data-table/EditableCell";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
+import { formatAppDate } from "@/lib/date-format";
 
 export type SalesRow = {
   id: string;
@@ -78,7 +79,7 @@ export default function SalesDataTable({
             onClick={() => setSelectedId(row.id)}
             className="rounded-lg border border-gray-200 bg-white p-3 cursor-pointer active:bg-green-50"
           >
-            <p className="text-sm font-medium">{row.date ? row.date.slice(0, 10) : "—"}</p>
+            <p className="text-sm font-medium">{formatAppDate(row.date, "—")}</p>
             <p className="text-xs text-gray-500 mt-0.5">
               {row.sku} · qty {row.qty} · ${((row.totalSaleCents ?? 0) / 100).toFixed(2)}
             </p>
@@ -158,7 +159,7 @@ export default function SalesDataTable({
       <RowDetailDrawer
         isOpen={selectedId !== null}
         onClose={() => setSelectedId(null)}
-        title={selectedRow ? `${selectedRow.date?.slice(0, 10) ?? "Entry"} — ${selectedRow.sku}` : ""}
+        title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} — ${selectedRow.sku}` : ""}
         onDelete={() => selectedRow && handleDelete(selectedRow.id)}
         fields={
           selectedRow

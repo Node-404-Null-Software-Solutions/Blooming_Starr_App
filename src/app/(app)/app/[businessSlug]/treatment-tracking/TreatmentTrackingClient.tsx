@@ -9,6 +9,7 @@ import { useTreatmentFilter, TreatmentFilterPanel } from "./TreatmentFilterPopov
 import { updateTreatmentTracking, deleteTreatmentTracking } from "@/lib/actions/data-entries";
 import { EditableCell } from "@/components/data-table/EditableCell";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
+import { formatAppDate } from "@/lib/date-format";
 
 export type TreatmentRow = {
   id: string;
@@ -42,7 +43,7 @@ export default function TreatmentTrackingClient({
     useTreatmentFilter();
 
   const selectedRow = rows.find((r) => r.id === selectedId) ?? null;
-  const formatDate = (date: string | null) => (date ? date.slice(0, 10) : "—");
+  const formatDate = (date: string | null) => formatAppDate(date, "—");
 
   async function handleSave(id: string, field: keyof Omit<TreatmentRow, "id" | "nextEarliest" | "nextLatest">, value: string) {
     const payload: Record<string, unknown> = {};
@@ -117,7 +118,7 @@ export default function TreatmentTrackingClient({
                 onClick={() => setSelectedId(row.id)}
                 className="rounded-lg border border-gray-200 bg-white p-3 cursor-pointer active:bg-green-50"
               >
-                <p className="text-sm font-medium">{row.date?.slice(0, 10) ?? "—"}</p>
+                <p className="text-sm font-medium">{formatAppDate(row.date, "—")}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {row.sku} · {row.target ?? "—"} · {row.product ?? "—"}
                 </p>
@@ -199,7 +200,7 @@ export default function TreatmentTrackingClient({
       <RowDetailDrawer
         isOpen={selectedId !== null}
         onClose={() => setSelectedId(null)}
-        title={selectedRow ? `${selectedRow.date?.slice(0, 10) ?? "Entry"} — ${selectedRow.sku}` : ""}
+        title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} — ${selectedRow.sku}` : ""}
         onDelete={() => selectedRow && handleDelete(selectedRow.id)}
         fields={
           selectedRow

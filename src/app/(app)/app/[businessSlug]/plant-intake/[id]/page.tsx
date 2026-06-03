@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireActiveMembership } from "@/lib/authz";
+import { formatAppDate } from "@/lib/date-format";
 
 const formatCurrency = (cents: number) =>
   new Intl.NumberFormat("en-US", {
@@ -11,7 +12,7 @@ const formatCurrency = (cents: number) =>
   }).format(cents / 100);
 
 const formatDate = (value: Date | null) =>
-  value ? value.toISOString().slice(0, 10) : "-";
+  formatAppDate(value, "-");
 
 export default async function PlantIntakeDetailsPage({
   params,
