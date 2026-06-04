@@ -112,12 +112,6 @@ export default async function PlantIntakeDetailsPage({
               {record.status ?? "-"}
             </dd>
           </div>
-          <div>
-            <dt className="text-xs uppercase text-gray-500">External UID</dt>
-            <dd className="font-medium text-gray-900">
-              {record.externalUid ?? "-"}
-            </dd>
-          </div>
         </dl>
       </div>
 

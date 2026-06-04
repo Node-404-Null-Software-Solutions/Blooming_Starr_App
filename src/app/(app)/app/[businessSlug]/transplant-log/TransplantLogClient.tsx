@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check } from "lucide-react";
@@ -65,14 +65,12 @@ export default function TransplantLogClient({
 
   const selectedRow = rows.find((r) => r.id === selectedId) ?? null;
 
-  useEffect(() => {
-    if (!selectMode) setSelectedRows(new Set());
-  }, [selectMode]);
-
   function toggleSelectMode() {
-    setSelectMode((value) => !value);
+    const nextSelectMode = !selectMode;
+    setSelectMode(nextSelectMode);
     setEditMode(false);
     setSelectedId(null);
+    if (!nextSelectMode) setSelectedRows(new Set());
   }
 
   function toggleEditMode() {

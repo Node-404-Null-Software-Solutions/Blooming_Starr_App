@@ -50,6 +50,23 @@ export type ImportReport = {
 };
 
 
+function revalidateImportedDataPaths(businessSlug: string) {
+  const base = `/app/${businessSlug}`;
+  revalidatePath(`${base}/settings/lookups`);
+  revalidatePath(`${base}/plant-intake`);
+  revalidatePath(`${base}/product-intake`);
+  revalidatePath(`${base}/sales`);
+  revalidatePath(`${base}/overhead-expenses`);
+  revalidatePath(`${base}/transplant-log`);
+  revalidatePath(`${base}/fertilizer-log`);
+  revalidatePath(`${base}/treatment-tracking`);
+  revalidatePath(base);
+  revalidatePath(`${base}/plant-inventory`);
+  revalidatePath(`${base}/product-inventory`);
+  revalidatePath(`${base}/sku-scanner`);
+}
+
+
 type NameCode = { name: string; code: string };
 
 
@@ -422,6 +439,10 @@ function last4FromCell(value: unknown): string | null {
   return digits.length <= 4 ? digits : digits.slice(-4);
 }
 
+function dateKey(value: Date | null | undefined): string {
+  return value ? value.toISOString().slice(0, 10) : "";
+}
+
 async function importPlantIntake(
   ws: ExcelJS.Worksheet,
   businessId: string
@@ -447,7 +468,6 @@ async function importPlantIntake(
   const cCost = col("Total Cost", "Cost");
   const cLocation = col("Location");
   const cStatus = col("Status");
-  const cExternal = col("Unique ID", "UniqueID", "External UID", "ExternalUid");
   const cMsrp = col("MSRP");
   const cQty = col("QTY", "Qty", "Quantity");
   const cPot = col("Pot Type", "PotType");
@@ -457,27 +477,14 @@ async function importPlantIntake(
   }
 
 
-  const externalUids: string[] = [];
   const skus: string[] = [];
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
     const sku = cSku ? toStringCell(row.getCell(cSku).value) : "";
     if (sku) skus.push(sku);
-    if (cExternal) {
-      const ext = toStringCell(row.getCell(cExternal).value);
-      if (ext) externalUids.push(ext);
-    }
   });
 
-  const existingExt = new Set<string>();
   const existingSku = new Set<string>();
-  for (const part of chunk([...new Set(externalUids)], 1000)) {
-    const rows = await db.plantIntake.findMany({
-      where: { businessId, externalUid: { in: part } },
-      select: { externalUid: true },
-    });
-    for (const r of rows) if (r.externalUid) existingExt.add(r.externalUid);
-  }
   for (const part of chunk([...new Set(skus)], 1000)) {
     const rows = await db.plantIntake.findMany({
       where: { businessId, sku: { in: part } },
@@ -487,7 +494,6 @@ async function importPlantIntake(
   }
 
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
-  const seenExt = new Set<string>();
   const seenSku = new Set<string>();
 
   type T = NonNullable<Parameters<typeof db.plantIntake.createMany>[0]>["data"];
@@ -503,15 +509,8 @@ async function importPlantIntake(
 
     if (!source || !genus || !cultivar || !sku) { skippedMissing++; return; }
 
-    const externalUid = cExternal ? toStringCell(row.getCell(cExternal).value) || null : null;
-
-    if (externalUid) {
-      if (existingExt.has(externalUid) || seenExt.has(externalUid)) { skippedDuplicates++; return; }
-      seenExt.add(externalUid);
-    } else {
-      if (existingSku.has(sku) || seenSku.has(sku)) { skippedDuplicates++; return; }
-      seenSku.add(sku);
-    }
+    if (existingSku.has(sku) || seenSku.has(sku)) { skippedDuplicates++; return; }
+    seenSku.add(sku);
 
     const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
     const costCents = cCost ? parseCurrencyToCents(row.getCell(cCost).value) : 0;
@@ -528,8 +527,7 @@ async function importPlantIntake(
       potType: cPot ? toStringCell(row.getCell(cPot).value) || null : null,
       paymentMethod: null, cardLast4: null,
       location: cLocation ? toStringCell(row.getCell(cLocation).value) || null : null,
-      status: col("Status") ? toStringCell(row.getCell(col("Status")!).value) || null : null,
-      externalUid,
+      status: cStatus ? toStringCell(row.getCell(cStatus).value) || null : null,
     });
   });
 
@@ -573,30 +571,18 @@ async function importProductIntake(
   const cCard = col("Card #");
   const cInvoice = col("Invoice #");
   const cNotes = col("Associated Product / Notes", "Notes");
-  const cExternal = col("Unique ID", "UID");
 
   if (!cDate || !cSku) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
-  const externalUids: string[] = [];
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber <= headerRow.number) return;
-    if (cExternal) {
-      const ext = toStringCell(row.getCell(cExternal).value);
-      if (ext) externalUids.push(ext);
-    }
+  const existingRows = await db.productIntake.findMany({
+    where: { businessId },
+    select: { sku: true, date: true },
   });
-
-  const existingExt = new Set<string>();
-  for (const part of chunk([...new Set(externalUids)], 1000)) {
-    const rows = await db.productIntake.findMany({
-      where: { businessId, externalUid: { in: part } },
-      select: { externalUid: true },
-    });
-    for (const r of rows) if (r.externalUid) existingExt.add(r.externalUid);
-  }
+  const existingComposite = new Set(
+    existingRows.map((row) => `${row.sku}|${dateKey(row.date)}`)
+  );
 
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
-  const seenExt = new Set<string>();
   const seenComposite = new Set<string>();
 
   type T = NonNullable<Parameters<typeof db.productIntake.createMany>[0]>["data"];
@@ -612,16 +598,9 @@ async function importProductIntake(
     const sku = cSku ? toStringCell(row.getCell(cSku).value) : "";
     if (!date || !sku) { skippedMissing++; return; }
 
-    const externalUid = cExternal ? toStringCell(row.getCell(cExternal).value) || null : null;
-
-    if (externalUid) {
-      if (existingExt.has(externalUid) || seenExt.has(externalUid)) { skippedDuplicates++; return; }
-      seenExt.add(externalUid);
-    } else {
-      const key = `${sku}|${date.toISOString().slice(0, 10)}`;
-      if (seenComposite.has(key)) { skippedDuplicates++; return; }
-      seenComposite.add(key);
-    }
+    const key = `${sku}|${dateKey(date)}`;
+    if (existingComposite.has(key) || seenComposite.has(key)) { skippedDuplicates++; return; }
+    seenComposite.add(key);
 
     const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
     const importedUnitCostCents = cUnitCost
@@ -650,7 +629,6 @@ async function importProductIntake(
       cardLast4: cCard ? last4FromCell(row.getCell(cCard).value) : null,
       invoiceNumber: cInvoice ? toStringCell(row.getCell(cInvoice).value) || null : null,
       notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
-      externalUid,
     });
   });
 
@@ -691,30 +669,20 @@ async function importSales(
   const cCard = col("Card #");
   const cChannel = col("Sale Channel");
   const cNotes = col("Notes");
-  const cExternal = col("Sale ID");
 
   if (!cDate || !cSku) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true, salesChannelLookup: emptyLookup };
 
-  const externalUids: string[] = [];
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber <= headerRow.number) return;
-    if (cExternal) {
-      const ext = toStringCell(row.getCell(cExternal).value);
-      if (ext) externalUids.push(ext);
-    }
+  const existingRows = await db.salesEntry.findMany({
+    where: { businessId },
+    select: { sku: true, date: true, qty: true, salePriceCents: true, channel: true },
   });
-
-  const existingExt = new Set<string>();
-  for (const part of chunk([...new Set(externalUids)], 1000)) {
-    const rows = await db.salesEntry.findMany({
-      where: { businessId, externalUid: { in: part } },
-      select: { externalUid: true },
-    });
-    for (const r of rows) if (r.externalUid) existingExt.add(r.externalUid);
-  }
+  const existingComposite = new Set(
+    existingRows.map((row) =>
+      `${row.sku}|${dateKey(row.date)}|${row.qty}|${row.salePriceCents}|${row.channel ?? ""}`
+    )
+  );
 
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
-  const seenExt = new Set<string>();
   const seenComposite = new Set<string>();
   const channelNames = new Set<string>();
 
@@ -729,17 +697,6 @@ async function importSales(
     const sku = cSku ? toStringCell(row.getCell(cSku).value) : "";
     if (!date || !sku) { skippedMissing++; return; }
 
-    const externalUid = cExternal ? toStringCell(row.getCell(cExternal).value) || null : null;
-
-    if (externalUid) {
-      if (existingExt.has(externalUid) || seenExt.has(externalUid)) { skippedDuplicates++; return; }
-      seenExt.add(externalUid);
-    } else {
-      const key = `${sku}|${date.toISOString().slice(0, 10)}`;
-      if (seenComposite.has(key)) { skippedDuplicates++; return; }
-      seenComposite.add(key);
-    }
-
     const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
     const salePriceCents = cSalePrice ? parseCurrencyToCents(row.getCell(cSalePrice).value) : 0;
     const costCents = cCost ? parseCurrencyToCents(row.getCell(cCost).value) : 0;
@@ -747,6 +704,9 @@ async function importSales(
 
     const channelVal = cChannel ? toStringCell(row.getCell(cChannel).value).trim() : "";
     if (channelVal) channelNames.add(channelVal);
+    const key = `${sku}|${dateKey(date)}|${qty}|${salePriceCents}|${channelVal}`;
+    if (existingComposite.has(key) || seenComposite.has(key)) { skippedDuplicates++; return; }
+    seenComposite.add(key);
 
     toCreate.push({
       businessId, date, sku,
@@ -758,7 +718,6 @@ async function importSales(
       channel: channelVal || null,
       costCents, profitCents: derived.profitCents, marginPct: derived.marginPct,
       notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
-      externalUid,
     });
   });
 
@@ -804,30 +763,20 @@ async function importOverheadExpenses(
   const cCard = col("Card #");
   const cInvoice = col("Invoice #");
   const cNotes = col("Notes / Project", "Notes");
-  const cExternal = col("U ID", "UID");
 
   if (!cDate) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
-  const externalUids: string[] = [];
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber <= headerRow.number) return;
-    if (cExternal) {
-      const ext = toStringCell(row.getCell(cExternal).value);
-      if (ext) externalUids.push(ext);
-    }
+  const existingRows = await db.overheadExpense.findMany({
+    where: { businessId },
+    select: { date: true, vendor: true, invoiceNumber: true, totalCents: true },
   });
-
-  const existingExt = new Set<string>();
-  for (const part of chunk([...new Set(externalUids)], 1000)) {
-    const rows = await db.overheadExpense.findMany({
-      where: { businessId, externalUid: { in: part } },
-      select: { externalUid: true },
-    });
-    for (const r of rows) if (r.externalUid) existingExt.add(r.externalUid);
-  }
+  const existingComposite = new Set(
+    existingRows.map((row) =>
+      `${row.invoiceNumber ?? ""}|${dateKey(row.date)}|${row.totalCents}|${row.vendor ?? ""}`
+    )
+  );
 
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
-  const seenExt = new Set<string>();
   const seenComposite = new Set<string>();
 
   type T = NonNullable<Parameters<typeof db.overheadExpense.createMany>[0]>["data"];
@@ -843,17 +792,10 @@ async function importOverheadExpenses(
 
     if (!date || (!vendor && importedTotalCents === 0)) { skippedMissing++; return; }
 
-    const externalUid = cExternal ? toStringCell(row.getCell(cExternal).value) || null : null;
-
-    if (externalUid) {
-      if (existingExt.has(externalUid) || seenExt.has(externalUid)) { skippedDuplicates++; return; }
-      seenExt.add(externalUid);
-    } else {
-      const invoiceNumber = cInvoice ? toStringCell(row.getCell(cInvoice).value) || "" : "";
-      const key = `${invoiceNumber}|${date.toISOString().slice(0, 10)}|${importedTotalCents}`;
-      if (seenComposite.has(key)) { skippedDuplicates++; return; }
-      seenComposite.add(key);
-    }
+    const invoiceNumber = cInvoice ? toStringCell(row.getCell(cInvoice).value) || "" : "";
+    const key = `${invoiceNumber}|${dateKey(date)}|${importedTotalCents}|${vendor ?? ""}`;
+    if (existingComposite.has(key) || seenComposite.has(key)) { skippedDuplicates++; return; }
+    seenComposite.add(key);
 
     const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
     const subTotalCents = cSubTotal
@@ -887,7 +829,6 @@ async function importOverheadExpenses(
       cardLast4: cCard ? last4FromCell(row.getCell(cCard).value) : null,
       invoiceNumber: cInvoice ? toStringCell(row.getCell(cInvoice).value) || null : null,
       notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
-      externalUid,
     });
   });
 
@@ -926,31 +867,21 @@ async function importTransplantLog(
   const cPer = col("$ PER");
   const cPotColor = col("POT COLOR", "Pot Color");
   const cNotes = col("Notes");
-  const cExternal = col("U ID", "UID");
   const cCreatedAt = col("Created At");
 
   if (!cDate || !cOriginalSku) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
-  const externalUids: string[] = [];
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber <= headerRow.number) return;
-    if (cExternal) {
-      const ext = toStringCell(row.getCell(cExternal).value);
-      if (ext) externalUids.push(ext);
-    }
+  const existingRows = await db.transplantLog.findMany({
+    where: { businessId },
+    select: { originalSku: true, date: true, action: true, divisionSku: true },
   });
-
-  const existingExt = new Set<string>();
-  for (const part of chunk([...new Set(externalUids)], 1000)) {
-    const rows = await db.transplantLog.findMany({
-      where: { businessId, externalUid: { in: part } },
-      select: { externalUid: true },
-    });
-    for (const r of rows) if (r.externalUid) existingExt.add(r.externalUid);
-  }
+  const existingComposite = new Set(
+    existingRows.map((row) =>
+      `${row.originalSku ?? ""}|${dateKey(row.date)}|${row.action ?? ""}|${row.divisionSku ?? ""}`
+    )
+  );
 
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
-  const seenExt = new Set<string>();
   const seenComposite = new Set<string>();
 
   type T = NonNullable<Parameters<typeof db.transplantLog.createMany>[0]>["data"];
@@ -963,29 +894,23 @@ async function importTransplantLog(
     const originalSku = cOriginalSku ? toStringCell(row.getCell(cOriginalSku).value) : "";
     if (!date || !originalSku) { skippedMissing++; return; }
 
-    const externalUid = cExternal ? toStringCell(row.getCell(cExternal).value) || null : null;
-
-    if (externalUid) {
-      if (existingExt.has(externalUid) || seenExt.has(externalUid)) { skippedDuplicates++; return; }
-      seenExt.add(externalUid);
-    } else {
-      const key = `${originalSku}|${date.toISOString().slice(0, 10)}`;
-      if (seenComposite.has(key)) { skippedDuplicates++; return; }
-      seenComposite.add(key);
-    }
+    const action = cAction ? toStringCell(row.getCell(cAction).value) || null : null;
+    const divisionSku = cDivisionSku ? toStringCell(row.getCell(cDivisionSku).value) || null : null;
+    const key = `${originalSku}|${dateKey(date)}|${action ?? ""}|${divisionSku ?? ""}`;
+    if (existingComposite.has(key) || seenComposite.has(key)) { skippedDuplicates++; return; }
+    seenComposite.add(key);
 
     toCreate.push({
       businessId, date, originalSku,
-      action: cAction ? toStringCell(row.getCell(cAction).value) || null : null,
+      action,
       media: cMedia ? toStringCell(row.getCell(cMedia).value) || null : null,
       fromPot: cFromPot ? toStringCell(row.getCell(cFromPot).value) || null : null,
       toPot: cToPot ? toStringCell(row.getCell(cToPot).value) || null : null,
       idCode: cId ? toStringCell(row.getCell(cId).value) || null : null,
-      divisionSku: cDivisionSku ? toStringCell(row.getCell(cDivisionSku).value) || null : null,
+      divisionSku,
       costCents: cPer ? parseCurrencyToCents(row.getCell(cPer).value) : 0,
       potColor: cPotColor ? toStringCell(row.getCell(cPotColor).value) || null : null,
       notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
-      externalUid,
       createdAtSource: cCreatedAt ? parseDate(row.getCell(cCreatedAt).value) : null,
     });
   });
@@ -1024,30 +949,20 @@ async function importFertilizerLog(
   const cNextEarliest = col("Next Earliest");
   const cNextLatest = col("Next Latest");
   const cNotes = col("Notes");
-  const cExternal = col("UID", "U ID");
 
   if (!cDate || !cPlantSku) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
-  const externalUids: string[] = [];
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber <= headerRow.number) return;
-    if (cExternal) {
-      const ext = toStringCell(row.getCell(cExternal).value);
-      if (ext) externalUids.push(ext);
-    }
+  const existingRows = await db.fertilizerLog.findMany({
+    where: { businessId },
+    select: { plantSku: true, date: true, product: true, method: true },
   });
-
-  const existingExt = new Set<string>();
-  for (const part of chunk([...new Set(externalUids)], 1000)) {
-    const rows = await db.fertilizerLog.findMany({
-      where: { businessId, externalUid: { in: part } },
-      select: { externalUid: true },
-    });
-    for (const r of rows) if (r.externalUid) existingExt.add(r.externalUid);
-  }
+  const existingComposite = new Set(
+    existingRows.map((row) =>
+      `${row.plantSku ?? ""}|${dateKey(row.date)}|${row.product ?? ""}|${row.method ?? ""}`
+    )
+  );
 
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
-  const seenExt = new Set<string>();
   const seenComposite = new Set<string>();
 
   type T = NonNullable<Parameters<typeof db.fertilizerLog.createMany>[0]>["data"];
@@ -1060,28 +975,22 @@ async function importFertilizerLog(
     const plantSku = cPlantSku ? toStringCell(row.getCell(cPlantSku).value) : "";
     if (!date || !plantSku) { skippedMissing++; return; }
 
-    const externalUid = cExternal ? toStringCell(row.getCell(cExternal).value) || null : null;
-
-    if (externalUid) {
-      if (existingExt.has(externalUid) || seenExt.has(externalUid)) { skippedDuplicates++; return; }
-      seenExt.add(externalUid);
-    } else {
-      const key = `${plantSku}|${date.toISOString().slice(0, 10)}`;
-      if (seenComposite.has(key)) { skippedDuplicates++; return; }
-      seenComposite.add(key);
-    }
+    const product = cProduct ? toStringCell(row.getCell(cProduct).value) || null : null;
+    const method = cMethod ? toStringCell(row.getCell(cMethod).value) || null : null;
+    const key = `${plantSku}|${dateKey(date)}|${product ?? ""}|${method ?? ""}`;
+    if (existingComposite.has(key) || seenComposite.has(key)) { skippedDuplicates++; return; }
+    seenComposite.add(key);
 
     toCreate.push({
       businessId, date, plantSku,
       potSku: cPotSku ? toStringCell(row.getCell(cPotSku).value) || null : null,
-      product: cProduct ? toStringCell(row.getCell(cProduct).value) || null : null,
-      method: cMethod ? toStringCell(row.getCell(cMethod).value) || null : null,
+      product,
+      method,
       rate: cRate ? toStringCell(row.getCell(cRate).value) || null : null,
       unit: cUnit ? toStringCell(row.getCell(cUnit).value) || null : null,
       nextEarliest: cNextEarliest ? parseDate(row.getCell(cNextEarliest).value) : null,
       nextLatest: cNextLatest ? parseDate(row.getCell(cNextLatest).value) : null,
       notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
-      externalUid,
     });
   });
 
@@ -1121,30 +1030,20 @@ async function importTreatmentTracking(
   const cInit = col("Init.", "Initials");
   const cNextEarliest = col("Next Earliest");
   const cNextLatest = col("Next Latest");
-  const cExternal = col("U ID", "UID");
 
   if (!cDate || !cSku) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
-  const externalUids: string[] = [];
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber <= headerRow.number) return;
-    if (cExternal) {
-      const ext = toStringCell(row.getCell(cExternal).value);
-      if (ext) externalUids.push(ext);
-    }
+  const existingRows = await db.treatmentTracking.findMany({
+    where: { businessId },
+    select: { sku: true, date: true, target: true, product: true },
   });
-
-  const existingExt = new Set<string>();
-  for (const part of chunk([...new Set(externalUids)], 1000)) {
-    const rows = await db.treatmentTracking.findMany({
-      where: { businessId, externalUid: { in: part } },
-      select: { externalUid: true },
-    });
-    for (const r of rows) if (r.externalUid) existingExt.add(r.externalUid);
-  }
+  const existingComposite = new Set(
+    existingRows.map((row) =>
+      `${row.sku}|${dateKey(row.date)}|${row.target ?? ""}|${row.product ?? ""}`
+    )
+  );
 
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
-  const seenExt = new Set<string>();
   const seenComposite = new Set<string>();
 
   type T = NonNullable<Parameters<typeof db.treatmentTracking.createMany>[0]>["data"];
@@ -1157,21 +1056,16 @@ async function importTreatmentTracking(
     const sku = cSku ? toStringCell(row.getCell(cSku).value) : "";
     if (!date || !sku) { skippedMissing++; return; }
 
-    const externalUid = cExternal ? toStringCell(row.getCell(cExternal).value) || null : null;
-
-    if (externalUid) {
-      if (existingExt.has(externalUid) || seenExt.has(externalUid)) { skippedDuplicates++; return; }
-      seenExt.add(externalUid);
-    } else {
-      const key = `${sku}|${date.toISOString().slice(0, 10)}`;
-      if (seenComposite.has(key)) { skippedDuplicates++; return; }
-      seenComposite.add(key);
-    }
+    const target = cTarget ? toStringCell(row.getCell(cTarget).value) || null : null;
+    const product = cProduct ? toStringCell(row.getCell(cProduct).value) || null : null;
+    const key = `${sku}|${dateKey(date)}|${target ?? ""}|${product ?? ""}`;
+    if (existingComposite.has(key) || seenComposite.has(key)) { skippedDuplicates++; return; }
+    seenComposite.add(key);
 
     toCreate.push({
       businessId, date, sku,
-      target: cTarget ? toStringCell(row.getCell(cTarget).value) || null : null,
-      product: cProduct ? toStringCell(row.getCell(cProduct).value) || null : null,
+      target,
+      product,
       activeIngredient: cActive ? toStringCell(row.getCell(cActive).value) || null : null,
       epaNumber: cEpa ? toStringCell(row.getCell(cEpa).value) || null : null,
       rate: cRate ? toStringCell(row.getCell(cRate).value) || null : null,
@@ -1180,7 +1074,6 @@ async function importTreatmentTracking(
       initials: cInit ? toStringCell(row.getCell(cInit).value) || null : null,
       nextEarliest: cNextEarliest ? parseDate(row.getCell(cNextEarliest).value) : null,
       nextLatest: cNextLatest ? parseDate(row.getCell(cNextLatest).value) : null,
-      externalUid,
     });
   });
 
@@ -1308,14 +1201,7 @@ export async function importWorkbook(
     report.sheets["Treatment Tracker"] = { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
   }
 
-  revalidatePath(`/app/${businessSlug}/settings/lookups`);
-  revalidatePath(`/app/${businessSlug}/plant-intake`);
-  revalidatePath(`/app/${businessSlug}/product-intake`);
-  revalidatePath(`/app/${businessSlug}/sales`);
-  revalidatePath(`/app/${businessSlug}/overhead-expenses`);
-  revalidatePath(`/app/${businessSlug}/transplant-log`);
-  revalidatePath(`/app/${businessSlug}/fertilizer-log`);
-  revalidatePath(`/app/${businessSlug}/treatment-tracking`);
+  revalidateImportedDataPaths(businessSlug);
 
   return report;
 }
@@ -1351,14 +1237,7 @@ export async function clearBusinessData(businessSlug: string): Promise<ClearResu
     db.lookupEntry.deleteMany({ where: { businessId } }),
   ]);
 
-  revalidatePath(`/app/${businessSlug}/settings/lookups`);
-  revalidatePath(`/app/${businessSlug}/plant-intake`);
-  revalidatePath(`/app/${businessSlug}/product-intake`);
-  revalidatePath(`/app/${businessSlug}/sales`);
-  revalidatePath(`/app/${businessSlug}/overhead-expenses`);
-  revalidatePath(`/app/${businessSlug}/transplant-log`);
-  revalidatePath(`/app/${businessSlug}/fertilizer-log`);
-  revalidatePath(`/app/${businessSlug}/treatment-tracking`);
+  revalidateImportedDataPaths(businessSlug);
 
   return {
     ok: true,

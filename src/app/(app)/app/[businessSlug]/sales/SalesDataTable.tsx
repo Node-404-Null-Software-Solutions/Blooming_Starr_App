@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { updateSalesEntry, deleteSalesEntry } from "@/lib/actions/data-entries";
@@ -77,10 +77,6 @@ export default function SalesDataTable({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
   const selectedRow = initialRows.find((r) => r.id === selectedId) ?? null;
-
-  useEffect(() => {
-    if (!selectMode) setSelectedRows(new Set());
-  }, [selectMode]);
 
   async function handleSave(id: string, field: EditableSalesField, value: string) {
     const numVal = /^\d+$/.test(value) ? parseInt(value, 10) : undefined;

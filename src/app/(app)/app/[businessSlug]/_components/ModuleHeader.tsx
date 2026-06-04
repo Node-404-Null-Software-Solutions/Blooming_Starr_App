@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { CheckSquare, Filter, Pencil, Plus } from "lucide-react";
+import { CheckSquare, ListFilter, Pencil, Plus } from "lucide-react";
 
 type ModuleHeaderProps = {
   title: string;
@@ -29,17 +29,20 @@ export default function ModuleHeader({
   onSelectClick,
   onEditClick,
 }: ModuleHeaderProps) {
+  const iconButtonClass =
+    "inline-flex h-8 w-8 items-center justify-center rounded-sm text-gray-600 hover:bg-gray-100";
+  const activeIconButtonClass = "bg-green-50 text-[#08bd12]";
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-        </div>
+    <div className="border-b border-gray-200 bg-white">
+      <div className="flex h-12 items-center justify-between px-4">
+        <h1 className="text-base font-normal text-gray-800">{title}</h1>
         <div className="relative flex items-center gap-2">
           {addHref ? (
             <Link
               href={addHref}
-              className="inline-flex items-center gap-2 rounded-md bg-(--primary) px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              className="inline-flex h-8 items-center gap-1 rounded-sm bg-[#08bd12] px-3 text-sm font-medium text-white hover:bg-[#08aa12]"
+              title="Add"
             >
               <Plus className="h-4 w-4" />
               Add
@@ -49,26 +52,18 @@ export default function ModuleHeader({
             <button
               type="button"
               onClick={onFilterClick}
-              className={`rounded-md border p-2 text-gray-700 hover:bg-gray-100 ${
-                filterActive
-                  ? "border-(--primary) text-(--primary)"
-                  : "border-gray-300"
-              }`}
+              className={`${iconButtonClass} ${filterActive ? activeIconButtonClass : ""}`}
               aria-label="Filter"
               title="Filter"
             >
-              <Filter className="h-4 w-4" />
+              <ListFilter className="h-4 w-4" />
             </button>
           ) : null}
           {onSelectClick ? (
             <button
               type="button"
               onClick={onSelectClick}
-              className={`rounded-md border p-2 text-gray-700 hover:bg-gray-100 ${
-                selectMode
-                  ? "border-(--primary) text-(--primary)"
-                  : "border-gray-300"
-              }`}
+              className={`${iconButtonClass} ${selectMode ? activeIconButtonClass : ""}`}
               aria-label="Select rows"
               aria-pressed={selectMode}
               title="Select item"
@@ -80,11 +75,7 @@ export default function ModuleHeader({
             <button
               type="button"
               onClick={onEditClick}
-              className={`rounded-md border p-2 text-gray-700 hover:bg-gray-100 ${
-                editMode
-                  ? "border-(--primary) text-(--primary)"
-                  : "border-gray-300"
-              }`}
+              className={`${iconButtonClass} ${editMode ? activeIconButtonClass : ""}`}
               aria-label="Edit rows"
               aria-pressed={editMode}
               title="Edit"

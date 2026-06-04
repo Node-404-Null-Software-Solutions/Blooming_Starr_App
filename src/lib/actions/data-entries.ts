@@ -82,7 +82,7 @@ async function syncProductToSales(
     });
   }
 
-  revalidatePath(`/app/${businessSlug}/sales`);
+  revalidateSalesPaths(businessSlug);
 }
 
 export type SalesEntryUpdate = {
@@ -163,7 +163,7 @@ export async function updateSalesEntry(
   });
   await syncProductToSales(businessId, skuAfter, businessSlug);
 
-  revalidatePath(`/app/${businessSlug}/sales`);
+  revalidateSalesPaths(businessSlug);
   return { ok: true };
 }
 
@@ -191,6 +191,34 @@ function isUniqueConstraintError(error: unknown): boolean {
     "code" in error &&
     error.code === "P2002"
   );
+}
+
+function revalidateDerivedInventoryPaths(businessSlug: string) {
+  const base = `/app/${businessSlug}`;
+  revalidatePath(base);
+  revalidatePath(`${base}/plant-inventory`);
+  revalidatePath(`${base}/product-inventory`);
+  revalidatePath(`${base}/sku-scanner`);
+}
+
+function revalidateSalesPaths(businessSlug: string) {
+  revalidateSalesPaths(businessSlug);
+  revalidateDerivedInventoryPaths(businessSlug);
+}
+
+function revalidatePlantIntakePaths(businessSlug: string) {
+  revalidatePlantIntakePaths(businessSlug);
+  revalidateDerivedInventoryPaths(businessSlug);
+}
+
+function revalidateProductIntakePaths(businessSlug: string) {
+  revalidateProductIntakePaths(businessSlug);
+  revalidateDerivedInventoryPaths(businessSlug);
+}
+
+function revalidateTransplantPaths(businessSlug: string) {
+  revalidateTransplantPaths(businessSlug);
+  revalidateDerivedInventoryPaths(businessSlug);
 }
 
 export async function createSalesEntry(businessSlug: string, formData: FormData) {
@@ -301,7 +329,7 @@ export async function createPlantIntake(businessSlug: string, formData: FormData
     throw error;
   }
 
-  revalidatePath(`/app/${businessSlug}/plant-intake`);
+  revalidatePlantIntakePaths(businessSlug);
   if (createdReference) {
     revalidatePath(`/app/${businessSlug}/settings/lookups`);
   }
@@ -378,7 +406,7 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
     throw error;
   }
 
-  revalidatePath(`/app/${businessSlug}/product-intake`);
+  revalidateProductIntakePaths(businessSlug);
   if (createdReference) {
     revalidatePath(`/app/${businessSlug}/settings/lookups`);
   }
@@ -477,7 +505,7 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
     },
   });
 
-  revalidatePath(`/app/${businessSlug}/transplant-log`);
+  revalidateTransplantPaths(businessSlug);
   return { ok: true };
 }
 
@@ -1056,7 +1084,7 @@ export async function deleteSalesEntry(id: string, businessSlug: string) {
   const existing = await db.salesEntry.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.salesEntry.delete({ where: { id } });
-  revalidatePath(`/app/${businessSlug}/sales`);
+  revalidateSalesPaths(businessSlug);
   return { ok: true };
 }
 
@@ -1067,7 +1095,7 @@ export async function deletePlantIntake(id: string, businessSlug: string) {
   const existing = await db.plantIntake.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.plantIntake.delete({ where: { id } });
-  revalidatePath(`/app/${businessSlug}/plant-intake`);
+  revalidatePlantIntakePaths(businessSlug);
   return { ok: true };
 }
 
@@ -1078,7 +1106,7 @@ export async function deleteProductIntake(id: string, businessSlug: string) {
   const existing = await db.productIntake.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.productIntake.delete({ where: { id } });
-  revalidatePath(`/app/${businessSlug}/product-intake`);
+  revalidateProductIntakePaths(businessSlug);
   return { ok: true };
 }
 
@@ -1100,7 +1128,7 @@ export async function deleteTransplantLog(id: string, businessSlug: string) {
   const existing = await db.transplantLog.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.transplantLog.delete({ where: { id } });
-  revalidatePath(`/app/${businessSlug}/transplant-log`);
+  revalidateTransplantPaths(businessSlug);
   return { ok: true };
 }
 
