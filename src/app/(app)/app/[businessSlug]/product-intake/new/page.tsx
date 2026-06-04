@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { requireActiveMembership } from "@/lib/authz";
 import { createProductIntake } from "@/lib/actions/data-entries";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
-import ModuleHeader from "../../_components/ModuleHeader";
 import ProductIntakeForm from "./ProductIntakeForm";
 
 export default async function NewProductIntakePage({
@@ -30,18 +29,10 @@ export default async function NewProductIntakePage({
   }
 
   return (
-    <div className="space-y-6">
-      <ModuleHeader
-        title="Add product intake"
-        addHref={`/app/${businessSlug}/product-intake/new`}
-      />
-      <div className="rounded-md border border-gray-200 bg-white p-6">
-        <ProductIntakeForm
-          businessSlug={businessSlug}
-          action={submit as (fd: FormData) => Promise<void>}
-          lookups={lookups}
-        />
-      </div>
-    </div>
+    <ProductIntakeForm
+      businessSlug={businessSlug}
+      action={submit as (fd: FormData) => Promise<void>}
+      lookups={lookups}
+    />
   );
 }

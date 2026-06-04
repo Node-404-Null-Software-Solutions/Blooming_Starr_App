@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Filter, Plus } from "lucide-react";
+import { CheckSquare, Filter, Pencil, Plus } from "lucide-react";
 
 type ModuleHeaderProps = {
   title: string;
@@ -11,6 +11,10 @@ type ModuleHeaderProps = {
   rightSlot?: ReactNode;
   onFilterClick?: () => void;
   filterActive?: boolean;
+  selectMode?: boolean;
+  editMode?: boolean;
+  onSelectClick?: () => void;
+  onEditClick?: () => void;
 };
 
 export default function ModuleHeader({
@@ -20,6 +24,10 @@ export default function ModuleHeader({
   rightSlot,
   onFilterClick,
   filterActive = false,
+  selectMode = false,
+  editMode = false,
+  onSelectClick,
+  onEditClick,
 }: ModuleHeaderProps) {
   return (
     <div className="space-y-4">
@@ -50,6 +58,38 @@ export default function ModuleHeader({
               title="Filter"
             >
               <Filter className="h-4 w-4" />
+            </button>
+          ) : null}
+          {onSelectClick ? (
+            <button
+              type="button"
+              onClick={onSelectClick}
+              className={`rounded-md border p-2 text-gray-700 hover:bg-gray-100 ${
+                selectMode
+                  ? "border-(--primary) text-(--primary)"
+                  : "border-gray-300"
+              }`}
+              aria-label="Select rows"
+              aria-pressed={selectMode}
+              title="Select item"
+            >
+              <CheckSquare className="h-4 w-4" />
+            </button>
+          ) : null}
+          {onEditClick ? (
+            <button
+              type="button"
+              onClick={onEditClick}
+              className={`rounded-md border p-2 text-gray-700 hover:bg-gray-100 ${
+                editMode
+                  ? "border-(--primary) text-(--primary)"
+                  : "border-gray-300"
+              }`}
+              aria-label="Edit rows"
+              aria-pressed={editMode}
+              title="Edit"
+            >
+              <Pencil className="h-4 w-4" />
             </button>
           ) : null}
           {rightSlot}

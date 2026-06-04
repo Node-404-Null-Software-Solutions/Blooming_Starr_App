@@ -64,6 +64,7 @@ export default async function SalesPage({
     salePriceCents: row.salePriceCents,
     totalSaleCents: row.totalSaleCents ?? 0,
     paymentMethod: row.paymentMethod,
+    cardLast4: row.cardLast4,
     channel: row.channel,
     costCents: row.costCents,
     profitCents: row.profitCents ?? 0,

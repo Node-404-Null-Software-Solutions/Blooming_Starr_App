@@ -320,6 +320,7 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
 
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const totalCostCents = formCents(formData, "totalCost");
+  const msrpCents = formCents(formData, "msrp");
   const { unitCostCents } = await calculateProductIntakeDerived(
     businessId,
     totalCostCents,
@@ -345,7 +346,7 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
           sku: generated.sku,
           productName: category,
           defaultCostCents: unitCostCents,
-          defaultSalePriceCents: 0,
+          defaultSalePriceCents: msrpCents,
         },
       });
 
