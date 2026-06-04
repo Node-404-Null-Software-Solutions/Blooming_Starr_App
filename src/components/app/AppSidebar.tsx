@@ -36,6 +36,7 @@ const navGroups: NavGroup[] = [
       { label: "Dashboard", modulePath: "", icon: Home },
       { label: "Plant Intake", modulePath: "/plant-intake", icon: Sprout },
       { label: "Plant Inventory", modulePath: "/plant-inventory", icon: Leaf },
+      { label: "Transplant Log", modulePath: "/transplant-log", icon: ClipboardList },
     ],
   },
   {
@@ -48,7 +49,6 @@ const navGroups: NavGroup[] = [
   {
     label: "Operations",
     items: [
-      { label: "Transplant Log", modulePath: "/transplant-log", icon: ClipboardList },
       { label: "Treatment Tracking", modulePath: "/treatment-tracking", icon: Activity },
       { label: "Fertilizer Log", modulePath: "/fertilizer-log", icon: FlaskConical },
       { label: "Overhead Expenses", modulePath: "/overhead-expenses", icon: Receipt },

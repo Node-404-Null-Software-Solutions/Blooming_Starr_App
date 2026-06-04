@@ -47,6 +47,7 @@ export default function ModuleHeader({
                   : "border-gray-300"
               }`}
               aria-label="Filter"
+              title="Filter"
             >
               <Filter className="h-4 w-4" />
             </button>

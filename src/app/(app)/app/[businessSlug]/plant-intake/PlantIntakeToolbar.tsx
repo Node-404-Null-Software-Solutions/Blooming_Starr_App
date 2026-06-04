@@ -137,6 +137,7 @@ export default function PlantIntakeToolbar({
               hasActiveFilters ? "text-[#08bd12]" : ""
             }`}
             aria-label="Filter"
+            title="Filter"
           >
             <ListFilter className="h-4 w-4" />
           </button>
@@ -148,6 +149,7 @@ export default function PlantIntakeToolbar({
             }`}
             aria-label="Select rows"
             aria-pressed={selectMode}
+            title="Select item"
           >
             <CheckSquare className="h-4 w-4" />
           </button>
@@ -159,6 +161,7 @@ export default function PlantIntakeToolbar({
             }`}
             aria-label="Edit rows"
             aria-pressed={editMode}
+            title="Edit"
           >
             <Pencil className="h-4 w-4" />
           </button>

@@ -305,6 +305,7 @@ export default async function PlantInventoryPage({
               type="button"
               className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-gray-600 hover:bg-gray-100"
               aria-label="Filter"
+              title="Filter"
             >
               <ListFilter className="h-4 w-4" />
             </button>
@@ -312,6 +313,7 @@ export default async function PlantInventoryPage({
               type="button"
               className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-gray-600 hover:bg-gray-100"
               aria-label="Select rows"
+              title="Select item"
             >
               <CheckSquare className="h-4 w-4" />
             </button>
@@ -319,6 +321,7 @@ export default async function PlantInventoryPage({
               type="button"
               className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-gray-600 hover:bg-gray-100"
               aria-label="Edit rows"
+              title="Edit"
             >
               <Pencil className="h-4 w-4" />
             </button>
