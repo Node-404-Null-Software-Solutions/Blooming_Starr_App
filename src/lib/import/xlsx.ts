@@ -1,4 +1,87 @@
-import ExcelJS from "exceljs";
+import readExcelFile from "read-excel-file/node";
+
+type CellPrimitive = string | number | boolean | Date | null;
+
+export type Cell = {
+  value: CellPrimitive;
+};
+
+export type Row = {
+  number: number;
+  getCell(colNumber: number): Cell;
+  eachCell(
+    options: { includeEmpty?: boolean },
+    callback: (cell: Cell, colNumber: number) => void
+  ): void;
+};
+
+export type Worksheet = {
+  name: string;
+  rowCount: number;
+  getRow(rowNumber: number): Row;
+  eachRow(
+    options: { includeEmpty?: boolean },
+    callback: (row: Row, rowNumber: number) => void
+  ): void;
+};
+
+export type Workbook = {
+  worksheets: Worksheet[];
+};
+
+class WorkbookRow implements Row {
+  constructor(
+    public readonly number: number,
+    private readonly cells: CellPrimitive[]
+  ) {}
+
+  getCell(colNumber: number): Cell {
+    return { value: this.cells[colNumber - 1] ?? null };
+  }
+
+  eachCell(
+    options: { includeEmpty?: boolean },
+    callback: (cell: Cell, colNumber: number) => void
+  ): void {
+    this.cells.forEach((value, index) => {
+      if (!options.includeEmpty && isEmptyCellValue(value)) return;
+      callback({ value }, index + 1);
+    });
+  }
+}
+
+class WorkbookWorksheet implements Worksheet {
+  public readonly rowCount: number;
+
+  constructor(
+    public readonly name: string,
+    private readonly rows: CellPrimitive[][]
+  ) {
+    this.rowCount = rows.length;
+  }
+
+  getRow(rowNumber: number): Row {
+    return new WorkbookRow(rowNumber, this.rows[rowNumber - 1] ?? []);
+  }
+
+  eachRow(
+    options: { includeEmpty?: boolean },
+    callback: (row: Row, rowNumber: number) => void
+  ): void {
+    this.rows.forEach((cells, index) => {
+      if (!options.includeEmpty && cells.every(isEmptyCellValue)) return;
+      callback(new WorkbookRow(index + 1, cells), index + 1);
+    });
+  }
+}
+
+class WorkbookAdapter implements Workbook {
+  constructor(public readonly worksheets: Worksheet[]) {}
+}
+
+function isEmptyCellValue(value: CellPrimitive): boolean {
+  return value === null || value === undefined || value === "";
+}
 
 export function normalizeHeader(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
@@ -28,22 +111,23 @@ export function toStringCell(v: unknown): string {
   return String(v).trim();
 }
 
-export async function loadWorkbookFromFile(
-  file: File
-): Promise<ExcelJS.Workbook> {
-  const workbook = new ExcelJS.Workbook();
-  type ExcelJSLoadArg = Parameters<typeof workbook.xlsx.load>[0];
-
+export async function loadWorkbookFromFile(file: File): Promise<Workbook> {
   const arrayBuffer = await file.arrayBuffer();
   const nodeBuffer = Buffer.from(arrayBuffer);
-  await workbook.xlsx.load(nodeBuffer as unknown as ExcelJSLoadArg);
-  return workbook;
+  const sheets = await readExcelFile<number>(nodeBuffer);
+
+  return new WorkbookAdapter(
+    sheets.map(
+      ({ sheet, data }) =>
+        new WorkbookWorksheet(sheet, data as unknown as CellPrimitive[][])
+    )
+  );
 }
 
 export function findWorksheetByName(
-  workbook: ExcelJS.Workbook,
+  workbook: Workbook,
   candidates: string[]
-): ExcelJS.Worksheet | null {
+): Worksheet | null {
   const normalized = new Set(
     candidates.map((name) => name.trim().toLowerCase())
   );
@@ -57,9 +141,9 @@ export function findWorksheetByName(
 }
 
 export function findHeaderRow(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   requiredHeaders: string[]
-): ExcelJS.Row | null {
+): Row | null {
   const required = requiredHeaders.map((h) => normalizeHeader(h));
   const scanMax = Math.min(ws.rowCount, 10);
 
@@ -80,7 +164,7 @@ export function findHeaderRow(
   return null;
 }
 
-export function buildHeaderMap(headerRow: ExcelJS.Row): Map<string, number> {
+export function buildHeaderMap(headerRow: Row): Map<string, number> {
   const headerMap = new Map<string, number>();
   headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
     const label = normalizeHeader(toStringCell(cell.value));

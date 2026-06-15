@@ -18,14 +18,15 @@ import {
   parseDate,
   parseIntSafe,
   toStringCell,
+  type Workbook,
+  type Worksheet,
 } from "@/lib/import/xlsx";
-import type ExcelJS from "exceljs";
 
 
 function findSheetStrict(
-  workbook: ExcelJS.Workbook,
+  workbook: Workbook,
   candidates: string[]
-): ExcelJS.Worksheet | null {
+): Worksheet | null {
   const normalized = new Set(candidates.map((n) => n.trim().toLowerCase()));
   return workbook.worksheets.find((ws) => normalized.has(ws.name.trim().toLowerCase())) ?? null;
 }
@@ -129,7 +130,7 @@ async function seedLookup(
 
 
 function readColumnPairs(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   nameCol: number,
   codeCol: number,
   headerRow: number
@@ -146,7 +147,7 @@ function readColumnPairs(
 
 
 function readColumnNames(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   nameCol: number,
   headerRow: number
 ): string[] {
@@ -175,7 +176,7 @@ function addResults(a: LookupResult, b: LookupResult): LookupResult {
 
 
 async function parsePlantKey(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
@@ -207,7 +208,7 @@ async function parsePlantKey(
 
 
 async function parseProductKey(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
@@ -229,7 +230,7 @@ async function parseProductKey(
 
 
 async function parseTransplantKey(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
@@ -299,7 +300,7 @@ async function parseTransplantKey(
 
 
 async function parseTreatmentKey(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
@@ -328,7 +329,7 @@ async function parseTreatmentKey(
 
 
 async function parseFertilizerKey(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
@@ -361,7 +362,7 @@ async function parseFertilizerKey(
 
 
 async function parseOverheadKey(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
@@ -386,7 +387,7 @@ async function parseOverheadKey(
 
 
 async function parseSkuKey(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
@@ -444,7 +445,7 @@ function dateKey(value: Date | null | undefined): string {
 }
 
 async function importPlantIntake(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string
 ): Promise<SheetResult> {
   const headerRow = findHeaderRow(ws, ["Source", "SKU"]);
@@ -540,7 +541,7 @@ async function importPlantIntake(
 }
 
 async function importProductIntake(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string
 ): Promise<SheetResult> {
   const headerRow = findHeaderRow(ws, ["Date", "Code / SKU"]) ??
@@ -643,7 +644,7 @@ async function importProductIntake(
 type SalesResult = SheetResult & { salesChannelLookup: LookupResult };
 
 async function importSales(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string
 ): Promise<SalesResult> {
   const emptyLookup: LookupResult = { added: 0, alreadyExisted: 0 };
@@ -734,7 +735,7 @@ async function importSales(
 }
 
 async function importOverheadExpenses(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string
 ): Promise<SheetResult> {
   const headerRow = findHeaderRow(ws, ["Date"]);
@@ -841,7 +842,7 @@ async function importOverheadExpenses(
 }
 
 async function importTransplantLog(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string
 ): Promise<SheetResult> {
   const headerRow = findHeaderRow(ws, ["Date", "Original SKU"]);
@@ -924,7 +925,7 @@ async function importTransplantLog(
 }
 
 async function importFertilizerLog(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string
 ): Promise<SheetResult> {
   const headerRow = findHeaderRow(ws, ["Date", "Plant SKU"]);
@@ -1003,7 +1004,7 @@ async function importFertilizerLog(
 }
 
 async function importTreatmentTracking(
-  ws: ExcelJS.Worksheet,
+  ws: Worksheet,
   businessId: string
 ): Promise<SheetResult> {
   const headerRow = findHeaderRow(ws, ["Date", "SKU"]);
