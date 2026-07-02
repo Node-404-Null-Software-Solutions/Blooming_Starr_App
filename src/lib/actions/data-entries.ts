@@ -202,22 +202,22 @@ function revalidateDerivedInventoryPaths(businessSlug: string) {
 }
 
 function revalidateSalesPaths(businessSlug: string) {
-  revalidateSalesPaths(businessSlug);
+  revalidatePath(`/app/${businessSlug}/sales`);
   revalidateDerivedInventoryPaths(businessSlug);
 }
 
 function revalidatePlantIntakePaths(businessSlug: string) {
-  revalidatePlantIntakePaths(businessSlug);
+  revalidatePath(`/app/${businessSlug}/plant-intake`);
   revalidateDerivedInventoryPaths(businessSlug);
 }
 
 function revalidateProductIntakePaths(businessSlug: string) {
-  revalidateProductIntakePaths(businessSlug);
+  revalidatePath(`/app/${businessSlug}/product-intake`);
   revalidateDerivedInventoryPaths(businessSlug);
 }
 
 function revalidateTransplantPaths(businessSlug: string) {
-  revalidateTransplantPaths(businessSlug);
+  revalidatePath(`/app/${businessSlug}/transplant-log`);
   revalidateDerivedInventoryPaths(businessSlug);
 }
 
@@ -462,7 +462,15 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
 
   const originalSku = formStr(formData, "originalSku") || null;
   const action = formStr(formData, "action") || null;
-  let costCents = formCents(formData, "cost");
+  const latestForOriginalSku = originalSku
+    ? await db.transplantLog.findFirst({
+        where: { businessId, originalSku },
+        select: { fromPot: true, costCents: true },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      })
+    : null;
+  const fromPot = latestForOriginalSku?.fromPot ?? (formStr(formData, "fromPot") || null);
+  let costCents = latestForOriginalSku?.costCents ?? formCents(formData, "cost");
 
   if (
     costCents === 0 &&
@@ -495,7 +503,7 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
       originalSku,
       action,
       media: formStr(formData, "media") || null,
-      fromPot: formStr(formData, "fromPot") || null,
+      fromPot,
       toPot: formStr(formData, "toPot") || null,
       idCode: formStr(formData, "idCode") || null,
       divisionSku: formStr(formData, "divisionSku") || null,

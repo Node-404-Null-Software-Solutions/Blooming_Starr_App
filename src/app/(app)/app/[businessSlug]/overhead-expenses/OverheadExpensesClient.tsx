@@ -75,8 +75,13 @@ export default function OverheadExpensesClient({
     }
   }
 
+  const headCell =
+    "sticky top-0 z-10 border-b border-r border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-800";
+  const bodyCell =
+    "border-b border-r border-gray-200 px-3 py-1.5 align-middle text-xs text-gray-700";
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-[calc(100vh-3.5rem)] bg-white">
       <div className="relative">
         <ModuleHeader
           title="Overhead Expenses"
@@ -115,7 +120,7 @@ export default function OverheadExpensesClient({
       ) : (
         <>
 
-          <div className="md:hidden space-y-2">
+          <div className="space-y-2 p-3 md:hidden">
             {rows.map((row) => (
               <div
                 key={row.id}
@@ -134,84 +139,83 @@ export default function OverheadExpensesClient({
           </div>
 
 
-          <div className="hidden md:block overflow-x-auto">
-            <div className="rounded-lg border border-gray-200 bg-white">
-              <table className="w-full min-w-[1700px] border-collapse">
+          <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[1700px] border-collapse bg-white">
                 <thead>
-                  <tr className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-600">
-                    <th className="sticky top-0 z-10 px-3 py-2">Date</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Vendor</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Brand</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Category</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Description</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Qty</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Subtotal</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Discount</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Unit Cost</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Actual Total</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Payment Method</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Card #</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Invoice #</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Notes/Project</th>
+                  <tr>
+                    <th className={headCell}>Date</th>
+                    <th className={headCell}>Vendor</th>
+                    <th className={headCell}>Brand</th>
+                    <th className={headCell}>Category</th>
+                    <th className={headCell}>Description</th>
+                    <th className={headCell}>Qty</th>
+                    <th className={headCell}>Subtotal</th>
+                    <th className={headCell}>Discount</th>
+                    <th className={headCell}>Unit Cost</th>
+                    <th className={headCell}>Actual Total</th>
+                    <th className={headCell}>Payment Method</th>
+                    <th className={headCell}>Card #</th>
+                    <th className={headCell}>Invoice #</th>
+                    <th className={headCell}>Notes/Project</th>
                   </tr>
                 </thead>
-                <tbody className="text-sm text-gray-700">
+                <tbody>
                   {rows.map((row) => {
                     const actualTotal = row.totalCents ?? 0;
                     return (
                       <tr
                         key={row.id}
                         onClick={() => setSelectedId(row.id)}
-                        className="border-t border-gray-100 cursor-pointer hover:bg-green-50/40"
+                        className="h-9 cursor-pointer hover:bg-green-50/50"
                       >
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           <EditableCell value={row.date ? row.date.slice(0, 10) : ""} onSave={(v) => handleSave(row.id, "date", v)} type="date" />
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           <EditableCell value={row.vendor ?? ""} onSave={(v) => handleSave(row.id, "vendor", v)} />
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           <EditableCell value={row.brand ?? ""} onSave={(v) => handleSave(row.id, "brand", v)} />
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           <EditableCell value={row.category ?? ""} onSave={(v) => handleSave(row.id, "category", v)} />
                         </td>
-                        <td className="px-3 py-2">
+                        <td className={bodyCell}>
                           <EditableCell value={row.description ?? ""} onSave={(v) => handleSave(row.id, "description", v)} />
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           <EditableCell value={String(row.qty)} onSave={(v) => handleSave(row.id, "qty", v)} type="number" />
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           <EditableCell
                             value={row.subTotalCents != null ? String(row.subTotalCents) : ""}
                             onSave={(v) => handleSave(row.id, "subTotalCents", v)}
                             type="currency"
                           />
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           <EditableCell
                             value={row.discountCents != null ? String(row.discountCents) : ""}
                             onSave={(v) => handleSave(row.id, "discountCents", v)}
                             type="currency"
                           />
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           {centsToUsdFixed(row.unitCostCents ?? 0)}
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           {centsToUsdFixed(actualTotal)}
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           <EditableCell value={row.paymentMethod ?? ""} onSave={(v) => handleSave(row.id, "paymentMethod", v)} />
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           {row.cardLast4 ? `**** ${row.cardLast4}` : "—"}
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`${bodyCell} whitespace-nowrap`}>
                           <EditableCell value={row.invoiceNumber ?? ""} onSave={(v) => handleSave(row.id, "invoiceNumber", v)} />
                         </td>
-                        <td className="px-3 py-2">
+                        <td className={bodyCell}>
                           <EditableCell value={row.notes ?? ""} onSave={(v) => handleSave(row.id, "notes", v)} />
                         </td>
                       </tr>
@@ -219,7 +223,6 @@ export default function OverheadExpensesClient({
                   })}
                 </tbody>
               </table>
-            </div>
           </div>
         </>
       )}

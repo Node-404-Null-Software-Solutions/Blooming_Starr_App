@@ -71,8 +71,13 @@ export default function TreatmentTrackingClient({
     }
   }
 
+  const headCell =
+    "sticky top-0 z-10 border-b border-r border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-800";
+  const bodyCell =
+    "border-b border-r border-gray-200 px-3 py-1.5 align-middle text-xs text-gray-700";
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-[calc(100vh-3.5rem)] bg-white">
       <div className="relative">
         <ModuleHeader
           title="Treatment Tracking"
@@ -111,7 +116,7 @@ export default function TreatmentTrackingClient({
       ) : (
         <>
 
-          <div className="md:hidden space-y-2">
+          <div className="space-y-2 p-3 md:hidden">
             {rows.map((row) => (
               <div
                 key={row.id}
@@ -128,69 +133,67 @@ export default function TreatmentTrackingClient({
           </div>
 
 
-          <div className="hidden md:block overflow-x-auto">
-            <div className="rounded-lg border border-gray-200 bg-white">
-              <table className="w-full min-w-[1500px] border-collapse">
+          <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[1500px] border-collapse bg-white">
                 <thead>
-                  <tr className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-600">
-                    <th className="sticky top-0 z-10 px-3 py-2">Date</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">SKU</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Target</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Product</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Active Ingredient</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">EPA #</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Rate</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Pot Size</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Method</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Initials</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Next Earliest Application</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Next Latest Application</th>
+                  <tr>
+                    <th className={headCell}>Date</th>
+                    <th className={headCell}>SKU</th>
+                    <th className={headCell}>Target</th>
+                    <th className={headCell}>Product</th>
+                    <th className={headCell}>Active Ingredient</th>
+                    <th className={headCell}>EPA #</th>
+                    <th className={headCell}>Rate</th>
+                    <th className={headCell}>Pot Size</th>
+                    <th className={headCell}>Method</th>
+                    <th className={headCell}>Initials</th>
+                    <th className={headCell}>Next Earliest Application</th>
+                    <th className={headCell}>Next Latest Application</th>
                   </tr>
                 </thead>
-                <tbody className="text-sm text-gray-700">
+                <tbody>
                   {rows.map((row) => (
                     <tr
                       key={row.id}
                       onClick={() => setSelectedId(row.id)}
-                      className="border-t border-gray-100 cursor-pointer hover:bg-green-50/40"
+                      className="h-9 cursor-pointer hover:bg-green-50/50"
                     >
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.date ?? ""} onSave={(v) => handleSave(row.id, "date", v)} type="date" />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.sku} onSave={(v) => handleSave(row.id, "sku", v)} />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.target ?? ""} onSave={(v) => handleSave(row.id, "target", v)} />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.product ?? ""} onSave={(v) => handleSave(row.id, "product", v)} />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.activeIngredient ?? ""} onSave={(v) => handleSave(row.id, "activeIngredient", v)} />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.epaNumber ?? ""} onSave={(v) => handleSave(row.id, "epaNumber", v)} />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.rate ?? ""} onSave={(v) => handleSave(row.id, "rate", v)} />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.potSize ?? ""} onSave={(v) => handleSave(row.id, "potSize", v)} />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.method ?? ""} onSave={(v) => handleSave(row.id, "method", v)} />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.initials ?? ""} onSave={(v) => handleSave(row.id, "initials", v)} />
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.nextEarliest)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.nextLatest)}</td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>{formatDate(row.nextEarliest)}</td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>{formatDate(row.nextLatest)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
           </div>
         </>
       )}

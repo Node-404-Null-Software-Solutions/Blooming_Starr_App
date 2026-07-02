@@ -152,8 +152,13 @@ export default function TransplantLogClient({
     );
   }
 
+  const headCell =
+    "sticky top-0 z-10 border-b border-r border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-800";
+  const bodyCell =
+    "border-b border-r border-gray-200 px-3 py-1.5 align-middle text-xs text-gray-700";
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-[calc(100vh-3.5rem)] bg-white">
       <div className="relative">
         <ModuleHeader
           title="Transplant Log"
@@ -195,7 +200,7 @@ export default function TransplantLogClient({
         </div>
       ) : (
         <>
-          <div className="space-y-2 md:hidden">
+          <div className="space-y-2 p-3 md:hidden">
             {rows.map((row) => (
               <div
                 key={row.id}
@@ -223,12 +228,11 @@ export default function TransplantLogClient({
           </div>
 
           <div className="hidden overflow-x-auto md:block">
-            <div className="rounded-lg border border-gray-200 bg-white">
-              <table className="w-full min-w-[1400px] border-collapse">
+              <table className="w-full min-w-[1400px] border-collapse bg-white">
                 <thead>
-                  <tr className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-600">
+                  <tr>
                     {selectMode ? (
-                      <th className="sticky top-0 z-10 w-12 px-3 py-2 text-center">
+                      <th className={`${headCell} w-12 text-center`}>
                         <button
                           type="button"
                           onClick={toggleAllRows}
@@ -242,20 +246,20 @@ export default function TransplantLogClient({
                         </button>
                       </th>
                     ) : null}
-                    <th className="sticky top-0 z-10 px-3 py-2">Date</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Original SKU</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Action</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Media</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">From Pot</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">To Pot</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">ID</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">New SKU</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Cost Per</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Pot Color</th>
-                    <th className="sticky top-0 z-10 px-3 py-2">Notes</th>
+                    <th className={headCell}>Date</th>
+                    <th className={headCell}>Original SKU</th>
+                    <th className={headCell}>Action</th>
+                    <th className={headCell}>Media</th>
+                    <th className={headCell}>From Pot</th>
+                    <th className={headCell}>To Pot</th>
+                    <th className={headCell}>ID</th>
+                    <th className={headCell}>New SKU</th>
+                    <th className={headCell}>Cost Per</th>
+                    <th className={headCell}>Pot Color</th>
+                    <th className={headCell}>Notes</th>
                   </tr>
                 </thead>
-                <tbody className="text-sm text-gray-700">
+                <tbody>
                   {rows.map((row) => (
                     <tr
                       key={row.id}
@@ -265,7 +269,7 @@ export default function TransplantLogClient({
                       } ${selectedRows.has(row.id) ? "bg-green-50" : ""}`}
                     >
                       {selectMode ? (
-                        <td className="px-3 py-2 text-center">
+                        <td className={`${bodyCell} text-center`}>
                           <button
                             type="button"
                             onClick={(event) => {
@@ -280,32 +284,31 @@ export default function TransplantLogClient({
                           </button>
                         </td>
                       ) : null}
-                      <td className="px-3 py-2 whitespace-nowrap">{renderCell(row, "date", "date")}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{renderCell(row, "originalSku")}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "date", "date")}</td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "originalSku")}</td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         {renderCell(row, "action", actionOptions.length ? "select" : "text", actionOptions)}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         {renderCell(row, "media", mediaOptions.length ? "select" : "text", mediaOptions)}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         {renderCell(row, "fromPot", potSizeOptions.length ? "select" : "text", potSizeOptions)}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         {renderCell(row, "toPot", potSizeOptions.length ? "select" : "text", potSizeOptions)}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">{renderCell(row, "idCode")}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{renderCell(row, "divisionSku")}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{renderCell(row, "costCents", "currency")}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "idCode")}</td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "divisionSku")}</td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "costCents", "currency")}</td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>
                         {renderCell(row, "potColor", potColorOptions.length ? "select" : "text", potColorOptions)}
                       </td>
-                      <td className="px-3 py-2">{renderCell(row, "notes")}</td>
+                      <td className={bodyCell}>{renderCell(row, "notes")}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
           </div>
         </>
       )}
