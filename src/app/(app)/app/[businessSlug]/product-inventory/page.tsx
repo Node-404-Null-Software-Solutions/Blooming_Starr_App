@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireActiveMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { centsToUsdFixed as money } from "@/lib/formulas";
+import ModuleHeader from "../_components/ModuleHeader";
 
 type InventoryRow = {
   sku: string;
@@ -43,10 +44,7 @@ export default async function ProductInventoryPage({
     }),
   ]);
 
-
   const productSkuSet = new Set(productIntakeRows.map((p) => p.sku));
-
-
   const skuMap = new Map<
     string,
     {
@@ -62,7 +60,6 @@ export default async function ProductInventoryPage({
     const existing = skuMap.get(row.sku);
     if (existing) {
       existing.qtyPurchased += row.qty;
-
       if (row.unitCostCents) existing.unitCostCents = row.unitCostCents;
     } else {
       skuMap.set(row.sku, {
@@ -74,7 +71,6 @@ export default async function ProductInventoryPage({
     }
   }
 
-
   for (const sale of salesRows) {
     if (!productSkuSet.has(sale.sku)) continue;
     const entry = skuMap.get(sale.sku);
@@ -82,7 +78,6 @@ export default async function ProductInventoryPage({
       entry.qtySold += sale.qty;
     }
   }
-
 
   const rows: InventoryRow[] = [];
   for (const [sku, data] of skuMap) {
@@ -100,25 +95,27 @@ export default async function ProductInventoryPage({
 
   rows.sort((a, b) => a.sku.localeCompare(b.sku));
 
+  const headCell =
+    "sticky top-0 z-10 border-b border-r border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-800";
+  const bodyCell =
+    "border-b border-r border-gray-200 px-3 py-1.5 align-middle text-xs text-gray-700";
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-gray-900">Product Inventory</h1>
-          <p className="text-sm text-gray-600">
-            Computed from product intake and sales records.
-          </p>
-        </div>
+    <div className="min-h-[calc(100vh-3.5rem)] bg-white">
+      <ModuleHeader title="Product Inventory" showFilter={false} />
+
+      <div className="flex min-h-10 items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 text-sm text-gray-700">
+        <span>Computed from product intake and sales records.</span>
         <Link
           href={`/app/${businessSlug}/product-intake`}
-          className="text-sm font-medium text-(--primary) hover:underline"
+          className="shrink-0 font-medium text-(--primary) hover:underline"
         >
-          View product intake →
+          View product intake
         </Link>
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-md border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
+        <div className="m-4 rounded-md border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
           No product inventory data.{" "}
           <Link
             href={`/app/${businessSlug}/settings/import`}
@@ -129,40 +126,40 @@ export default async function ProductInventoryPage({
           to populate this view.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-          <table className="w-full border-collapse text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] border-collapse bg-white">
             <thead>
-              <tr className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-600">
-                <th className="px-3 py-2">SKU</th>
-                <th className="px-3 py-2">Product Name</th>
-                <th className="px-3 py-2 text-right">Unit Cost</th>
-                <th className="px-3 py-2 text-right">Purchased</th>
-                <th className="px-3 py-2 text-right">Sold</th>
-                <th className="px-3 py-2 text-right">Remaining</th>
-                <th className="px-3 py-2">Status</th>
+              <tr>
+                <th className={headCell}>SKU</th>
+                <th className={headCell}>Product Name</th>
+                <th className={`${headCell} text-right`}>Unit Cost</th>
+                <th className={`${headCell} text-right`}>Purchased</th>
+                <th className={`${headCell} text-right`}>Sold</th>
+                <th className={`${headCell} text-right`}>Remaining</th>
+                <th className={headCell}>Status</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr
-                  key={row.sku}
-                  className="border-t border-gray-100 text-gray-700"
-                >
-                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">
+                <tr key={row.sku} className="h-9 hover:bg-green-50/50">
+                  <td className={`${bodyCell} whitespace-nowrap font-mono`}>
                     {row.sku}
                   </td>
-                  <td className="max-w-[200px] truncate px-3 py-2" title={row.productName}>
+                  <td
+                    className={`${bodyCell} max-w-[240px] truncate`}
+                    title={row.productName}
+                  >
                     {row.productName}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right">
+                  <td className={`${bodyCell} whitespace-nowrap text-right`}>
                     {money(row.unitCostCents)}
                   </td>
-                  <td className="px-3 py-2 text-right">{row.qtyPurchased}</td>
-                  <td className="px-3 py-2 text-right">{row.qtySold}</td>
-                  <td className="px-3 py-2 text-right font-semibold">
+                  <td className={`${bodyCell} text-right`}>{row.qtyPurchased}</td>
+                  <td className={`${bodyCell} text-right`}>{row.qtySold}</td>
+                  <td className={`${bodyCell} text-right font-medium`}>
                     {row.qtyRemaining}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2">
+                  <td className={`${bodyCell} whitespace-nowrap`}>
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                         row.status === "In Stock"
