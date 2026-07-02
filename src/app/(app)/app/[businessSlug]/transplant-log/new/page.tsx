@@ -3,7 +3,6 @@ import { requireActiveMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { createTransplantLog } from "@/lib/actions/data-entries";
-import ModuleHeader from "../../_components/ModuleHeader";
 import TransplantLogForm from "./TransplantLogForm";
 
 export default async function NewTransplantLogPage({
@@ -11,7 +10,7 @@ export default async function NewTransplantLogPage({
 }: {
   params: Promise<{ businessSlug: string }>;
 }) {
-  const { profile } = await requireActiveMembership();
+  const { profile, business } = await requireActiveMembership();
   const { businessSlug } = await params;
   const businessId = profile.activeBusinessId;
   if (!businessId) return null;
@@ -44,22 +43,16 @@ export default async function NewTransplantLogPage({
   }
 
   return (
-    <div className="space-y-6">
-      <ModuleHeader
-        title="Add transplant log"
-        addHref={`/app/${businessSlug}/transplant-log/new`}
-      />
-      <div className="rounded-md border border-gray-200 bg-white p-6">
-        <TransplantLogForm
-          businessSlug={businessSlug}
-          action={submit as (fd: FormData) => Promise<void>}
-          skuList={skuList}
-          actionOptions={actionOptions}
-          mediaOptions={mediaOptions}
-          potSizeOptions={potSizeOptions}
-          potColorOptions={potColorOptions}
-        />
-      </div>
-    </div>
+    <TransplantLogForm
+      businessSlug={businessSlug}
+      action={submit as (fd: FormData) => Promise<void>}
+      logoUrl={business.logoUrl ?? null}
+      businessName={business.name}
+      skuList={skuList}
+      actionOptions={actionOptions}
+      mediaOptions={mediaOptions}
+      potSizeOptions={potSizeOptions}
+      potColorOptions={potColorOptions}
+    />
   );
 }
