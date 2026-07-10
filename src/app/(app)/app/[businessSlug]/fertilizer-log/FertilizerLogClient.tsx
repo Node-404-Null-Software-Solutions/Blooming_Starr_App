@@ -157,15 +157,15 @@ export default function FertilizerLogClient({
                 role="button"
                 tabIndex={0}
                 aria-pressed={selectedId === row.id}
-                className={`cursor-pointer rounded-lg border p-3 active:bg-green-50 ${
+                className={`cursor-pointer rounded-lg border p-3 text-center active:bg-green-50 ${
                   selectedId === row.id ? "border-green-400 bg-green-50" : "border-gray-200 bg-white"
                 }`}
               >
-                <p className="text-sm font-medium">{formatAppDate(row.date, "—")}</p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="break-words text-sm font-medium [overflow-wrap:anywhere]">{formatAppDate(row.date, "—")}</p>
+                <p className="mt-0.5 break-words text-xs text-gray-500 [overflow-wrap:anywhere]">
                   {row.plantSku ?? "—"} · {row.product ?? "—"}
                 </p>
-                {row.method && <p className="text-xs text-gray-400 mt-0.5">{row.method}</p>}
+                {row.method && <p className="mt-0.5 break-words text-xs text-gray-400 [overflow-wrap:anywhere]">{row.method}</p>}
               </div>
             ))}
           </div>
@@ -239,7 +239,7 @@ export default function FertilizerLogClient({
         </>
       )}
 
-      {hasRows && isPending && <p className="text-xs text-gray-500">Saving…</p>}
+      {hasRows && isPending && <p className="text-center text-xs text-gray-500 sm:text-left">Saving…</p>}
 
       </div>
     </MasterDetailLayout>

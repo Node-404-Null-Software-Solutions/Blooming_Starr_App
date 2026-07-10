@@ -272,13 +272,13 @@ export default function ProductIntakeClient({
       ) : (
         <>
           {selectMode ? (
-            <div className="flex h-10 items-center border-b border-gray-200 bg-gray-50 px-4 text-sm text-gray-700">
+            <div className="flex h-10 items-center justify-center border-b border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-700 sm:justify-start sm:text-left">
               {selectedRows.size} row{selectedRows.size === 1 ? "" : "s"} selected
             </div>
           ) : null}
 
           {editMode ? (
-            <div className="flex h-10 items-center border-b border-green-200 bg-green-50 px-4 text-sm text-gray-700">
+            <div className="flex h-10 items-center justify-center border-b border-green-200 bg-green-50 px-4 text-center text-sm text-gray-700 sm:justify-start sm:text-left">
               Edit mode
             </div>
           ) : null}
@@ -298,21 +298,21 @@ export default function ProductIntakeClient({
                 role="button"
                 tabIndex={editMode ? undefined : 0}
                 aria-pressed={selectedRows.has(row.id) || selectedId === row.id}
-                className={`cursor-pointer rounded-md border p-3 active:bg-green-50 ${
+                className={`cursor-pointer rounded-md border p-3 text-center active:bg-green-50 ${
                   selectedRows.has(row.id) || selectedId === row.id
                     ? "border-green-400 bg-green-50"
                     : "border-gray-200 bg-white"
                 }`}
               >
-                <div className="flex items-start gap-3">
+                <div className="relative min-h-5 text-center">
                   {selectMode ? (
-                    <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-sm border border-gray-300 bg-white">
+                    <span className="absolute left-0 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-sm border border-gray-300 bg-white">
                       {selectedRows.has(row.id) ? (
                         <Check className="h-4 w-4 text-[#08bd12]" />
                       ) : null}
                     </span>
                   ) : null}
-                  <div className="min-w-0 flex-1">
+                  <div className="mx-auto min-w-0 max-w-full px-7 break-words [overflow-wrap:anywhere]">
                     <p className="text-sm font-medium">{formatAppDate(row.date, dash)}</p>
                     <p className="mt-0.5 text-xs text-gray-500">
                       {row.sku} - {cleanDisplay(row.vendor) || dash} - qty {row.qty}
@@ -428,7 +428,7 @@ export default function ProductIntakeClient({
         </>
       )}
 
-      {hasRows && isPending ? <p className="px-4 text-xs text-gray-500">Saving...</p> : null}
+      {hasRows && isPending ? <p className="px-4 text-center text-xs text-gray-500 sm:text-left">Saving...</p> : null}
 
       </div>
     </MasterDetailLayout>

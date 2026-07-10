@@ -35,9 +35,11 @@ export default function ModuleHeader({
 
   return (
     <div className="border-b border-gray-200 bg-white">
-      <div className="flex h-12 items-center justify-between px-4">
-        <h1 className="text-base font-normal text-gray-800">{title}</h1>
-        <div className="relative flex items-center gap-2">
+      <div className="flex flex-col items-center justify-center gap-3 px-4 py-3 sm:h-12 sm:flex-row sm:justify-between sm:py-0">
+        <h1 className="w-full text-center text-base font-normal text-gray-800 sm:w-auto sm:text-left">
+          {title}
+        </h1>
+        <div className="relative flex w-full items-center justify-center gap-3 sm:w-auto sm:justify-end sm:gap-2">
           {addHref ? (
             <Link
               href={addHref}

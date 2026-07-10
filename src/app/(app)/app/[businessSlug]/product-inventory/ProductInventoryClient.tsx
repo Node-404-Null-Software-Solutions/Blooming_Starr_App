@@ -252,7 +252,7 @@ export default function ProductInventoryClient({
       </div>
 
       {selectMode ? (
-        <div className="flex h-10 items-center border-b border-gray-200 bg-gray-50 px-4 text-sm text-gray-700">
+        <div className="flex h-10 items-center justify-center border-b border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-700 sm:justify-start sm:text-left">
           {selectedRows.size} row{selectedRows.size === 1 ? "" : "s"} selected
         </div>
       ) : null}
