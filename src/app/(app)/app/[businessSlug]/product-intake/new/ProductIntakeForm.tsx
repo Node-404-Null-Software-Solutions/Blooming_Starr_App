@@ -51,21 +51,21 @@ export default function ProductIntakeForm({ businessSlug, action, lookups }: Pro
   }
 
   return (
-    <form action={action} className="min-h-[calc(100vh-3.5rem)] bg-white">
-      <div className="flex h-[60px] items-center justify-between px-4">
-        <div className="flex items-center gap-4">
+    <form action={action} className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white">
+      <div className="px-4 py-3 sm:flex sm:h-[60px] sm:items-center sm:justify-between sm:py-0">
+        <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] items-center sm:flex sm:gap-4">
           <Link
             href={`/app/${businessSlug}/product-intake`}
-            className="inline-flex h-6 w-6 items-center justify-center text-gray-600 hover:text-gray-900"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center justify-self-start text-gray-600 hover:text-gray-900"
             aria-label="Close product intake form"
           >
             <X className="h-5 w-5" />
           </Link>
-          <h1 className="text-xl font-normal text-gray-900">
+          <h1 className="min-w-0 text-center text-xl font-normal text-gray-900 sm:text-left">
             PRODUCT Intake Coding Form
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="mt-3 flex min-w-0 items-center justify-center gap-2 sm:mt-0 sm:justify-end">
           <Link
             href={`/app/${businessSlug}/product-intake`}
             className="inline-flex h-8 items-center rounded-sm border border-[#08bd12] bg-white px-3 text-base text-[#08bd12] hover:bg-green-50"
@@ -81,7 +81,7 @@ export default function ProductIntakeForm({ businessSlug, action, lookups }: Pro
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-[560px] gap-y-[25px] pt-7">
+      <div className="mx-auto grid w-full max-w-[560px] gap-y-5 px-4 pt-7 sm:gap-y-[25px]">
         <FormRow label="Date" required>
           <input
             type="date"
@@ -233,10 +233,10 @@ export default function ProductIntakeForm({ businessSlug, action, lookups }: Pro
 }
 
 const fieldClass =
-  "h-12 w-full rounded-sm border border-gray-300 bg-white px-3 text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12]";
+  "h-12 w-full min-w-0 rounded-sm border border-gray-300 bg-white px-3 text-center text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12] sm:text-left";
 
 const stepperInputClass =
-  "h-full min-w-0 flex-1 bg-transparent px-3 text-lg text-gray-900 outline-none";
+  "h-full min-w-0 flex-1 bg-transparent px-3 text-center text-lg text-gray-900 outline-none sm:text-left";
 
 function FormRow({
   children,
@@ -248,12 +248,12 @@ function FormRow({
   required?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-x-7">
-      <span className="text-sm text-gray-600">
+    <div className="grid min-w-0 gap-y-2 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-x-7">
+      <span className="text-center text-sm text-gray-600 sm:text-left">
         {label}
         {required ? <span className="text-[#08bd12]">*</span> : null}
       </span>
-      {children}
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
@@ -271,7 +271,7 @@ function DatalistRow({
 }) {
   return (
     <FormRow label={label} required={required}>
-      <div className="relative">
+      <div className="relative min-w-0">
         <input
           type="text"
           name={name}
@@ -298,7 +298,7 @@ function TextChevronRow({
 }) {
   return (
     <FormRow label={label} required={required}>
-      <div className="relative">
+      <div className="relative min-w-0">
         <input
           type="text"
           name={name}
@@ -325,7 +325,7 @@ function SelectRow({
 }) {
   return (
     <FormRow label={label} required={required}>
-      <div className="relative">
+      <div className="relative min-w-0">
         <select
           name={name}
           required={required}
@@ -347,7 +347,7 @@ function SelectRow({
 
 function StepperShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-12 w-full items-center rounded-sm border border-gray-300 bg-white focus-within:border-[#08bd12] focus-within:ring-1 focus-within:ring-[#08bd12]">
+    <div className="flex h-12 w-full min-w-0 items-center overflow-hidden rounded-sm border border-gray-300 bg-white focus-within:border-[#08bd12] focus-within:ring-1 focus-within:ring-[#08bd12]">
       {children}
     </div>
   );
@@ -361,7 +361,7 @@ function StepperButtons({
   onIncrement: () => void;
 }) {
   return (
-    <div className="flex h-full items-center gap-3 px-4 text-gray-600">
+    <div className="flex h-full shrink-0 items-center gap-2 px-3 text-gray-600 sm:gap-3 sm:px-4">
       <button
         type="button"
         onClick={onDecrement}

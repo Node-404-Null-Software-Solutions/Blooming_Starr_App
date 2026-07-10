@@ -8,7 +8,7 @@ import Link from "next/link";
 import { ChevronDown, X } from "lucide-react";
 
 export const plantStyleFieldClass =
-  "h-12 w-full rounded-sm border border-gray-300 bg-white px-3 text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12]";
+  "h-12 w-full min-w-0 rounded-sm border border-gray-300 bg-white px-3 text-center text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12] sm:text-left";
 
 type PlantStyleAddFormShellProps = {
   action: (fd: FormData) => Promise<void>;
@@ -20,7 +20,7 @@ export function PlantStyleAddFormShell({
   children,
 }: PlantStyleAddFormShellProps) {
   return (
-    <form action={action} className="min-h-[calc(100vh-3.5rem)] bg-white">
+    <form action={action} className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white">
       {children}
     </form>
   );
@@ -38,18 +38,20 @@ export function PlantStyleAddFormHeader({
   title,
 }: PlantStyleAddFormHeaderProps) {
   return (
-    <div className="flex h-[60px] items-center justify-between border-b border-transparent px-4">
-      <div className="flex items-center gap-4">
+    <div className="border-b border-transparent px-4 py-3 sm:flex sm:h-[60px] sm:items-center sm:justify-between sm:py-0">
+      <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] items-center sm:flex sm:gap-4">
         <Link
           href={backHref}
-          className="inline-flex h-6 w-6 items-center justify-center text-gray-600 hover:text-gray-900"
+          className="inline-flex h-6 w-6 shrink-0 items-center justify-center justify-self-start text-gray-600 hover:text-gray-900"
           aria-label={backLabel}
         >
           <X className="h-5 w-5" />
         </Link>
-        <h1 className="text-xl font-normal text-gray-900">{title}</h1>
+        <h1 className="min-w-0 text-center text-xl font-normal text-gray-900 sm:text-left">
+          {title}
+        </h1>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="mt-3 flex min-w-0 items-center justify-center gap-2 sm:mt-0 sm:justify-end">
         <Link
           href={backHref}
           className="inline-flex h-8 items-center rounded-sm border border-[#08bd12] bg-white px-3 text-base text-[#08bd12] hover:bg-green-50"
@@ -69,7 +71,7 @@ export function PlantStyleAddFormHeader({
 
 export function PlantStyleAddFormBody({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto grid max-w-[560px] gap-y-[25px] pt-7">
+    <div className="mx-auto grid w-full max-w-[560px] gap-y-5 px-4 pt-7 sm:gap-y-[25px]">
       {children}
     </div>
   );
@@ -90,18 +92,20 @@ export function PlantStyleFormRow({
 }) {
   return (
     <div
-      className={`grid grid-cols-[150px_minmax(0,1fr)] gap-x-7 ${
-        alignStart ? "items-start" : "items-center"
+      className={`grid min-w-0 gap-y-2 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-x-7 ${
+        alignStart ? "sm:items-start" : "sm:items-center"
       }`}
     >
       <label
         htmlFor={htmlFor}
-        className={`text-sm text-gray-600 ${alignStart ? "pt-3" : ""}`}
+        className={`text-center text-sm text-gray-600 sm:text-left ${
+          alignStart ? "sm:pt-3" : ""
+        }`}
       >
         {label}
         {required ? <span className="text-[#08bd12]">*</span> : null}
       </label>
-      {children}
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
@@ -151,7 +155,7 @@ export function PlantStyleSelectRow({
 }: SelectRowProps) {
   return (
     <PlantStyleFormRow label={label} htmlFor={id} required={required}>
-      <div className="relative">
+      <div className="relative min-w-0">
         <select
           id={id}
           required={required}

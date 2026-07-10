@@ -30,21 +30,21 @@ export default function FertilizerLogForm({
   const backHref = `/app/${businessSlug}/fertilizer-log`;
 
   return (
-    <form action={action} className="min-h-[calc(100vh-3.5rem)] bg-white">
-      <div className="flex h-[60px] items-center justify-between border-b border-transparent px-4">
-        <div className="flex items-center gap-4">
+    <form action={action} className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white">
+      <div className="border-b border-transparent px-4 py-3 sm:flex sm:h-[60px] sm:items-center sm:justify-between sm:py-0">
+        <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] items-center sm:flex sm:gap-4">
           <Link
             href={backHref}
-            className="inline-flex h-6 w-6 items-center justify-center text-gray-600 hover:text-gray-900"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center justify-self-start text-gray-600 hover:text-gray-900"
             aria-label="Close fertilizer log form"
           >
             <X className="h-5 w-5" />
           </Link>
-          <h1 className="text-xl font-normal text-gray-900">
+          <h1 className="min-w-0 text-center text-xl font-normal text-gray-900 sm:text-left">
             Fertilizer Log Form
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="mt-3 flex min-w-0 items-center justify-center gap-2 sm:mt-0 sm:justify-end">
           <Link
             href={backHref}
             className="inline-flex h-8 items-center rounded-sm border border-[#08bd12] bg-white px-3 text-base text-[#08bd12] hover:bg-green-50"
@@ -60,7 +60,7 @@ export default function FertilizerLogForm({
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-[560px] gap-y-[25px] pt-7">
+      <div className="mx-auto grid w-full max-w-[560px] gap-y-5 px-4 pt-7 sm:gap-y-[25px]">
         <FormRow label="Date" htmlFor="fertilizer-date">
           <input
             id="fertilizer-date"
@@ -177,7 +177,7 @@ function DatalistRow({
 
   return (
     <FormRow label={label} htmlFor={id}>
-      <div className="relative">
+      <div className="relative min-w-0">
         <input
           id={id}
           type="text"

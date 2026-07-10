@@ -6,7 +6,7 @@ import { ArrowLeft, ChevronDown } from "lucide-react";
 import QrScanButton from "@/components/qr/QrScanButton";
 
 export const logFormFieldClass =
-  "h-12 w-full rounded-sm border border-gray-300 bg-white px-3 text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12]";
+  "h-12 w-full min-w-0 rounded-sm border border-gray-300 bg-white px-3 text-center text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12] sm:text-left";
 
 export const logFormScanButtonClass =
   "inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-gray-300 bg-white text-gray-700 hover:bg-gray-50";
@@ -18,7 +18,7 @@ type LogFormShellProps = {
 
 export function LogFormShell({ action, children }: LogFormShellProps) {
   return (
-    <form action={action} className="min-h-[calc(100vh-3.5rem)] bg-white pb-24">
+    <form action={action} className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white pb-24">
       {children}
     </form>
   );
@@ -111,17 +111,19 @@ export function FormRow({
 }) {
   return (
     <div
-      className={`grid grid-cols-[150px_minmax(0,1fr)] gap-x-7 ${
-        alignStart ? "items-start" : "items-center"
+      className={`grid min-w-0 gap-y-2 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-x-7 ${
+        alignStart ? "sm:items-start" : "sm:items-center"
       }`}
     >
       <label
         htmlFor={htmlFor}
-        className={`text-sm text-gray-600 ${alignStart ? "pt-3" : ""}`}
+        className={`text-center text-sm text-gray-600 sm:text-left ${
+          alignStart ? "sm:pt-3" : ""
+        }`}
       >
         {label}
       </label>
-      {children}
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
@@ -155,7 +157,7 @@ export function ScannableDatalistRow({
 }) {
   return (
     <FormRow label={label}>
-      <div className="flex gap-2">
+      <div className="flex min-w-0 gap-2">
         <div className="relative min-w-0 flex-1">
           <input
             type="text"
@@ -196,7 +198,7 @@ export function ScannableSelectOrInputRow({
 }) {
   return (
     <FormRow label={label}>
-      <div className="flex gap-2">
+      <div className="flex min-w-0 gap-2">
         <SelectOrInputControl
           name={name}
           value={value}
