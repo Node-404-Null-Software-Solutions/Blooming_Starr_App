@@ -76,7 +76,7 @@ export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Pr
         aria-labelledby={titleId}
         aria-modal={isOpen}
         aria-hidden={!isOpen}
-        className={`fixed inset-0 z-50 flex flex-col bg-white transition-transform duration-200 ease-out lg:sticky lg:top-14 lg:z-0 lg:h-[calc(100vh-3.5rem)] lg:w-full lg:translate-y-0 lg:border-l lg:border-gray-200 lg:shadow-none ${
+        className={`fixed inset-0 z-50 flex max-w-full flex-col overflow-x-hidden bg-white transition-transform duration-200 ease-out lg:sticky lg:top-14 lg:z-0 lg:h-[calc(100vh-3.5rem)] lg:w-full lg:translate-y-0 lg:border-l lg:border-gray-200 lg:shadow-none ${
           isOpen ? "translate-y-0" : "translate-y-full lg:hidden"
         }`}
       >
@@ -120,12 +120,12 @@ export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Pr
         </div>
 
 
-        <div className="flex-1 overflow-y-auto px-4 py-6 lg:py-3">
-          <dl className="mx-auto grid max-w-[620px] gap-5 text-center text-sm lg:max-w-none lg:grid-cols-[auto_1fr] lg:items-center lg:gap-x-4 lg:gap-y-2 lg:text-left">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 lg:py-3">
+          <dl className="mx-auto grid max-w-full gap-5 text-center text-sm sm:max-w-[620px] lg:max-w-none lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center lg:gap-x-4 lg:gap-y-2 lg:text-left">
             {visibleFields.map(({ label, node }) => (
               <div key={label} className="contents lg:contents">
                 <dt className="text-xs font-medium uppercase text-gray-500 lg:whitespace-nowrap lg:text-sm lg:font-normal lg:normal-case">{label}</dt>
-                <dd className="min-w-0 text-base text-gray-900 lg:text-sm">{node}</dd>
+                <dd className="min-w-0 max-w-full break-words text-base text-gray-900 [overflow-wrap:anywhere] [&_*]:max-w-full lg:text-sm">{node}</dd>
               </div>
             ))}
           </dl>

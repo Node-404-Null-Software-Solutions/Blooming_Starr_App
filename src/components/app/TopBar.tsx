@@ -60,16 +60,16 @@ export default function TopBar({ onMenuClick, logoUrl, businessName }: TopBarPro
 
   return (
     <header className="sticky top-0 z-50 h-14 border-b border-[#10aa15] bg-[#08bd12] shadow-sm">
-      <div className="flex h-14 items-center gap-3 px-3">
+      <div className="flex h-14 min-w-0 items-center gap-2 px-2 sm:gap-3 sm:px-3">
         <button
           type="button"
           onClick={onMenuClick}
-          className="rounded-sm p-2 text-white hover:bg-white/15"
+          className="shrink-0 rounded-sm p-2 text-white hover:bg-white/15"
           aria-label="Toggle sidebar"
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="flex min-w-[11rem] items-center gap-2">
+        <div className="flex min-w-0 shrink-0 items-center gap-2 sm:min-w-[11rem]">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-white">
             {logoUrl ? (
               <Image
@@ -84,12 +84,12 @@ export default function TopBar({ onMenuClick, logoUrl, businessName }: TopBarPro
               <Sprout className="h-5 w-5 text-[#08bd12]" />
             )}
           </div>
-          <span className="truncate text-xl font-medium text-white">
+          <span className="hidden truncate text-xl font-medium text-white sm:block">
             {businessName ?? "Blooming Starr"}
           </span>
         </div>
         <div className="flex min-w-0 flex-1 justify-center">
-          <form onSubmit={handleSubmit} className="relative flex w-full max-w-[520px] items-center">
+          <form onSubmit={handleSubmit} className="relative flex w-full min-w-0 max-w-[520px] items-center">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/85" />
             <input
               key={`${pathname}-${searchParams.get("q") ?? ""}`}
@@ -107,7 +107,7 @@ export default function TopBar({ onMenuClick, logoUrl, businessName }: TopBarPro
             />
           </form>
         </div>
-        <div className="ml-auto hidden items-center gap-2 sm:flex">
+        <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
           <button
             type="button"
             className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/20 text-white hover:bg-white/15"

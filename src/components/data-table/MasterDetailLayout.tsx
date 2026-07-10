@@ -17,11 +17,11 @@ export function MasterDetailLayout({
     <div
       className={`lg:grid lg:items-start ${
         isDetailOpen
-          ? "lg:grid-cols-[minmax(0,52%)_minmax(24rem,48%)]"
+          ? "lg:grid-cols-[minmax(0,52%)_minmax(0,48%)]"
           : "lg:grid-cols-1"
       } ${className}`}
     >
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0 overflow-x-hidden">{children}</div>
       {detail}
     </div>
   );
