@@ -10,7 +10,7 @@ export default async function NewTransplantLogPage({
 }: {
   params: Promise<{ businessSlug: string }>;
 }) {
-  const { profile, business } = await requireActiveMembership();
+  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
   const businessId = profile.activeBusinessId;
   if (!businessId) return null;
@@ -46,8 +46,6 @@ export default async function NewTransplantLogPage({
     <TransplantLogForm
       businessSlug={businessSlug}
       action={submit as (fd: FormData) => Promise<void>}
-      logoUrl={business.logoUrl ?? null}
-      businessName={business.name}
       skuList={skuList}
       actionOptions={actionOptions}
       mediaOptions={mediaOptions}

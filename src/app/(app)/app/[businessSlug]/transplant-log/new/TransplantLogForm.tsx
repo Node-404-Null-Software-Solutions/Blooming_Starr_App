@@ -1,26 +1,23 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
-import { Sprout } from "lucide-react";
 import {
-  FormRow,
-  LogFormBody,
-  LogFormFooter,
-  LogFormHeader,
-  LogFormShell,
+  PlantStyleAddFormBody,
+  PlantStyleAddFormHeader,
+  PlantStyleAddFormShell,
+  PlantStyleTextareaRow,
+  PlantStyleTextInputRow,
+} from "../../_components/PlantStyleAddForm";
+import {
   ScannableDatalistRow,
   ScannableSelectOrInputRow,
   SelectOrInputRow,
-  logFormFieldClass,
   todayInputValue,
 } from "../../_components/LogFormLayout";
 
 type TransplantLogFormProps = {
   businessSlug: string;
   action: (fd: FormData) => Promise<void>;
-  logoUrl: string | null;
-  businessName: string | null;
   skuList: string[];
   actionOptions: string[];
   mediaOptions: string[];
@@ -31,8 +28,6 @@ type TransplantLogFormProps = {
 export default function TransplantLogForm({
   businessSlug,
   action,
-  logoUrl,
-  businessName,
   skuList,
   actionOptions,
   mediaOptions,
@@ -45,37 +40,21 @@ export default function TransplantLogForm({
   const backHref = `/app/${businessSlug}/transplant-log`;
 
   return (
-    <LogFormShell action={action}>
-      <LogFormHeader
+    <PlantStyleAddFormShell action={action}>
+      <PlantStyleAddFormHeader
         backHref={backHref}
-        backLabel="Back to transplant log"
-        icon={
-          logoUrl ? (
-            <Image
-              src={logoUrl}
-              alt=""
-              width={36}
-              height={36}
-              unoptimized
-              className="h-9 w-9 object-contain"
-            />
-          ) : (
-            <Sprout className="h-5 w-5 text-[#08bd12]" />
-          )
-        }
+        backLabel="Close transplant log form"
         title="Transplant Log Form"
-        srLabel={businessName ?? "Blooming Starr"}
       />
 
-      <LogFormBody>
-        <FormRow label="Date">
-          <input
-            type="date"
-            name="date"
-            defaultValue={todayInputValue()}
-            className={logFormFieldClass}
-          />
-        </FormRow>
+      <PlantStyleAddFormBody>
+        <PlantStyleTextInputRow
+          id="transplant-date"
+          label="Date"
+          type="date"
+          name="date"
+          defaultValue={todayInputValue()}
+        />
 
         <ScannableDatalistRow
           label="Original SKU"
@@ -111,23 +90,21 @@ export default function TransplantLogForm({
           placeholder={'e.g. 4"'}
         />
 
-        <FormRow label="ID">
-          <input
-            type="text"
-            name="idCode"
-            className={logFormFieldClass}
-            placeholder="Optional"
-          />
-        </FormRow>
+        <PlantStyleTextInputRow
+          id="transplant-id"
+          label="ID"
+          type="text"
+          name="idCode"
+          placeholder="Optional"
+        />
 
-        <FormRow label="New SKU">
-          <input
-            type="text"
-            name="divisionSku"
-            className={logFormFieldClass}
-            placeholder="Optional"
-          />
-        </FormRow>
+        <PlantStyleTextInputRow
+          id="transplant-new-sku"
+          label="New SKU"
+          type="text"
+          name="divisionSku"
+          placeholder="Optional"
+        />
 
         <SelectOrInputRow
           label="Pot color"
@@ -136,14 +113,13 @@ export default function TransplantLogForm({
           placeholder="e.g. Black, White"
         />
 
-        <FormRow label="Notes" alignStart>
-          <textarea
-            name="notes"
-            rows={3}
-            className={`${logFormFieldClass} min-h-24 py-3`}
-            placeholder="Optional notes"
-          />
-        </FormRow>
+        <PlantStyleTextareaRow
+          id="transplant-notes"
+          label="Notes"
+          name="notes"
+          rows={3}
+          placeholder="Optional notes"
+        />
 
         {skuList.length > 0 ? (
           <datalist id="transplant-original-sku-options">
@@ -152,9 +128,7 @@ export default function TransplantLogForm({
             ))}
           </datalist>
         ) : null}
-      </LogFormBody>
-
-      <LogFormFooter cancelHref={backHref} />
-    </LogFormShell>
+      </PlantStyleAddFormBody>
+    </PlantStyleAddFormShell>
   );
 }
