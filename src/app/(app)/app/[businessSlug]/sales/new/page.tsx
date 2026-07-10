@@ -26,8 +26,8 @@ export default async function NewSalesEntryPage({
   }
 
   const selectClass =
-    "rounded-md border border-gray-300 px-3 py-2 text-sm bg-white";
-  const inputClass = "rounded-md border border-gray-300 px-3 py-2 text-sm";
+    "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-center text-sm";
+  const inputClass = "w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm";
 
   return (
     <div className="space-y-6">
@@ -36,9 +36,9 @@ export default async function NewSalesEntryPage({
         addHref={`/app/${businessSlug}/sales/new`}
       />
       <div className="rounded-md border border-gray-200 bg-white p-6">
-        <form action={submit as (fd: FormData) => Promise<void>} className="flex max-w-xl flex-col gap-4">
+        <form action={submit as (fd: FormData) => Promise<void>} className="mx-auto flex max-w-xl flex-col gap-4">
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-gray-700">Date *</label>
+            <label className="text-center text-sm font-medium text-gray-700">Date *</label>
             <input
               type="date"
               name="date"
@@ -47,7 +47,7 @@ export default async function NewSalesEntryPage({
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-gray-700">SKU *</label>
+            <label className="text-center text-sm font-medium text-gray-700">SKU *</label>
             <input
               type="text"
               name="sku"
@@ -57,7 +57,7 @@ export default async function NewSalesEntryPage({
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-gray-700">Item name</label>
+            <label className="text-center text-sm font-medium text-gray-700">Item name</label>
             <input
               type="text"
               name="itemName"
@@ -67,7 +67,7 @@ export default async function NewSalesEntryPage({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-gray-700">Qty *</label>
+              <label className="text-center text-sm font-medium text-gray-700">Qty *</label>
               <input
                 type="number"
                 name="qty"
@@ -78,7 +78,7 @@ export default async function NewSalesEntryPage({
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-gray-700">Sale price ($) *</label>
+              <label className="text-center text-sm font-medium text-gray-700">Sale price ($) *</label>
               <input
                 type="number"
                 name="salePrice"
@@ -91,7 +91,7 @@ export default async function NewSalesEntryPage({
             </div>
           </div>
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-gray-700">Cost ($) *</label>
+            <label className="text-center text-sm font-medium text-gray-700">Cost ($) *</label>
             <input
               type="number"
               name="cost"
@@ -104,7 +104,7 @@ export default async function NewSalesEntryPage({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-gray-700">Channel</label>
+              <label className="text-center text-sm font-medium text-gray-700">Channel</label>
               <select name="channel" className={selectClass}>
                 <option value="">Select channel...</option>
                 {salesChannels.map((c) => (
@@ -115,7 +115,7 @@ export default async function NewSalesEntryPage({
               </select>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-gray-700">Payment method</label>
+              <label className="text-center text-sm font-medium text-gray-700">Payment method</label>
               <select name="paymentMethod" className={selectClass}>
                 <option value="">Select...</option>
                 {paymentMethods.map((p) => (
@@ -127,17 +127,17 @@ export default async function NewSalesEntryPage({
             </div>
           </div>
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-gray-700">Card last 4</label>
+            <label className="text-center text-sm font-medium text-gray-700">Card last 4</label>
             <input
               type="text"
               name="cardLast4"
               maxLength={4}
-              className={`${inputClass} max-w-32`}
+              className={`${inputClass} mx-auto max-w-32`}
               placeholder="e.g. 6921"
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-gray-700">Notes</label>
+            <label className="text-center text-sm font-medium text-gray-700">Notes</label>
             <textarea
               name="notes"
               rows={2}
@@ -145,7 +145,7 @@ export default async function NewSalesEntryPage({
               placeholder="Optional notes"
             />
           </div>
-          <div className="flex gap-3">
+          <div className="flex justify-center gap-3">
             <button
               type="submit"
               className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"

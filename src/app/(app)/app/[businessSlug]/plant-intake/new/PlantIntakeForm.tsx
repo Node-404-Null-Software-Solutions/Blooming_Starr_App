@@ -63,7 +63,7 @@ export default function PlantIntakeForm({ businessSlug, action, lookups }: Props
           >
             <X className="h-5 w-5" />
           </Link>
-          <h1 className="min-w-0 text-center text-xl font-normal text-gray-900 sm:text-left">
+          <h1 className="min-w-0 text-center text-xl font-normal text-gray-900">
             Plant Intake Form
           </h1>
         </div>
@@ -228,10 +228,10 @@ export default function PlantIntakeForm({ businessSlug, action, lookups }: Props
 }
 
 const fieldClass =
-  "h-12 w-full min-w-0 rounded-sm border border-gray-300 bg-white px-3 text-center text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12] sm:text-left";
+  "h-12 w-full min-w-0 rounded-sm border border-gray-300 bg-white px-3 text-center text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12]";
 
 const stepperInputClass =
-  "h-full min-w-0 flex-1 bg-transparent px-3 text-center text-lg text-gray-900 outline-none sm:text-left";
+  "h-full min-w-0 flex-1 bg-transparent px-3 text-center text-lg text-gray-900 outline-none";
 
 function FormRow({
   children,
@@ -244,7 +244,7 @@ function FormRow({
 }) {
   return (
     <div className="grid min-w-0 gap-y-2 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-x-7">
-      <span className="text-center text-sm text-gray-600 sm:text-left">
+      <span className="text-center text-sm text-gray-600">
         {label}
         {required ? <span className="text-[#08bd12]">*</span> : null}
       </span>

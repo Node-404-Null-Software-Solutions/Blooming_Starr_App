@@ -28,7 +28,7 @@ export default function EmployeeForm({ businessSlug }: { businessSlug: string })
     <form onSubmit={handleSubmit} className="space-y-5 rounded-lg border border-gray-200 bg-white p-6">
 
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="name" className="block text-center text-sm font-medium text-gray-700">
           Name <span className="text-red-500">*</span>
         </label>
         <input
@@ -37,40 +37,40 @@ export default function EmployeeForm({ businessSlug }: { businessSlug: string })
           type="text"
           required
           maxLength={100}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
         />
       </div>
 
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+          <label htmlFor="email" className="block text-center text-sm font-medium text-gray-700">Email</label>
           <input
             id="email"
             name="email"
             type="email"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           />
         </div>
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone</label>
+          <label htmlFor="phone" className="block text-center text-sm font-medium text-gray-700">Phone</label>
           <input
             id="phone"
             name="phone"
             type="tel"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           />
         </div>
       </div>
 
 
       <div>
-        <label htmlFor="position" className="block text-sm font-medium text-gray-700">Position</label>
+        <label htmlFor="position" className="block text-center text-sm font-medium text-gray-700">Position</label>
         <input
           id="position"
           name="position"
           type="text"
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           placeholder="e.g. Nursery Assistant"
         />
       </div>
@@ -78,7 +78,7 @@ export default function EmployeeForm({ businessSlug }: { businessSlug: string })
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="hourlyRate" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="hourlyRate" className="block text-center text-sm font-medium text-gray-700">
             Hourly Rate ($)
           </label>
           <input
@@ -88,11 +88,11 @@ export default function EmployeeForm({ businessSlug }: { businessSlug: string })
             step="0.01"
             min="0"
             defaultValue="0.00"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           />
         </div>
         <div>
-          <label htmlFor="salaryRate" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="salaryRate" className="block text-center text-sm font-medium text-gray-700">
             Salary Rate ($)
           </label>
           <input
@@ -102,25 +102,25 @@ export default function EmployeeForm({ businessSlug }: { businessSlug: string })
             step="0.01"
             min="0"
             defaultValue="0.00"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           />
         </div>
       </div>
 
 
       <div>
-        <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Notes</label>
+        <label htmlFor="notes" className="block text-center text-sm font-medium text-gray-700">Notes</label>
         <textarea
           id="notes"
           name="notes"
           rows={3}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
         />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-center text-sm text-red-600">{error}</p>}
 
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex items-center justify-center gap-3">
         <button
           type="button"
           onClick={() => router.back()}

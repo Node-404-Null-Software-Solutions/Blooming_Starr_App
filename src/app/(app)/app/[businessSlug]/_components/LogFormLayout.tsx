@@ -6,7 +6,7 @@ import { ArrowLeft, ChevronDown } from "lucide-react";
 import QrScanButton from "@/components/qr/QrScanButton";
 
 export const logFormFieldClass =
-  "h-12 w-full min-w-0 rounded-sm border border-gray-300 bg-white px-3 text-center text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12] sm:text-left";
+  "h-12 w-full min-w-0 rounded-sm border border-gray-300 bg-white px-3 text-center text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12]";
 
 export const logFormScanButtonClass =
   "inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-gray-300 bg-white text-gray-700 hover:bg-gray-50";
@@ -117,7 +117,7 @@ export function FormRow({
     >
       <label
         htmlFor={htmlFor}
-        className={`text-center text-sm text-gray-600 sm:text-left ${
+        className={`text-center text-sm text-gray-600 ${
           alignStart ? "sm:pt-3" : ""
         }`}
       >

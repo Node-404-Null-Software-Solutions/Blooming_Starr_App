@@ -40,7 +40,7 @@ export default function FertilizerLogForm({
           >
             <X className="h-5 w-5" />
           </Link>
-          <h1 className="min-w-0 text-center text-xl font-normal text-gray-900 sm:text-left">
+          <h1 className="min-w-0 text-center text-xl font-normal text-gray-900">
             Fertilizer Log Form
           </h1>
         </div>

@@ -40,7 +40,7 @@ export default function ShiftForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="employeeId" className="block text-center text-sm font-medium text-gray-700">
           Employee
         </label>
         <select
@@ -48,7 +48,7 @@ export default function ShiftForm({
           name="employeeId"
           required
           defaultValue={defaultEmployeeId ?? ""}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
         >
           <option value="" disabled>Select employee…</option>
           {employees.map((emp) => (
@@ -58,66 +58,66 @@ export default function ShiftForm({
       </div>
 
       <div>
-        <label htmlFor="date" className="block text-sm font-medium text-gray-700">Date</label>
+        <label htmlFor="date" className="block text-center text-sm font-medium text-gray-700">Date</label>
         <input
           id="date"
           name="date"
           type="date"
           required
           defaultValue={defaultDate ?? ""}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="startTime" className="block text-sm font-medium text-gray-700">Start</label>
+          <label htmlFor="startTime" className="block text-center text-sm font-medium text-gray-700">Start</label>
           <input
             id="startTime"
             name="startTime"
             type="time"
             required
             defaultValue="09:00"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           />
         </div>
         <div>
-          <label htmlFor="endTime" className="block text-sm font-medium text-gray-700">End</label>
+          <label htmlFor="endTime" className="block text-center text-sm font-medium text-gray-700">End</label>
           <input
             id="endTime"
             name="endTime"
             type="time"
             required
             defaultValue="17:00"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           />
         </div>
       </div>
 
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700">Title (optional)</label>
+        <label htmlFor="title" className="block text-center text-sm font-medium text-gray-700">Title (optional)</label>
         <input
           id="title"
           name="title"
           type="text"
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           placeholder="e.g. Morning shift"
         />
       </div>
 
       <div>
-        <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Notes (optional)</label>
+        <label htmlFor="notes" className="block text-center text-sm font-medium text-gray-700">Notes (optional)</label>
         <textarea
           id="notes"
           name="notes"
           rows={2}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
         />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-center text-sm text-red-600">{error}</p>}
 
-      <div className="flex justify-end gap-3">
+      <div className="flex justify-center gap-3">
         <button
           type="button"
           onClick={onCancel}

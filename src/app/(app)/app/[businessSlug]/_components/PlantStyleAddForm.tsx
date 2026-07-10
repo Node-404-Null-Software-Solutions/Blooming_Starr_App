@@ -8,7 +8,7 @@ import Link from "next/link";
 import { ChevronDown, X } from "lucide-react";
 
 export const plantStyleFieldClass =
-  "h-12 w-full min-w-0 rounded-sm border border-gray-300 bg-white px-3 text-center text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12] sm:text-left";
+  "h-12 w-full min-w-0 rounded-sm border border-gray-300 bg-white px-3 text-center text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12]";
 
 type PlantStyleAddFormShellProps = {
   action: (fd: FormData) => Promise<void>;
@@ -47,7 +47,7 @@ export function PlantStyleAddFormHeader({
         >
           <X className="h-5 w-5" />
         </Link>
-        <h1 className="min-w-0 text-center text-xl font-normal text-gray-900 sm:text-left">
+        <h1 className="min-w-0 text-center text-xl font-normal text-gray-900">
           {title}
         </h1>
       </div>
@@ -98,7 +98,7 @@ export function PlantStyleFormRow({
     >
       <label
         htmlFor={htmlFor}
-        className={`text-center text-sm text-gray-600 sm:text-left ${
+        className={`text-center text-sm text-gray-600 ${
           alignStart ? "sm:pt-3" : ""
         }`}
       >
