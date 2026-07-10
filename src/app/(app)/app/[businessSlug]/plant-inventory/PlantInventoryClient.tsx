@@ -261,7 +261,54 @@ export default function PlantInventoryClient({
           to populate this view.
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+        <div className="space-y-2 p-3 md:hidden">
+          {filteredRows.map((row) => (
+            <div
+              key={row.sku}
+              onClick={() => selectMode && toggleSelectedRow(row.sku)}
+              onKeyDown={(event) => {
+                if (!selectMode || event.currentTarget !== event.target) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  toggleSelectedRow(row.sku);
+                }
+              }}
+              role={selectMode ? "button" : undefined}
+              tabIndex={selectMode ? 0 : undefined}
+              aria-pressed={selectMode ? selectedRows.has(row.sku) : undefined}
+              className={`rounded-md border p-3 text-center active:bg-green-50 ${
+                selectMode ? "cursor-pointer" : ""
+              } ${
+                selectedRows.has(row.sku)
+                  ? "border-green-400 bg-green-50"
+                  : "border-gray-200 bg-white"
+              }`}
+            >
+              <div className="relative min-h-5 text-center">
+                {selectMode ? (
+                  <span className="absolute left-0 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-sm border border-gray-300 bg-white">
+                    {selectedRows.has(row.sku) ? <Check className="h-4 w-4 text-[#08bd12]" /> : null}
+                  </span>
+                ) : null}
+                <div className="mx-auto min-w-0 max-w-full px-7 break-words [overflow-wrap:anywhere]">
+                  <p className="text-sm font-medium">{row.date ?? "-"}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    {row.plantName || row.sku}
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-400">
+                    {row.sku} - {row.status || "No status"} - qty {row.qtyRemaining}
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-400">
+                    Cost {money(row.totalCostCents)} - MSRP {money(row.totalMsrpCents)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[1920px] border-collapse bg-white">
             <thead>
               <tr>
@@ -364,6 +411,7 @@ export default function PlantInventoryClient({
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
