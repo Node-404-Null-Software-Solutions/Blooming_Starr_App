@@ -8,6 +8,7 @@ import ModuleHeader from "../_components/ModuleHeader";
 import { useTreatmentFilter, TreatmentFilterPanel } from "./TreatmentFilterPopover";
 import { updateTreatmentTracking, deleteTreatmentTracking } from "@/lib/actions/data-entries";
 import { EditableCell } from "@/components/data-table/EditableCell";
+import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
 
@@ -43,6 +44,7 @@ export default function TreatmentTrackingClient({
     useTreatmentFilter();
 
   const selectedRow = rows.find((r) => r.id === selectedId) ?? null;
+  const detailOpen = selectedId !== null;
   const formatDate = (date: string | null) => formatAppDate(date, "—");
 
   async function handleSave(id: string, field: keyof Omit<TreatmentRow, "id" | "nextEarliest" | "nextLatest">, value: string) {
@@ -77,7 +79,37 @@ export default function TreatmentTrackingClient({
     "border-b border-r border-gray-200 px-3 py-1.5 align-middle text-xs text-gray-700";
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-white">
+    <MasterDetailLayout
+      isDetailOpen={detailOpen}
+      className="min-h-[calc(100vh-3.5rem)] bg-white"
+      detail={
+        <RowDetailDrawer
+          isOpen={detailOpen}
+          onClose={() => setSelectedId(null)}
+          title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} — ${selectedRow.sku}` : ""}
+          onDelete={() => selectedRow && handleDelete(selectedRow.id)}
+          fields={
+            selectedRow
+              ? [
+                  { label: "Date", node: <EditableCell value={selectedRow.date ?? ""} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
+                  { label: "SKU", node: <EditableCell value={selectedRow.sku} onSave={(v) => handleSave(selectedRow.id, "sku", v)} /> },
+                  { label: "Target", node: <EditableCell value={selectedRow.target ?? ""} onSave={(v) => handleSave(selectedRow.id, "target", v)} /> },
+                  { label: "Product", node: <EditableCell value={selectedRow.product ?? ""} onSave={(v) => handleSave(selectedRow.id, "product", v)} /> },
+                  { label: "Active Ingredient", node: <EditableCell value={selectedRow.activeIngredient ?? ""} onSave={(v) => handleSave(selectedRow.id, "activeIngredient", v)} /> },
+                  { label: "EPA #", node: <EditableCell value={selectedRow.epaNumber ?? ""} onSave={(v) => handleSave(selectedRow.id, "epaNumber", v)} /> },
+                  { label: "Rate", node: <EditableCell value={selectedRow.rate ?? ""} onSave={(v) => handleSave(selectedRow.id, "rate", v)} /> },
+                  { label: "Pot Size", node: <EditableCell value={selectedRow.potSize ?? ""} onSave={(v) => handleSave(selectedRow.id, "potSize", v)} /> },
+                  { label: "Method", node: <EditableCell value={selectedRow.method ?? ""} onSave={(v) => handleSave(selectedRow.id, "method", v)} /> },
+                  { label: "Initials", node: <EditableCell value={selectedRow.initials ?? ""} onSave={(v) => handleSave(selectedRow.id, "initials", v)} /> },
+                  { label: "Next Earliest", node: <span className="text-gray-700">{formatDate(selectedRow.nextEarliest)}</span> },
+                  { label: "Next Latest", node: <span className="text-gray-700">{formatDate(selectedRow.nextLatest)}</span> },
+                ]
+              : []
+          }
+        />
+      }
+    >
+      <div className="min-h-[calc(100vh-3.5rem)] bg-white">
       <div className="relative">
         <ModuleHeader
           title="Treatment Tracking"
@@ -121,7 +153,19 @@ export default function TreatmentTrackingClient({
               <div
                 key={row.id}
                 onClick={() => setSelectedId(row.id)}
-                className="rounded-lg border border-gray-200 bg-white p-3 cursor-pointer active:bg-green-50"
+                onKeyDown={(event) => {
+                  if (event.currentTarget !== event.target) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedId(row.id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selectedId === row.id}
+                className={`cursor-pointer rounded-lg border p-3 active:bg-green-50 ${
+                  selectedId === row.id ? "border-green-400 bg-green-50" : "border-gray-200 bg-white"
+                }`}
               >
                 <p className="text-sm font-medium">{formatAppDate(row.date, "—")}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -156,7 +200,18 @@ export default function TreatmentTrackingClient({
                     <tr
                       key={row.id}
                       onClick={() => setSelectedId(row.id)}
-                      className="h-9 cursor-pointer hover:bg-green-50/50"
+                      onKeyDown={(event) => {
+                        if (event.currentTarget !== event.target) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedId(row.id);
+                        }
+                      }}
+                      tabIndex={0}
+                      aria-selected={selectedId === row.id}
+                      className={`h-9 cursor-pointer hover:bg-green-50/50 ${
+                        selectedId === row.id ? "bg-green-50" : ""
+                      }`}
                     >
                       <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.date ?? ""} onSave={(v) => handleSave(row.id, "date", v)} type="date" />
@@ -200,30 +255,7 @@ export default function TreatmentTrackingClient({
 
       {hasRows && isPending && <p className="text-xs text-gray-500">Saving…</p>}
 
-      <RowDetailDrawer
-        isOpen={selectedId !== null}
-        onClose={() => setSelectedId(null)}
-        title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} — ${selectedRow.sku}` : ""}
-        onDelete={() => selectedRow && handleDelete(selectedRow.id)}
-        fields={
-          selectedRow
-            ? [
-                { label: "Date", node: <EditableCell value={selectedRow.date ?? ""} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
-                { label: "SKU", node: <EditableCell value={selectedRow.sku} onSave={(v) => handleSave(selectedRow.id, "sku", v)} /> },
-                { label: "Target", node: <EditableCell value={selectedRow.target ?? ""} onSave={(v) => handleSave(selectedRow.id, "target", v)} /> },
-                { label: "Product", node: <EditableCell value={selectedRow.product ?? ""} onSave={(v) => handleSave(selectedRow.id, "product", v)} /> },
-                { label: "Active Ingredient", node: <EditableCell value={selectedRow.activeIngredient ?? ""} onSave={(v) => handleSave(selectedRow.id, "activeIngredient", v)} /> },
-                { label: "EPA #", node: <EditableCell value={selectedRow.epaNumber ?? ""} onSave={(v) => handleSave(selectedRow.id, "epaNumber", v)} /> },
-                { label: "Rate", node: <EditableCell value={selectedRow.rate ?? ""} onSave={(v) => handleSave(selectedRow.id, "rate", v)} /> },
-                { label: "Pot Size", node: <EditableCell value={selectedRow.potSize ?? ""} onSave={(v) => handleSave(selectedRow.id, "potSize", v)} /> },
-                { label: "Method", node: <EditableCell value={selectedRow.method ?? ""} onSave={(v) => handleSave(selectedRow.id, "method", v)} /> },
-                { label: "Initials", node: <EditableCell value={selectedRow.initials ?? ""} onSave={(v) => handleSave(selectedRow.id, "initials", v)} /> },
-                { label: "Next Earliest", node: <span className="text-gray-700">{formatDate(selectedRow.nextEarliest)}</span> },
-                { label: "Next Latest", node: <span className="text-gray-700">{formatDate(selectedRow.nextLatest)}</span> },
-              ]
-            : []
-        }
-      />
-    </div>
+      </div>
+    </MasterDetailLayout>
   );
 }

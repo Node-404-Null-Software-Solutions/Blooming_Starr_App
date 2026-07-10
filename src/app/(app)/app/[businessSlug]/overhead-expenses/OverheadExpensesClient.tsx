@@ -9,6 +9,7 @@ import { useOverheadFilter, OverheadFilterPanel } from "./OverheadFilterPopover"
 import { updateOverheadExpense, deleteOverheadExpense } from "@/lib/actions/data-entries";
 import { centsToUsdFixed } from "@/lib/formulas";
 import { EditableCell } from "@/components/data-table/EditableCell";
+import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
 
@@ -46,6 +47,7 @@ export default function OverheadExpensesClient({
     useOverheadFilter();
 
   const selectedRow = rows.find((r) => r.id === selectedId) ?? null;
+  const detailOpen = selectedId !== null;
 
   async function handleSave(id: string, field: keyof Omit<OverheadRow, "id" | "unitCostCents" | "totalCents">, value: string) {
     const numVal = /^\d+$/.test(value) ? parseInt(value, 10) : undefined;
@@ -81,7 +83,39 @@ export default function OverheadExpensesClient({
     "border-b border-r border-gray-200 px-3 py-1.5 align-middle text-xs text-gray-700";
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-white">
+    <MasterDetailLayout
+      isDetailOpen={detailOpen}
+      className="min-h-[calc(100vh-3.5rem)] bg-white"
+      detail={
+        <RowDetailDrawer
+          isOpen={detailOpen}
+          onClose={() => setSelectedId(null)}
+          title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} — ${selectedRow.vendor ?? "Expense"}` : ""}
+          onDelete={() => selectedRow && handleDelete(selectedRow.id)}
+          fields={
+            selectedRow
+              ? [
+                  { label: "Date", node: <EditableCell value={selectedRow.date ? selectedRow.date.slice(0, 10) : ""} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
+                  { label: "Vendor", node: <EditableCell value={selectedRow.vendor ?? ""} onSave={(v) => handleSave(selectedRow.id, "vendor", v)} /> },
+                  { label: "Brand", node: <EditableCell value={selectedRow.brand ?? ""} onSave={(v) => handleSave(selectedRow.id, "brand", v)} /> },
+                  { label: "Category", node: <EditableCell value={selectedRow.category ?? ""} onSave={(v) => handleSave(selectedRow.id, "category", v)} /> },
+                  { label: "Description", node: <EditableCell value={selectedRow.description ?? ""} onSave={(v) => handleSave(selectedRow.id, "description", v)} /> },
+                  { label: "Qty", node: <EditableCell value={String(selectedRow.qty)} onSave={(v) => handleSave(selectedRow.id, "qty", v)} type="number" /> },
+                  { label: "Subtotal", node: <EditableCell value={selectedRow.subTotalCents != null ? String(selectedRow.subTotalCents) : ""} onSave={(v) => handleSave(selectedRow.id, "subTotalCents", v)} type="currency" /> },
+                  { label: "Discount", node: <EditableCell value={selectedRow.discountCents != null ? String(selectedRow.discountCents) : ""} onSave={(v) => handleSave(selectedRow.id, "discountCents", v)} type="currency" /> },
+                  { label: "Unit Cost", node: <span className="text-gray-700">{centsToUsdFixed(selectedRow.unitCostCents ?? 0)}</span> },
+                  { label: "Actual Total", node: <span className="text-gray-700">{centsToUsdFixed(selectedRow.totalCents ?? 0)}</span> },
+                  { label: "Payment Method", node: <EditableCell value={selectedRow.paymentMethod ?? ""} onSave={(v) => handleSave(selectedRow.id, "paymentMethod", v)} /> },
+                  { label: "Card #", node: <span className="text-gray-700">{selectedRow.cardLast4 ? `**** ${selectedRow.cardLast4}` : "—"}</span> },
+                  { label: "Invoice #", node: <EditableCell value={selectedRow.invoiceNumber ?? ""} onSave={(v) => handleSave(selectedRow.id, "invoiceNumber", v)} /> },
+                  { label: "Notes", node: <EditableCell value={selectedRow.notes ?? ""} onSave={(v) => handleSave(selectedRow.id, "notes", v)} /> },
+                ]
+              : []
+          }
+        />
+      }
+    >
+      <div className="min-h-[calc(100vh-3.5rem)] bg-white">
       <div className="relative">
         <ModuleHeader
           title="Overhead Expenses"
@@ -125,7 +159,19 @@ export default function OverheadExpensesClient({
               <div
                 key={row.id}
                 onClick={() => setSelectedId(row.id)}
-                className="rounded-lg border border-gray-200 bg-white p-3 cursor-pointer active:bg-green-50"
+                onKeyDown={(event) => {
+                  if (event.currentTarget !== event.target) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedId(row.id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selectedId === row.id}
+                className={`cursor-pointer rounded-lg border p-3 active:bg-green-50 ${
+                  selectedId === row.id ? "border-green-400 bg-green-50" : "border-gray-200 bg-white"
+                }`}
               >
                 <p className="text-sm font-medium">{formatAppDate(row.date, "—")}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -166,7 +212,18 @@ export default function OverheadExpensesClient({
                       <tr
                         key={row.id}
                         onClick={() => setSelectedId(row.id)}
-                        className="h-9 cursor-pointer hover:bg-green-50/50"
+                        onKeyDown={(event) => {
+                          if (event.currentTarget !== event.target) return;
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedId(row.id);
+                          }
+                        }}
+                        tabIndex={0}
+                        aria-selected={selectedId === row.id}
+                        className={`h-9 cursor-pointer hover:bg-green-50/50 ${
+                          selectedId === row.id ? "bg-green-50" : ""
+                        }`}
                       >
                         <td className={`${bodyCell} whitespace-nowrap`}>
                           <EditableCell value={row.date ? row.date.slice(0, 10) : ""} onSave={(v) => handleSave(row.id, "date", v)} type="date" />
@@ -229,32 +286,7 @@ export default function OverheadExpensesClient({
 
       {hasRows && isPending && <p className="text-xs text-gray-500">Saving…</p>}
 
-      <RowDetailDrawer
-        isOpen={selectedId !== null}
-        onClose={() => setSelectedId(null)}
-        title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} — ${selectedRow.vendor ?? "Expense"}` : ""}
-        onDelete={() => selectedRow && handleDelete(selectedRow.id)}
-        fields={
-          selectedRow
-            ? [
-                { label: "Date", node: <EditableCell value={selectedRow.date ? selectedRow.date.slice(0, 10) : ""} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
-                { label: "Vendor", node: <EditableCell value={selectedRow.vendor ?? ""} onSave={(v) => handleSave(selectedRow.id, "vendor", v)} /> },
-                { label: "Brand", node: <EditableCell value={selectedRow.brand ?? ""} onSave={(v) => handleSave(selectedRow.id, "brand", v)} /> },
-                { label: "Category", node: <EditableCell value={selectedRow.category ?? ""} onSave={(v) => handleSave(selectedRow.id, "category", v)} /> },
-                { label: "Description", node: <EditableCell value={selectedRow.description ?? ""} onSave={(v) => handleSave(selectedRow.id, "description", v)} /> },
-                { label: "Qty", node: <EditableCell value={String(selectedRow.qty)} onSave={(v) => handleSave(selectedRow.id, "qty", v)} type="number" /> },
-                { label: "Subtotal", node: <EditableCell value={selectedRow.subTotalCents != null ? String(selectedRow.subTotalCents) : ""} onSave={(v) => handleSave(selectedRow.id, "subTotalCents", v)} type="currency" /> },
-                { label: "Discount", node: <EditableCell value={selectedRow.discountCents != null ? String(selectedRow.discountCents) : ""} onSave={(v) => handleSave(selectedRow.id, "discountCents", v)} type="currency" /> },
-                { label: "Unit Cost", node: <span className="text-gray-700">{centsToUsdFixed(selectedRow.unitCostCents ?? 0)}</span> },
-                { label: "Actual Total", node: <span className="text-gray-700">{centsToUsdFixed(selectedRow.totalCents ?? 0)}</span> },
-                { label: "Payment Method", node: <EditableCell value={selectedRow.paymentMethod ?? ""} onSave={(v) => handleSave(selectedRow.id, "paymentMethod", v)} /> },
-                { label: "Card #", node: <span className="text-gray-700">{selectedRow.cardLast4 ? `**** ${selectedRow.cardLast4}` : "—"}</span> },
-                { label: "Invoice #", node: <EditableCell value={selectedRow.invoiceNumber ?? ""} onSave={(v) => handleSave(selectedRow.id, "invoiceNumber", v)} /> },
-                { label: "Notes", node: <EditableCell value={selectedRow.notes ?? ""} onSave={(v) => handleSave(selectedRow.id, "notes", v)} /> },
-              ]
-            : []
-        }
-      />
-    </div>
+      </div>
+    </MasterDetailLayout>
   );
 }

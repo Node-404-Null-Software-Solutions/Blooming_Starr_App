@@ -8,6 +8,7 @@ import ModuleHeader from "../_components/ModuleHeader";
 import { useProductIntakeFilter, ProductIntakeFilterPanel } from "./ProductIntakeFilterPopover";
 import { updateProductIntake, deleteProductIntake } from "@/lib/actions/data-entries";
 import { EditableCell } from "@/components/data-table/EditableCell";
+import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
 
@@ -92,6 +93,7 @@ export default function ProductIntakeClient({
 
   const selectedRow = filteredRows.find((row) => row.id === selectedId) ?? null;
   const hasRows = rows.length > 0;
+  const detailOpen = selectedId !== null && !editMode && !selectMode;
 
   function toggleSelectMode() {
     setSelectMode((value) => !value);
@@ -193,7 +195,40 @@ export default function ProductIntakeClient({
     "border-b border-r border-gray-200 px-3 py-1.5 align-middle text-xs text-gray-700";
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-white">
+    <MasterDetailLayout
+      isDetailOpen={detailOpen}
+      className="min-h-[calc(100vh-3.5rem)] bg-white"
+      detail={
+        <RowDetailDrawer
+          isOpen={detailOpen}
+          onClose={() => setSelectedId(null)}
+          title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} - ${selectedRow.sku}` : ""}
+          onDelete={() => selectedRow && handleDelete(selectedRow.id)}
+          fields={
+            selectedRow
+              ? [
+                  { label: "Date", node: <EditableCell value={cleanDisplay(selectedRow.date)} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
+                  { label: "Vendor", node: <EditableCell value={cleanDisplay(selectedRow.vendor)} onSave={(v) => handleSave(selectedRow.id, "vendor", v)} /> },
+                  { label: "Source", node: <EditableCell value={cleanDisplay(selectedRow.source)} onSave={(v) => handleSave(selectedRow.id, "source", v)} /> },
+                  { label: "Category", node: <EditableCell value={cleanDisplay(selectedRow.category)} onSave={(v) => handleSave(selectedRow.id, "category", v)} /> },
+                  { label: "Size", node: <EditableCell value={cleanDisplay(selectedRow.size)} onSave={(v) => handleSave(selectedRow.id, "size", v)} /> },
+                  { label: "Style", node: <EditableCell value={cleanDisplay(selectedRow.style)} onSave={(v) => handleSave(selectedRow.id, "style", v)} /> },
+                  { label: "Purchase #", node: <EditableCell value={cleanDisplay(selectedRow.purchaseNumber)} onSave={(v) => handleSave(selectedRow.id, "purchaseNumber", v)} /> },
+                  { label: "Qty", node: <EditableCell value={String(selectedRow.qty)} onSave={(v) => handleSave(selectedRow.id, "qty", v)} type="number" /> },
+                  { label: "SKU", node: <span className="font-mono text-gray-700">{selectedRow.sku}</span> },
+                  { label: "Unit Cost", node: <span className="text-gray-700">${selectedRow.qty > 0 ? (selectedRow.totalCostCents / 100 / selectedRow.qty).toFixed(2) : "0.00"}</span> },
+                  { label: "Total Cost", node: <EditableCell value={String(selectedRow.totalCostCents)} onSave={(v) => handleSave(selectedRow.id, "totalCostCents", v)} type="currency" /> },
+                  { label: "Payment Method", node: <EditableCell value={cleanDisplay(selectedRow.paymentMethod)} onSave={(v) => handleSave(selectedRow.id, "paymentMethod", v)} /> },
+                  { label: "Card #", node: <EditableCell value={selectedRow.cardLast4 ?? ""} onSave={(v) => handleSave(selectedRow.id, "cardLast4", v)} /> },
+                  { label: "Invoice #", node: <EditableCell value={cleanDisplay(selectedRow.invoiceNumber)} onSave={(v) => handleSave(selectedRow.id, "invoiceNumber", v)} /> },
+                  { label: "Notes", node: <EditableCell value={cleanDisplay(selectedRow.notes)} onSave={(v) => handleSave(selectedRow.id, "notes", v)} /> },
+                ]
+              : []
+          }
+        />
+      }
+    >
+      <div className="min-h-[calc(100vh-3.5rem)] bg-white">
       <div className="relative">
         <ModuleHeader
           title="Product Intake"
@@ -253,8 +288,18 @@ export default function ProductIntakeClient({
               <div
                 key={row.id}
                 onClick={() => handleRowClick(row)}
+                onKeyDown={(event) => {
+                  if (event.currentTarget !== event.target || editMode) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleRowClick(row);
+                  }
+                }}
+                role="button"
+                tabIndex={editMode ? undefined : 0}
+                aria-pressed={selectedRows.has(row.id) || selectedId === row.id}
                 className={`cursor-pointer rounded-md border p-3 active:bg-green-50 ${
-                  selectedRows.has(row.id)
+                  selectedRows.has(row.id) || selectedId === row.id
                     ? "border-green-400 bg-green-50"
                     : "border-gray-200 bg-white"
                 }`}
@@ -320,13 +365,24 @@ export default function ProductIntakeClient({
               <tbody>
                 {filteredRows.map((row) => {
                   const unitCostDollars = row.qty > 0 ? row.totalCostCents / 100 / row.qty : 0;
+                  const rowSelected = selectedRows.has(row.id);
+                  const detailSelected = selectedId === row.id && !editMode && !selectMode;
                   return (
                     <tr
                       key={row.id}
                       onClick={() => handleRowClick(row)}
+                      onKeyDown={(event) => {
+                        if (event.currentTarget !== event.target || editMode) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleRowClick(row);
+                        }
+                      }}
+                      tabIndex={editMode ? undefined : 0}
+                      aria-selected={rowSelected || detailSelected}
                       className={`h-9 ${
                         editMode ? "" : "cursor-pointer hover:bg-green-50/40"
-                      } ${selectedRows.has(row.id) ? "bg-green-50" : ""}`}
+                      } ${rowSelected || detailSelected ? "bg-green-50" : ""}`}
                     >
                       {selectMode ? (
                         <td className={`${bodyCell} text-center`}>
@@ -338,9 +394,9 @@ export default function ProductIntakeClient({
                             }}
                             className="inline-flex h-5 w-5 items-center justify-center rounded-sm border border-gray-300 bg-white"
                             aria-label={`Select ${row.sku}`}
-                            aria-pressed={selectedRows.has(row.id)}
+                            aria-pressed={rowSelected}
                           >
-                            {selectedRows.has(row.id) ? (
+                            {rowSelected ? (
                               <Check className="h-4 w-4 text-[#08bd12]" />
                             ) : null}
                           </button>
@@ -374,33 +430,7 @@ export default function ProductIntakeClient({
 
       {hasRows && isPending ? <p className="px-4 text-xs text-gray-500">Saving...</p> : null}
 
-      <RowDetailDrawer
-        isOpen={selectedId !== null && !editMode && !selectMode}
-        onClose={() => setSelectedId(null)}
-        title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} - ${selectedRow.sku}` : ""}
-        onDelete={() => selectedRow && handleDelete(selectedRow.id)}
-        fields={
-          selectedRow
-            ? [
-                { label: "Date", node: <EditableCell value={cleanDisplay(selectedRow.date)} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
-                { label: "Vendor", node: <EditableCell value={cleanDisplay(selectedRow.vendor)} onSave={(v) => handleSave(selectedRow.id, "vendor", v)} /> },
-                { label: "Source", node: <EditableCell value={cleanDisplay(selectedRow.source)} onSave={(v) => handleSave(selectedRow.id, "source", v)} /> },
-                { label: "Category", node: <EditableCell value={cleanDisplay(selectedRow.category)} onSave={(v) => handleSave(selectedRow.id, "category", v)} /> },
-                { label: "Size", node: <EditableCell value={cleanDisplay(selectedRow.size)} onSave={(v) => handleSave(selectedRow.id, "size", v)} /> },
-                { label: "Style", node: <EditableCell value={cleanDisplay(selectedRow.style)} onSave={(v) => handleSave(selectedRow.id, "style", v)} /> },
-                { label: "Purchase #", node: <EditableCell value={cleanDisplay(selectedRow.purchaseNumber)} onSave={(v) => handleSave(selectedRow.id, "purchaseNumber", v)} /> },
-                { label: "Qty", node: <EditableCell value={String(selectedRow.qty)} onSave={(v) => handleSave(selectedRow.id, "qty", v)} type="number" /> },
-                { label: "SKU", node: <span className="font-mono text-gray-700">{selectedRow.sku}</span> },
-                { label: "Unit Cost", node: <span className="text-gray-700">${selectedRow.qty > 0 ? (selectedRow.totalCostCents / 100 / selectedRow.qty).toFixed(2) : "0.00"}</span> },
-                { label: "Total Cost", node: <EditableCell value={String(selectedRow.totalCostCents)} onSave={(v) => handleSave(selectedRow.id, "totalCostCents", v)} type="currency" /> },
-                { label: "Payment Method", node: <EditableCell value={cleanDisplay(selectedRow.paymentMethod)} onSave={(v) => handleSave(selectedRow.id, "paymentMethod", v)} /> },
-                { label: "Card #", node: <EditableCell value={selectedRow.cardLast4 ?? ""} onSave={(v) => handleSave(selectedRow.id, "cardLast4", v)} /> },
-                { label: "Invoice #", node: <EditableCell value={cleanDisplay(selectedRow.invoiceNumber)} onSave={(v) => handleSave(selectedRow.id, "invoiceNumber", v)} /> },
-                { label: "Notes", node: <EditableCell value={cleanDisplay(selectedRow.notes)} onSave={(v) => handleSave(selectedRow.id, "notes", v)} /> },
-              ]
-            : []
-        }
-      />
-    </div>
+      </div>
+    </MasterDetailLayout>
   );
 }

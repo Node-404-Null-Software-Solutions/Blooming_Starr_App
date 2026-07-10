@@ -8,6 +8,7 @@ import ModuleHeader from "../_components/ModuleHeader";
 import { useTransplantFilter, TransplantFilterPanel } from "./TransplantFilterPopover";
 import { updateTransplantLog, deleteTransplantLog } from "@/lib/actions/data-entries";
 import { EditableCell } from "@/components/data-table/EditableCell";
+import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
 
@@ -64,6 +65,7 @@ export default function TransplantLogClient({
     useTransplantFilter();
 
   const selectedRow = rows.find((r) => r.id === selectedId) ?? null;
+  const detailOpen = selectedId !== null && !editMode && !selectMode;
 
   function toggleSelectMode() {
     const nextSelectMode = !selectMode;
@@ -158,7 +160,36 @@ export default function TransplantLogClient({
     "border-b border-r border-gray-200 px-3 py-1.5 align-middle text-xs text-gray-700";
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-white">
+    <MasterDetailLayout
+      isDetailOpen={detailOpen}
+      className="min-h-[calc(100vh-3.5rem)] bg-white"
+      detail={
+        <RowDetailDrawer
+          isOpen={detailOpen}
+          onClose={() => setSelectedId(null)}
+          title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} - ${selectedRow.originalSku ?? "Entry"}` : ""}
+          onDelete={() => selectedRow && handleDelete(selectedRow.id)}
+          fields={
+            selectedRow
+              ? [
+                  { label: "Date", node: <EditableCell value={selectedRow.date ?? ""} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
+                  { label: "Original SKU", node: <EditableCell value={selectedRow.originalSku ?? ""} onSave={(v) => handleSave(selectedRow.id, "originalSku", v)} /> },
+                  { label: "Action", node: <EditableCell value={selectedRow.action ?? ""} onSave={(v) => handleSave(selectedRow.id, "action", v)} type={actionOptions.length ? "select" : "text"} options={actionOptions} /> },
+                  { label: "Media", node: <EditableCell value={selectedRow.media ?? ""} onSave={(v) => handleSave(selectedRow.id, "media", v)} type={mediaOptions.length ? "select" : "text"} options={mediaOptions} /> },
+                  { label: "From Pot", node: <EditableCell value={selectedRow.fromPot ?? ""} onSave={(v) => handleSave(selectedRow.id, "fromPot", v)} type={potSizeOptions.length ? "select" : "text"} options={potSizeOptions} /> },
+                  { label: "To Pot", node: <EditableCell value={selectedRow.toPot ?? ""} onSave={(v) => handleSave(selectedRow.id, "toPot", v)} type={potSizeOptions.length ? "select" : "text"} options={potSizeOptions} /> },
+                  { label: "ID", node: <EditableCell value={selectedRow.idCode ?? ""} onSave={(v) => handleSave(selectedRow.id, "idCode", v)} /> },
+                  { label: "New SKU", node: <EditableCell value={selectedRow.divisionSku ?? ""} onSave={(v) => handleSave(selectedRow.id, "divisionSku", v)} /> },
+                  { label: "Cost Per", node: <EditableCell value={selectedRow.costCents != null ? String(selectedRow.costCents) : ""} onSave={(v) => handleSave(selectedRow.id, "costCents", v)} type="currency" /> },
+                  { label: "Pot Color", node: <EditableCell value={selectedRow.potColor ?? ""} onSave={(v) => handleSave(selectedRow.id, "potColor", v)} type={potColorOptions.length ? "select" : "text"} options={potColorOptions} /> },
+                  { label: "Notes", node: <EditableCell value={selectedRow.notes ?? ""} onSave={(v) => handleSave(selectedRow.id, "notes", v)} /> },
+                ]
+              : []
+          }
+        />
+      }
+    >
+      <div className="min-h-[calc(100vh-3.5rem)] bg-white">
       <div className="relative">
         <ModuleHeader
           title="Transplant Log"
@@ -205,8 +236,20 @@ export default function TransplantLogClient({
               <div
                 key={row.id}
                 onClick={() => handleRowClick(row)}
+                onKeyDown={(event) => {
+                  if (event.currentTarget !== event.target || editMode) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleRowClick(row);
+                  }
+                }}
+                role="button"
+                tabIndex={editMode ? undefined : 0}
+                aria-pressed={selectedRows.has(row.id) || selectedId === row.id}
                 className={`cursor-pointer rounded-lg border p-3 active:bg-green-50 ${
-                  selectedRows.has(row.id) ? "border-green-400 bg-green-50" : "border-gray-200 bg-white"
+                  selectedRows.has(row.id) || selectedId === row.id
+                    ? "border-green-400 bg-green-50"
+                    : "border-gray-200 bg-white"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -260,13 +303,25 @@ export default function TransplantLogClient({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {rows.map((row) => {
+                    const rowSelected = selectedRows.has(row.id);
+                    const detailSelected = selectedId === row.id && !editMode && !selectMode;
+                    return (
                     <tr
                       key={row.id}
                       onClick={() => handleRowClick(row)}
+                      onKeyDown={(event) => {
+                        if (event.currentTarget !== event.target || editMode) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleRowClick(row);
+                        }
+                      }}
+                      tabIndex={editMode ? undefined : 0}
+                      aria-selected={rowSelected || detailSelected}
                       className={`border-t border-gray-100 ${
                         editMode ? "" : "cursor-pointer hover:bg-green-50/40"
-                      } ${selectedRows.has(row.id) ? "bg-green-50" : ""}`}
+                      } ${rowSelected || detailSelected ? "bg-green-50" : ""}`}
                     >
                       {selectMode ? (
                         <td className={`${bodyCell} text-center`}>
@@ -278,9 +333,9 @@ export default function TransplantLogClient({
                             }}
                             className="inline-flex h-5 w-5 items-center justify-center rounded-sm border border-gray-300 bg-white"
                             aria-label={`Select ${row.originalSku ?? row.id}`}
-                            aria-pressed={selectedRows.has(row.id)}
+                            aria-pressed={rowSelected}
                           >
-                            {selectedRows.has(row.id) ? <Check className="h-4 w-4 text-[#08bd12]" /> : null}
+                            {rowSelected ? <Check className="h-4 w-4 text-[#08bd12]" /> : null}
                           </button>
                         </td>
                       ) : null}
@@ -306,7 +361,8 @@ export default function TransplantLogClient({
                       </td>
                       <td className={bodyCell}>{renderCell(row, "notes")}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
           </div>
@@ -321,29 +377,7 @@ export default function TransplantLogClient({
 
       {hasRows && isPending && <p className="text-xs text-gray-500">Saving...</p>}
 
-      <RowDetailDrawer
-        isOpen={selectedId !== null && !editMode && !selectMode}
-        onClose={() => setSelectedId(null)}
-        title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} - ${selectedRow.originalSku ?? "Entry"}` : ""}
-        onDelete={() => selectedRow && handleDelete(selectedRow.id)}
-        fields={
-          selectedRow
-            ? [
-                { label: "Date", node: <EditableCell value={selectedRow.date ?? ""} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
-                { label: "Original SKU", node: <EditableCell value={selectedRow.originalSku ?? ""} onSave={(v) => handleSave(selectedRow.id, "originalSku", v)} /> },
-                { label: "Action", node: <EditableCell value={selectedRow.action ?? ""} onSave={(v) => handleSave(selectedRow.id, "action", v)} type={actionOptions.length ? "select" : "text"} options={actionOptions} /> },
-                { label: "Media", node: <EditableCell value={selectedRow.media ?? ""} onSave={(v) => handleSave(selectedRow.id, "media", v)} type={mediaOptions.length ? "select" : "text"} options={mediaOptions} /> },
-                { label: "From Pot", node: <EditableCell value={selectedRow.fromPot ?? ""} onSave={(v) => handleSave(selectedRow.id, "fromPot", v)} type={potSizeOptions.length ? "select" : "text"} options={potSizeOptions} /> },
-                { label: "To Pot", node: <EditableCell value={selectedRow.toPot ?? ""} onSave={(v) => handleSave(selectedRow.id, "toPot", v)} type={potSizeOptions.length ? "select" : "text"} options={potSizeOptions} /> },
-                { label: "ID", node: <EditableCell value={selectedRow.idCode ?? ""} onSave={(v) => handleSave(selectedRow.id, "idCode", v)} /> },
-                { label: "New SKU", node: <EditableCell value={selectedRow.divisionSku ?? ""} onSave={(v) => handleSave(selectedRow.id, "divisionSku", v)} /> },
-                { label: "Cost Per", node: <EditableCell value={selectedRow.costCents != null ? String(selectedRow.costCents) : ""} onSave={(v) => handleSave(selectedRow.id, "costCents", v)} type="currency" /> },
-                { label: "Pot Color", node: <EditableCell value={selectedRow.potColor ?? ""} onSave={(v) => handleSave(selectedRow.id, "potColor", v)} type={potColorOptions.length ? "select" : "text"} options={potColorOptions} /> },
-                { label: "Notes", node: <EditableCell value={selectedRow.notes ?? ""} onSave={(v) => handleSave(selectedRow.id, "notes", v)} /> },
-              ]
-            : []
-        }
-      />
-    </div>
+      </div>
+    </MasterDetailLayout>
   );
 }

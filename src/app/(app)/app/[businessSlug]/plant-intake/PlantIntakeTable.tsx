@@ -3,8 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ChevronRight, ImageIcon, Save, X } from "lucide-react";
-import { updatePlantIntake, deletePlantIntake } from "@/lib/actions/data-entries";
-import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
+import { updatePlantIntake } from "@/lib/actions/data-entries";
 import { formatAppDate } from "@/lib/date-format";
 
 export type PlantIntakeRow = {
@@ -67,12 +66,16 @@ function displayCurrency(cents: number) {
 export default function PlantIntakeTable({
   rows,
   businessSlug,
+  selectedId,
+  onSelectedIdChange,
   selectMode = false,
   editMode = false,
   onEditModeChange,
 }: {
   rows: PlantIntakeRow[];
   businessSlug: string;
+  selectedId: string | null;
+  onSelectedIdChange: (id: string | null) => void;
   selectMode?: boolean;
   editMode?: boolean;
   onEditModeChange?: (value: boolean) => void;
@@ -80,10 +83,8 @@ export default function PlantIntakeTable({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
   const [draftRows, setDraftRows] = useState<DraftRows>({});
-  const selectedRow = rows.find((r) => r.id === selectedId) ?? null;
   const dirtyCount = Object.keys(draftRows).length;
 
   useEffect(() => {
@@ -133,7 +134,7 @@ export default function PlantIntakeTable({
       toggleSelectedRow(row.id);
       return;
     }
-    setSelectedId(row.id);
+    onSelectedIdChange(row.id);
   }
 
   function cancelEdits() {
@@ -172,15 +173,6 @@ export default function PlantIntakeTable({
       startTransition(() => router.refresh());
     } finally {
       setIsSaving(false);
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!window.confirm("Delete this row? This cannot be undone.")) return;
-    const res = await deletePlantIntake(id, businessSlug);
-    if (res.ok) {
-      setSelectedId(null);
-      startTransition(() => router.refresh());
     }
   }
 
@@ -260,8 +252,18 @@ export default function PlantIntakeTable({
             <div
               key={row.id}
               onClick={() => handleRowClick(row)}
+              onKeyDown={(event) => {
+                if (event.currentTarget !== event.target || editMode) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleRowClick(row);
+                }
+              }}
+              role="button"
+              tabIndex={editMode ? undefined : 0}
+              aria-pressed={selectedRows.has(row.id) || selectedId === row.id}
               className={`cursor-pointer rounded-md border p-3 active:bg-green-50 ${
-                selectedRows.has(row.id)
+                selectedRows.has(row.id) || selectedId === row.id
                   ? "border-green-400 bg-green-50"
                   : "border-gray-200 bg-white"
               }`}
@@ -343,13 +345,23 @@ export default function PlantIntakeTable({
             ) : (
               rows.map((row) => {
                 const rowSelected = selectedRows.has(row.id);
+                const detailSelected = selectedId === row.id && !editMode && !selectMode;
                 return (
                   <tr
                     key={row.id}
                     onClick={() => handleRowClick(row)}
+                    onKeyDown={(event) => {
+                      if (event.currentTarget !== event.target || editMode) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        handleRowClick(row);
+                      }
+                    }}
+                    tabIndex={editMode ? undefined : 0}
+                    aria-selected={rowSelected || detailSelected}
                     className={`h-9 ${
                       modeActive ? "" : "cursor-pointer hover:bg-green-50/50"
-                    } ${rowSelected ? "bg-green-50" : ""}`}
+                    } ${rowSelected || detailSelected ? "bg-green-50" : ""}`}
                   >
                     {selectMode ? (
                       <td className={`${bodyCell} text-center`}>
@@ -410,35 +422,6 @@ export default function PlantIntakeTable({
         </p>
       )}
 
-      <RowDetailDrawer
-        isOpen={selectedId !== null && !editMode && !selectMode}
-        onClose={() => setSelectedId(null)}
-        title={
-          selectedRow
-            ? `${formatAppDate(selectedRow.date, "Entry")} - ${selectedRow.sku}`
-            : ""
-        }
-        onDelete={() => selectedRow && handleDelete(selectedRow.id)}
-        fields={
-          selectedRow
-            ? [
-                { label: "Date", node: <span>{formatAppDate(selectedRow.date, "-")}</span> },
-                { label: "Source", node: <span>{selectedRow.source || "-"}</span> },
-                { label: "Genus", node: <span>{selectedRow.genus || "-"}</span> },
-                { label: "Cultivar", node: <span>{selectedRow.cultivar || "-"}</span> },
-                { label: "ID #", node: <span>{selectedRow.locationCode ?? "-"}</span> },
-                { label: "SKU", node: <span className="font-mono text-gray-700">{selectedRow.sku}</span> },
-                { label: "QTY", node: <span>{selectedRow.qty}</span> },
-                { label: "Total Cost", node: <span>{displayCurrency(selectedRow.totalCostCents)}</span> },
-                { label: "Unit Cost", node: <span>{displayCurrency(selectedRow.costCents)}</span> },
-                { label: "MSRP", node: <span>{displayCurrency(selectedRow.msrpCents)}</span> },
-                { label: "Pot Type", node: <span>{selectedRow.potType ?? "-"}</span> },
-                { label: "Payment Method", node: <span>{selectedRow.paymentMethod ?? "-"}</span> },
-                { label: "Card Number", node: <span>{selectedRow.cardLast4 ?? "-"}</span> },
-              ]
-            : []
-        }
-      />
     </div>
   );
 }

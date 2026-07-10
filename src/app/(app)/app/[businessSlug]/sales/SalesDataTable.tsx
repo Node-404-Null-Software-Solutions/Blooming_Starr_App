@@ -1,11 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Check, ChevronDown, ChevronRight } from "lucide-react";
-import { updateSalesEntry, deleteSalesEntry } from "@/lib/actions/data-entries";
 import { EditableCell } from "@/components/data-table/EditableCell";
-import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
 
 export type SalesRow = {
@@ -25,7 +22,7 @@ export type SalesRow = {
   notes: string | null;
 };
 
-type EditableSalesField =
+export type EditableSalesField =
   | "date"
   | "sku"
   | "itemName"
@@ -62,50 +59,23 @@ function displayValue(row: SalesRow, field: EditableSalesField) {
 }
 
 export default function SalesDataTable({
-  businessSlug,
   initialRows,
+  selectedId,
+  onSelectedIdChange,
+  onSave,
+  isPending = false,
   selectMode = false,
   editMode = false,
 }: {
-  businessSlug: string;
   initialRows: SalesRow[];
+  selectedId: string | null;
+  onSelectedIdChange: (id: string | null) => void;
+  onSave: (id: string, field: EditableSalesField, value: string) => void;
+  isPending?: boolean;
   selectMode?: boolean;
   editMode?: boolean;
 }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
-  const selectedRow = initialRows.find((r) => r.id === selectedId) ?? null;
-
-  async function handleSave(id: string, field: EditableSalesField, value: string) {
-    const numVal = /^\d+$/.test(value) ? parseInt(value, 10) : undefined;
-    const payload: Record<string, unknown> = {};
-    if (field === "date") payload.date = value || null;
-    else if (field === "sku") payload.sku = value;
-    else if (field === "itemName") payload.itemName = value || null;
-    else if (field === "qty" && numVal !== undefined) payload.qty = numVal;
-    else if (field === "salePriceCents" && numVal !== undefined) payload.salePriceCents = numVal;
-    else if (field === "paymentMethod") payload.paymentMethod = value || null;
-    else if (field === "cardLast4") payload.cardLast4 = value || null;
-    else if (field === "channel") payload.channel = value || null;
-    else if (field === "costCents" && numVal !== undefined) payload.costCents = numVal;
-    else if (field === "notes") payload.notes = value || null;
-
-    const res = await updateSalesEntry(id, businessSlug, payload as Parameters<typeof updateSalesEntry>[2]);
-    if (res.ok) {
-      startTransition(() => router.refresh());
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!window.confirm("Delete this row? This cannot be undone.")) return;
-    const res = await deleteSalesEntry(id, businessSlug);
-    if (res.ok) {
-      setSelectedId(null);
-      startTransition(() => router.refresh());
-    }
-  }
 
   function toggleSelectedRow(id: string) {
     setSelectedRows((current) => {
@@ -129,7 +99,7 @@ export default function SalesDataTable({
       toggleSelectedRow(row.id);
       return;
     }
-    setSelectedId(row.id);
+    onSelectedIdChange(row.id);
   }
 
   function renderCell(row: SalesRow, field: EditableSalesField, type: "text" | "currency" | "number" | "date" = "text") {
@@ -139,7 +109,7 @@ export default function SalesDataTable({
       <div onClick={(event) => event.stopPropagation()}>
         <EditableCell
           value={fieldValue(row, field)}
-          onSave={(value) => handleSave(row.id, field, value)}
+          onSave={(value) => onSave(row.id, field, value)}
           type={type}
         />
       </div>
@@ -165,8 +135,20 @@ export default function SalesDataTable({
           <div
             key={row.id}
             onClick={() => handleRowClick(row)}
+            onKeyDown={(event) => {
+              if (event.currentTarget !== event.target || editMode) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleRowClick(row);
+              }
+            }}
+            role="button"
+            tabIndex={editMode ? undefined : 0}
+            aria-pressed={selectedRows.has(row.id) || selectedId === row.id}
             className={`cursor-pointer rounded-md border p-3 active:bg-green-50 ${
-              selectedRows.has(row.id) ? "border-green-400 bg-green-50" : "border-gray-200 bg-white"
+              selectedRows.has(row.id) || selectedId === row.id
+                ? "border-green-400 bg-green-50"
+                : "border-gray-200 bg-white"
             }`}
           >
             <div className="flex items-start gap-3">
@@ -231,13 +213,23 @@ export default function SalesDataTable({
           <tbody>
             {initialRows.map((row) => {
               const rowSelected = selectedRows.has(row.id);
+              const detailSelected = selectedId === row.id && !editMode && !selectMode;
               return (
                 <tr
                   key={row.id}
                   onClick={() => handleRowClick(row)}
+                  onKeyDown={(event) => {
+                    if (event.currentTarget !== event.target || editMode) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleRowClick(row);
+                    }
+                  }}
+                  tabIndex={editMode ? undefined : 0}
+                  aria-selected={rowSelected || detailSelected}
                   className={`h-9 ${
                     modeActive ? "" : "cursor-pointer hover:bg-green-50/50"
-                  } ${rowSelected ? "bg-green-50" : ""}`}
+                  } ${rowSelected || detailSelected ? "bg-green-50" : ""}`}
                 >
                   {selectMode ? (
                     <td className={`${bodyCell} text-center`}>
@@ -282,31 +274,6 @@ export default function SalesDataTable({
 
       {isPending && <p className="mt-2 px-4 text-xs text-gray-500">Saving...</p>}
 
-      <RowDetailDrawer
-        isOpen={selectedId !== null && !editMode && !selectMode}
-        onClose={() => setSelectedId(null)}
-        title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} - ${selectedRow.sku}` : ""}
-        onDelete={() => selectedRow && handleDelete(selectedRow.id)}
-        fields={
-          selectedRow
-            ? [
-                { label: "Date", node: <EditableCell value={selectedRow.date?.slice(0, 10) ?? ""} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
-                { label: "SKU", node: <EditableCell value={selectedRow.sku} onSave={(v) => handleSave(selectedRow.id, "sku", v)} /> },
-                { label: "Item Name", node: <EditableCell value={selectedRow.itemName ?? ""} onSave={(v) => handleSave(selectedRow.id, "itemName", v)} /> },
-                { label: "Sale Channel", node: <EditableCell value={selectedRow.channel ?? ""} onSave={(v) => handleSave(selectedRow.id, "channel", v)} /> },
-                { label: "Qty", node: <EditableCell value={String(selectedRow.qty)} onSave={(v) => handleSave(selectedRow.id, "qty", v)} type="number" /> },
-                { label: "Sale Price", node: <EditableCell value={String(selectedRow.salePriceCents)} onSave={(v) => handleSave(selectedRow.id, "salePriceCents", v)} type="currency" /> },
-                { label: "Total Sale", node: <span className="text-gray-700">{money(selectedRow.totalSaleCents ?? 0)}</span> },
-                { label: "Payment Method", node: <EditableCell value={selectedRow.paymentMethod ?? ""} onSave={(v) => handleSave(selectedRow.id, "paymentMethod", v)} /> },
-                { label: "Card #", node: <EditableCell value={selectedRow.cardLast4 ?? ""} onSave={(v) => handleSave(selectedRow.id, "cardLast4", v)} /> },
-                { label: "Cost", node: <EditableCell value={String(selectedRow.costCents)} onSave={(v) => handleSave(selectedRow.id, "costCents", v)} type="currency" /> },
-                { label: "Profit", node: <span className="text-gray-700">{money(selectedRow.profitCents ?? 0)}</span> },
-                { label: "Margin %", node: <span className="text-gray-700">{margin(selectedRow.marginPct)}</span> },
-                { label: "Notes", node: <EditableCell value={selectedRow.notes ?? ""} onSave={(v) => handleSave(selectedRow.id, "notes", v)} /> },
-              ]
-            : []
-        }
-      />
     </div>
   );
 }
