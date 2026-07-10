@@ -1,114 +1,129 @@
 "use client";
 
-import { FlaskConical } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import { ChevronDown, X } from "lucide-react";
 import {
   FormRow,
-  LogFormBody,
-  LogFormFieldGroup,
-  LogFormFooter,
-  LogFormHeader,
-  LogFormShell,
+  ScannableDatalistRow,
   logFormFieldClass,
+  todayInputValue,
 } from "../../_components/LogFormLayout";
 
 type FertilizerLogFormProps = {
   businessSlug: string;
   action: (fd: FormData) => Promise<void>;
+  skuList: string[];
+  potSizeOptions: string[];
+  productOptions: string[];
 };
 
 export default function FertilizerLogForm({
   businessSlug,
   action,
+  skuList,
+  potSizeOptions,
+  productOptions,
 }: FertilizerLogFormProps) {
+  const [plantSku, setPlantSku] = useState("");
+  const [potSku, setPotSku] = useState("");
   const backHref = `/app/${businessSlug}/fertilizer-log`;
 
   return (
-    <LogFormShell action={action}>
-      <LogFormHeader
-        backHref={backHref}
-        backLabel="Back to fertilizer log"
-        icon={<FlaskConical className="h-5 w-5 text-[#08bd12]" />}
-        title="Fertilizer Log Form"
-      />
+    <form action={action} className="min-h-[calc(100vh-3.5rem)] bg-white">
+      <div className="flex h-[60px] items-center justify-between border-b border-transparent px-4">
+        <div className="flex items-center gap-4">
+          <Link
+            href={backHref}
+            className="inline-flex h-6 w-6 items-center justify-center text-gray-600 hover:text-gray-900"
+            aria-label="Close fertilizer log form"
+          >
+            <X className="h-5 w-5" />
+          </Link>
+          <h1 className="text-xl font-normal text-gray-900">
+            Fertilizer Log Form
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={backHref}
+            className="inline-flex h-8 items-center rounded-sm border border-[#08bd12] bg-white px-3 text-base text-[#08bd12] hover:bg-green-50"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            className="inline-flex h-8 items-center rounded-sm bg-[#08bd12] px-4 text-base font-medium text-white hover:bg-[#08aa12]"
+          >
+            Save
+          </button>
+        </div>
+      </div>
 
-      <LogFormBody>
+      <div className="mx-auto grid max-w-[560px] gap-y-[25px] pt-7">
         <FormRow label="Date" htmlFor="fertilizer-date">
           <input
             id="fertilizer-date"
             type="date"
             name="date"
+            defaultValue={todayInputValue()}
             className={logFormFieldClass}
           />
         </FormRow>
 
-        <FormRow label="Plant SKU" htmlFor="fertilizer-plant-sku">
-          <LogFormFieldGroup>
-            <input
-              id="fertilizer-plant-sku"
-              type="text"
-              name="plantSku"
-              className={logFormFieldClass}
-              placeholder="e.g. HS-BE-AW-1A"
-            />
-            <HiddenLabelInput
-              id="fertilizer-pot-sku"
-              label="Pot SKU"
-              name="potSku"
-              placeholder="e.g. POT-4-BLK"
-            />
-          </LogFormFieldGroup>
-        </FormRow>
+        <ScannableDatalistRow
+          label="Plant SKU"
+          name="plantSku"
+          value={plantSku}
+          onChange={setPlantSku}
+          listId={skuList.length > 0 ? "fertilizer-plant-sku-options" : undefined}
+          placeholder="Select or scan a SKU"
+        />
 
-        <FormRow label="Product" htmlFor="fertilizer-product">
-          <input
-            id="fertilizer-product"
-            type="text"
-            name="product"
-            className={logFormFieldClass}
-            placeholder="e.g. 20-20-20, Fish emulsion"
-          />
-        </FormRow>
+        <ScannableDatalistRow
+          label="Pot Size"
+          name="potSku"
+          value={potSku}
+          onChange={setPotSku}
+          listId={potSizeOptions.length > 0 ? "fertilizer-pot-size-options" : undefined}
+          placeholder="Select or scan a pot size"
+        />
+
+        <DatalistRow
+          label="Product"
+          name="product"
+          listId={productOptions.length > 0 ? "fertilizer-product-options" : undefined}
+          placeholder="e.g. 20-20-20, Fish emulsion"
+        />
 
         <FormRow label="Method" htmlFor="fertilizer-method">
-          <LogFormFieldGroup>
-            <input
-              id="fertilizer-method"
-              type="text"
-              name="method"
-              className={logFormFieldClass}
-              placeholder="e.g. Foliar, Drench"
-            />
-            <HiddenLabelInput
-              id="fertilizer-rate"
-              label="Rate"
-              name="rate"
-              placeholder="e.g. 1 tsp/gal"
-            />
-          </LogFormFieldGroup>
+          <input
+            id="fertilizer-method"
+            type="text"
+            name="method"
+            className={logFormFieldClass}
+            placeholder="e.g. Foliar, Drench"
+          />
+        </FormRow>
+
+        <FormRow label="Rate" htmlFor="fertilizer-rate">
+          <input
+            id="fertilizer-rate"
+            type="text"
+            name="rate"
+            className={logFormFieldClass}
+            placeholder="e.g. 1 tsp/gal"
+          />
         </FormRow>
 
         <FormRow label="Unit" htmlFor="fertilizer-unit">
-          <LogFormFieldGroup columns={3}>
-            <input
-              id="fertilizer-unit"
-              type="text"
-              name="unit"
-              className={logFormFieldClass}
-              placeholder="e.g. 32 oz, 1 gal"
-            />
-            <HiddenLabelInput
-              id="fertilizer-next-earliest"
-              label="Next earliest"
-              name="nextEarliest"
-              type="date"
-            />
-            <HiddenLabelInput
-              id="fertilizer-next-latest"
-              label="Next latest"
-              name="nextLatest"
-              type="date"
-            />
-          </LogFormFieldGroup>
+          <input
+            id="fertilizer-unit"
+            type="text"
+            name="unit"
+            className={logFormFieldClass}
+            placeholder="e.g. 32 oz, 1 gal"
+          />
         </FormRow>
 
         <FormRow label="Notes" htmlFor="fertilizer-notes" alignStart>
@@ -120,38 +135,59 @@ export default function FertilizerLogForm({
             placeholder="Optional notes"
           />
         </FormRow>
-      </LogFormBody>
 
-      <LogFormFooter cancelHref={backHref} />
-    </LogFormShell>
+        {skuList.length > 0 ? (
+          <datalist id="fertilizer-plant-sku-options">
+            {skuList.map((sku) => (
+              <option key={sku} value={sku} />
+            ))}
+          </datalist>
+        ) : null}
+        {potSizeOptions.length > 0 ? (
+          <datalist id="fertilizer-pot-size-options">
+            {potSizeOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+        ) : null}
+        {productOptions.length > 0 ? (
+          <datalist id="fertilizer-product-options">
+            {productOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+        ) : null}
+      </div>
+    </form>
   );
 }
 
-function HiddenLabelInput({
-  id,
+function DatalistRow({
   label,
   name,
+  listId,
   placeholder,
-  type = "text",
 }: {
-  id: string;
   label: string;
   name: string;
+  listId?: string;
   placeholder?: string;
-  type?: "text" | "date";
 }) {
+  const id = `fertilizer-${name}`;
+
   return (
-    <div className="min-w-0">
-      <label htmlFor={id} className="sr-only">
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        name={name}
-        className={logFormFieldClass}
-        placeholder={placeholder}
-      />
-    </div>
+    <FormRow label={label} htmlFor={id}>
+      <div className="relative">
+        <input
+          id={id}
+          type="text"
+          name={name}
+          list={listId}
+          className={`${logFormFieldClass} pr-10`}
+          placeholder={placeholder}
+        />
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+      </div>
+    </FormRow>
   );
 }
