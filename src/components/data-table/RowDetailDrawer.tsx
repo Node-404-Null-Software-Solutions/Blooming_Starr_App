@@ -8,7 +8,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { ArrowLeft, Sprout, Trash2, X } from "lucide-react";
+import { ArrowLeft, Pencil, Sprout, Trash2, X } from "lucide-react";
 
 type Field = {
   label: string;
@@ -21,6 +21,9 @@ type Props = {
   title: string;
   fields: Field[];
   onDelete: () => void;
+  onEdit?: () => void;
+  isEditing?: boolean;
+  editContent?: ReactNode;
 };
 
 function isEmptyDetailValue(value: unknown): boolean {
@@ -49,7 +52,16 @@ function isEmptyNode(node: ReactNode): boolean {
   return false;
 }
 
-export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Props) {
+export function RowDetailDrawer({
+  isOpen,
+  onClose,
+  title,
+  fields,
+  onDelete,
+  onEdit,
+  isEditing = false,
+  editContent,
+}: Props) {
   const titleId = useId();
   const titleRef = useRef<HTMLParagraphElement>(null);
 
@@ -68,6 +80,7 @@ export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Pr
   }, [isOpen, title]);
 
   const visibleFields = fields.filter((field) => !isEmptyNode(field.node));
+  const showMobileEditor = Boolean(isEditing && editContent);
 
   return (
     <>
@@ -110,17 +123,34 @@ export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Pr
           >
             <X className="h-5 w-5" />
           </button>
-          <button
-            onClick={onDelete}
-            aria-label="Delete row"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-white hover:bg-white/10 lg:hidden"
-          >
-            <Trash2 className="h-5 w-5" />
-          </button>
+          <div className="ml-2 flex shrink-0 items-center gap-1 lg:hidden">
+            {onEdit && !isEditing ? (
+              <button
+                onClick={onEdit}
+                aria-label="Edit row"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-white hover:bg-white/10"
+              >
+                <Pencil className="h-5 w-5" />
+              </button>
+            ) : null}
+            {!isEditing ? (
+              <button
+                onClick={onDelete}
+                aria-label="Delete row"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-white hover:bg-white/10"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            ) : null}
+          </div>
         </div>
 
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 lg:py-3">
+        <div
+          className={`flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 lg:block lg:py-3 ${
+            showMobileEditor ? "hidden" : ""
+          }`}
+        >
           <dl className="mx-auto grid max-w-full gap-5 text-center text-sm sm:max-w-[620px] lg:max-w-none lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center lg:gap-x-4 lg:gap-y-2 lg:text-left">
             {visibleFields.map(({ label, node }) => (
               <div key={label} className="contents lg:contents">
@@ -131,6 +161,11 @@ export function RowDetailDrawer({ isOpen, onClose, title, fields, onDelete }: Pr
           </dl>
         </div>
 
+        {showMobileEditor ? (
+          <div className="flex-1 overflow-y-auto overflow-x-hidden lg:hidden">
+            {editContent}
+          </div>
+        ) : null}
 
         <div className="hidden shrink-0 items-center justify-between border-t border-gray-200 px-4 py-3 lg:flex">
           <button

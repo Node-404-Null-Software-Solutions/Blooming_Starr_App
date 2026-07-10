@@ -1,4 +1,5 @@
 import { requireActiveMembership } from "@/lib/authz";
+import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { db } from "@/lib/db";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import ProductIntakeClient from "./ProductIntakeClient";
@@ -75,12 +76,21 @@ export default async function ProductsPage({
     notes: row.notes ?? "—",
   }));
 
+  const lookups = await getLookupEntriesMulti([
+    "productSource",
+    "productCategory",
+    "productSize",
+    "productStyle",
+    "paymentMethod",
+  ]);
+
   const showAdd = true;
 
   return (
     <ProductIntakeClient
       businessSlug={businessSlug}
       rows={viewRows}
+      lookups={lookups}
       showAdd={showAdd}
     />
   );

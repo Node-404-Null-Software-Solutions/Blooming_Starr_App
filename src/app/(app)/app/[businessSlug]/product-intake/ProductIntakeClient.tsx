@@ -1,18 +1,24 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import ModuleHeader from "../_components/ModuleHeader";
 import { useProductIntakeFilter, ProductIntakeFilterPanel } from "./ProductIntakeFilterPopover";
-import { updateProductIntake, deleteProductIntake } from "@/lib/actions/data-entries";
+import {
+  updateProductIntake,
+  deleteProductIntake,
+  type ProductIntakeUpdate,
+} from "@/lib/actions/data-entries";
+import type { LookupRow } from "@/lib/actions/lookups";
 import { EditableCell } from "@/components/data-table/EditableCell";
 import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
+import ProductIntakeDetailEditForm from "./ProductIntakeDetailEditForm";
 
-type ProductRow = {
+export type ProductRow = {
   id: string;
   date: string;
   dateSort: string;
@@ -66,38 +72,52 @@ function displayValue(row: ProductRow, field: EditableProductField) {
 export default function ProductIntakeClient({
   businessSlug,
   rows,
+  lookups,
   showAdd,
 }: {
   businessSlug: string;
   rows: ProductRow[];
+  lookups: Record<string, LookupRow[]>;
   showAdd: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [clientRows, setClientRows] = useState(rows);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [detailEditMode, setDetailEditMode] = useState(false);
+  const [detailSaving, setDetailSaving] = useState(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
   const { isOpen, setIsOpen, hasActiveFilters, filters, setFilters, apply, clear, cancel } =
     useProductIntakeFilter();
 
+  useEffect(() => {
+    setClientRows(rows);
+  }, [rows]);
+
+  useEffect(() => {
+    if (!selectedId) setDetailEditMode(false);
+  }, [selectedId]);
+
   const filteredRows = useMemo(() => {
-    return [...rows].sort((a, b) => {
+    return [...clientRows].sort((a, b) => {
       const aTime = Date.parse(a.dateSort);
       const bTime = Date.parse(b.dateSort);
       const aValue = Number.isNaN(aTime) ? 0 : aTime;
       const bValue = Number.isNaN(bTime) ? 0 : bTime;
       return bValue - aValue;
     });
-  }, [rows]);
+  }, [clientRows]);
 
   const selectedRow = filteredRows.find((row) => row.id === selectedId) ?? null;
-  const hasRows = rows.length > 0;
+  const hasRows = clientRows.length > 0;
   const detailOpen = selectedId !== null && !editMode && !selectMode;
 
   function toggleSelectMode() {
     setSelectMode((value) => !value);
     setEditMode(false);
+    setDetailEditMode(false);
     setSelectedId(null);
     setSelectedRows(new Set());
   }
@@ -105,6 +125,12 @@ export default function ProductIntakeClient({
   function toggleEditMode() {
     setEditMode((value) => !value);
     setSelectMode(false);
+    setDetailEditMode(false);
+    setSelectedId(null);
+  }
+
+  function closeDetail() {
+    setDetailEditMode(false);
     setSelectedId(null);
   }
 
@@ -130,7 +156,38 @@ export default function ProductIntakeClient({
       toggleSelectedRow(row.id);
       return;
     }
+    setDetailEditMode(false);
     setSelectedId(row.id);
+  }
+
+  function applyProductDetailUpdate(row: ProductRow, data: ProductIntakeUpdate) {
+    const next = { ...row };
+    if (data.date !== undefined) {
+      next.date = data.date ?? dash;
+      const dateTime = data.date ? Date.parse(data.date) : Number.NaN;
+      next.dateSort =
+        data.date && !Number.isNaN(dateTime)
+          ? new Date(dateTime).toISOString()
+          : "";
+    }
+    if (data.vendor !== undefined) next.vendor = data.vendor ?? "";
+    if (data.source !== undefined) next.source = data.source ?? "";
+    if (data.category !== undefined) next.category = data.category ?? "";
+    if (data.size !== undefined) next.size = data.size ?? "";
+    if (data.style !== undefined) next.style = data.style ?? "";
+    if (data.purchaseNumber !== undefined)
+      next.purchaseNumber = data.purchaseNumber ?? "";
+    if (data.qty !== undefined) next.qty = data.qty;
+    if (data.totalCostCents !== undefined)
+      next.totalCostCents = data.totalCostCents;
+    if (data.paymentMethod !== undefined)
+      next.paymentMethod = data.paymentMethod ?? "";
+    if (data.cardLast4 !== undefined) next.cardLast4 = data.cardLast4;
+    if (data.invoiceNumber !== undefined)
+      next.invoiceNumber = data.invoiceNumber ?? "";
+    if (data.notes !== undefined) next.notes = data.notes ?? "";
+    next.unitCost = next.qty > 0 ? next.totalCostCents / 100 / next.qty : 0;
+    return next;
   }
 
   async function handleSave(id: string, field: EditableProductField, value: string) {
@@ -155,14 +212,43 @@ export default function ProductIntakeClient({
       businessSlug,
       payload as Parameters<typeof updateProductIntake>[2]
     );
-    if (res.ok) startTransition(() => router.refresh());
+    if (res.ok) {
+      setClientRows((current) =>
+        current.map((row) =>
+          row.id === id
+            ? applyProductDetailUpdate(row, payload as ProductIntakeUpdate)
+            : row
+        )
+      );
+      startTransition(() => router.refresh());
+    }
+  }
+
+  async function handleDetailSave(data: ProductIntakeUpdate) {
+    if (!selectedRow) return { ok: false, error: "No row selected" };
+    setDetailSaving(true);
+    try {
+      const res = await updateProductIntake(selectedRow.id, businessSlug, data);
+      if (res.ok) {
+        setClientRows((current) =>
+          current.map((row) =>
+            row.id === selectedRow.id ? applyProductDetailUpdate(row, data) : row
+          )
+        );
+        setDetailEditMode(false);
+        startTransition(() => router.refresh());
+      }
+      return res;
+    } finally {
+      setDetailSaving(false);
+    }
   }
 
   async function handleDelete(id: string) {
     if (!window.confirm("Delete this row? This cannot be undone.")) return;
     const res = await deleteProductIntake(id, businessSlug);
     if (res.ok) {
-      setSelectedId(null);
+      closeDetail();
       startTransition(() => router.refresh());
     }
   }
@@ -189,6 +275,32 @@ export default function ProductIntakeClient({
     );
   }
 
+  function renderDetailEditable(
+    row: ProductRow,
+    field: EditableProductField,
+    type: "text" | "currency" | "number" | "date" = "text"
+  ) {
+    const editableValue =
+      field === "totalCostCents"
+        ? String(row.totalCostCents)
+        : field === "qty"
+          ? String(row.qty)
+          : cleanDisplay(row[field]);
+
+    return (
+      <>
+        <span className="lg:hidden">{displayValue(row, field)}</span>
+        <span className="hidden lg:block">
+          <EditableCell
+            value={editableValue}
+            onSave={(value) => handleSave(row.id, field, value)}
+            type={type}
+          />
+        </span>
+      </>
+    );
+  }
+
   const headCell =
     "sticky top-0 z-10 border-b border-r border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-800";
   const bodyCell =
@@ -201,27 +313,40 @@ export default function ProductIntakeClient({
       detail={
         <RowDetailDrawer
           isOpen={detailOpen}
-          onClose={() => setSelectedId(null)}
+          onClose={closeDetail}
           title={selectedRow ? `${formatAppDate(selectedRow.date, "Entry")} - ${selectedRow.sku}` : ""}
           onDelete={() => selectedRow && handleDelete(selectedRow.id)}
+          onEdit={() => setDetailEditMode(true)}
+          isEditing={detailEditMode}
+          editContent={
+            selectedRow ? (
+              <ProductIntakeDetailEditForm
+                row={selectedRow}
+                lookups={lookups}
+                isSaving={detailSaving}
+                onCancel={() => setDetailEditMode(false)}
+                onSave={handleDetailSave}
+              />
+            ) : null
+          }
           fields={
             selectedRow
               ? [
-                  { label: "Date", node: <EditableCell value={cleanDisplay(selectedRow.date)} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
-                  { label: "Vendor", node: <EditableCell value={cleanDisplay(selectedRow.vendor)} onSave={(v) => handleSave(selectedRow.id, "vendor", v)} /> },
-                  { label: "Source", node: <EditableCell value={cleanDisplay(selectedRow.source)} onSave={(v) => handleSave(selectedRow.id, "source", v)} /> },
-                  { label: "Category", node: <EditableCell value={cleanDisplay(selectedRow.category)} onSave={(v) => handleSave(selectedRow.id, "category", v)} /> },
-                  { label: "Size", node: <EditableCell value={cleanDisplay(selectedRow.size)} onSave={(v) => handleSave(selectedRow.id, "size", v)} /> },
-                  { label: "Style", node: <EditableCell value={cleanDisplay(selectedRow.style)} onSave={(v) => handleSave(selectedRow.id, "style", v)} /> },
-                  { label: "Purchase #", node: <EditableCell value={cleanDisplay(selectedRow.purchaseNumber)} onSave={(v) => handleSave(selectedRow.id, "purchaseNumber", v)} /> },
-                  { label: "Qty", node: <EditableCell value={String(selectedRow.qty)} onSave={(v) => handleSave(selectedRow.id, "qty", v)} type="number" /> },
+                  { label: "Date", node: renderDetailEditable(selectedRow, "date", "date") },
+                  { label: "Vendor", node: renderDetailEditable(selectedRow, "vendor") },
+                  { label: "Source", node: renderDetailEditable(selectedRow, "source") },
+                  { label: "Category", node: renderDetailEditable(selectedRow, "category") },
+                  { label: "Size", node: renderDetailEditable(selectedRow, "size") },
+                  { label: "Style", node: renderDetailEditable(selectedRow, "style") },
+                  { label: "Purchase #", node: renderDetailEditable(selectedRow, "purchaseNumber") },
+                  { label: "Qty", node: renderDetailEditable(selectedRow, "qty", "number") },
                   { label: "SKU", node: <span className="font-mono text-gray-700">{selectedRow.sku}</span> },
                   { label: "Unit Cost", node: <span className="text-gray-700">${selectedRow.qty > 0 ? (selectedRow.totalCostCents / 100 / selectedRow.qty).toFixed(2) : "0.00"}</span> },
-                  { label: "Total Cost", node: <EditableCell value={String(selectedRow.totalCostCents)} onSave={(v) => handleSave(selectedRow.id, "totalCostCents", v)} type="currency" /> },
-                  { label: "Payment Method", node: <EditableCell value={cleanDisplay(selectedRow.paymentMethod)} onSave={(v) => handleSave(selectedRow.id, "paymentMethod", v)} /> },
-                  { label: "Card #", node: <EditableCell value={selectedRow.cardLast4 ?? ""} onSave={(v) => handleSave(selectedRow.id, "cardLast4", v)} /> },
-                  { label: "Invoice #", node: <EditableCell value={cleanDisplay(selectedRow.invoiceNumber)} onSave={(v) => handleSave(selectedRow.id, "invoiceNumber", v)} /> },
-                  { label: "Notes", node: <EditableCell value={cleanDisplay(selectedRow.notes)} onSave={(v) => handleSave(selectedRow.id, "notes", v)} /> },
+                  { label: "Total Cost", node: renderDetailEditable(selectedRow, "totalCostCents", "currency") },
+                  { label: "Payment Method", node: renderDetailEditable(selectedRow, "paymentMethod") },
+                  { label: "Card #", node: renderDetailEditable(selectedRow, "cardLast4") },
+                  { label: "Invoice #", node: renderDetailEditable(selectedRow, "invoiceNumber") },
+                  { label: "Notes", node: renderDetailEditable(selectedRow, "notes") },
                 ]
               : []
           }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireActiveMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
+import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import PlantIntakeClient from "./PlantIntakeClient";
 
@@ -96,6 +97,13 @@ export default async function PlantIntakePage({
   const genusOptions = genusRows
     .map((row: GenusRow) => row.genus)
     .filter((value): value is string => Boolean(value && value.trim().length > 0));
+  const lookups = await getLookupEntriesMulti([
+    "plantSource",
+    "genus",
+    "cultivar",
+    "plantId",
+    "paymentMethod",
+  ]);
 
   const rawRows = await db.plantIntake.findMany({
     where: {
@@ -135,6 +143,7 @@ export default async function PlantIntakePage({
           <PlantIntakeClient
             businessSlug={businessSlug}
             genusOptions={genusOptions}
+            lookups={lookups}
             rows={rows}
           />
           <div className="m-4 rounded-md border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
@@ -158,6 +167,7 @@ export default async function PlantIntakePage({
         <PlantIntakeClient
           businessSlug={businessSlug}
           genusOptions={genusOptions}
+          lookups={lookups}
           rows={rows}
         />
       )}
