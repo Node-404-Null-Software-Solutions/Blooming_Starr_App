@@ -1,4 +1,4 @@
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import OverheadExpensesClient from "./OverheadExpensesClient";
@@ -10,14 +10,10 @@ export default async function OverheadExpensesPage({
   params: Promise<{ businessSlug: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
-  const businessId = profile.activeBusinessId;
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const sp = (await searchParams) ?? {};
-
-  if (!businessId) {
-    return null;
-  }
 
   const fromRaw = typeof sp.from === "string" ? sp.from : "";
   const toRaw = typeof sp.to === "string" ? sp.to : "";

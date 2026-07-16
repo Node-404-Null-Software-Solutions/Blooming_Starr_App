@@ -1,10 +1,10 @@
 "use client";
 
 import { FormEvent } from "react";
-import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Menu, RefreshCw, Search, Sprout } from "lucide-react";
+import { Menu, RefreshCw, Search } from "lucide-react";
 import QrScanButton from "@/components/qr/QrScanButton";
+import BusinessSwitcher, { type BusinessOption } from "@/components/app/BusinessSwitcher";
 
 const placeholderMap: Record<string, string> = {
   "plant-intake": "Search Plant Intake",
@@ -28,9 +28,11 @@ type TopBarProps = {
   onMenuClick?: () => void;
   logoUrl?: string | null;
   businessName?: string | null;
+  businessSlug: string;
+  businesses: BusinessOption[];
 };
 
-export default function TopBar({ onMenuClick, logoUrl, businessName }: TopBarProps) {
+export default function TopBar({ onMenuClick, logoUrl, businessName, businessSlug, businesses }: TopBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -69,24 +71,13 @@ export default function TopBar({ onMenuClick, logoUrl, businessName }: TopBarPro
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="flex min-w-0 shrink-0 items-center gap-2 sm:min-w-[11rem]">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-white">
-            {logoUrl ? (
-              <Image
-                src={logoUrl}
-                alt=""
-                width={36}
-                height={36}
-                unoptimized
-                className="h-9 w-9 object-contain"
-              />
-            ) : (
-              <Sprout className="h-5 w-5 text-[#08bd12]" />
-            )}
-          </div>
-          <span className="hidden truncate text-xl font-medium text-white sm:block">
-            {businessName ?? "Blooming Starr"}
-          </span>
+        <div className="min-w-0 shrink-0 sm:min-w-[11rem]">
+          <BusinessSwitcher
+            currentSlug={businessSlug}
+            businessName={businessName ?? "Blooming Starr"}
+            logoUrl={logoUrl ?? null}
+            businesses={businesses}
+          />
         </div>
         <div className="flex min-w-0 flex-1 justify-center">
           <form onSubmit={handleSubmit} className="relative flex w-full min-w-0 max-w-[520px] items-center">
@@ -114,13 +105,6 @@ export default function TopBar({ onMenuClick, logoUrl, businessName }: TopBarPro
             aria-label="Refresh"
           >
             <RefreshCw className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-8 items-center gap-1 rounded-sm border border-white/20 px-2 text-white hover:bg-white/15"
-            aria-label="More actions"
-          >
-            <ChevronDown className="h-4 w-4" />
           </button>
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#08bd12]">
             {(businessName ?? "D").trim().charAt(0).toUpperCase() || "D"}

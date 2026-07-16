@@ -1,4 +1,4 @@
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 
 type SkuRow = {
@@ -11,10 +11,9 @@ export default async function SkuMasterPage({
 }: {
   params: Promise<{ businessSlug: string }>;
 }) {
-  await params;
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return null;
+  const { businessSlug } = await params;
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const [plantSkus, productSkus, transplantSkus] = await Promise.all([
     db.plantIntake.findMany({

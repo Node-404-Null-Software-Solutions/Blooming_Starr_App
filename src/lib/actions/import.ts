@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requireRole } from "@/lib/authz";
+import { requireBusinessRole } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
 import {
   loadOverheadDerivedCalculator,
@@ -1090,9 +1090,8 @@ export async function importWorkbook(
   businessSlug: string,
   formData: FormData
 ): Promise<ImportReport> {
-  const { profile } = await requireRole(["OWNER", "MANAGER"]);
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { sheets: {}, lookups: {}, error: "No active business." };
+  const { business } = await requireBusinessRole(businessSlug, ["OWNER", "MANAGER"]);
+  const businessId = business.id;
 
   const file = formData.get("file") as File | null;
   if (!file) return { sheets: {}, lookups: {}, error: "No file uploaded." };
@@ -1214,9 +1213,8 @@ export type ClearResult = {
 };
 
 export async function clearBusinessData(businessSlug: string): Promise<ClearResult> {
-  const { profile } = await requireRole(["OWNER"]);
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No active business." };
+  const { business } = await requireBusinessRole(businessSlug, ["OWNER"]);
+  const businessId = business.id;
 
   const [
     plantIntake,

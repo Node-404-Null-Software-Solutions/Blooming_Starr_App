@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/authz";
+import { requireBusinessRole } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { Building2, Palette } from "lucide-react";
 import { ThemeSettingsForm } from "../ThemeSettingsForm";
@@ -10,7 +10,7 @@ export default async function BusinessSettingsPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business: biz } = await requireRole(["OWNER", "MANAGER"]);
+  const { business: biz } = await requireBusinessRole(businessSlug, ["OWNER", "MANAGER"]);
   const businessId = biz.id;
 
   const business = await db.business.findUnique({

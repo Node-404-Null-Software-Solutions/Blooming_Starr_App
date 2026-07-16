@@ -8,18 +8,18 @@ export default async function OnboardingPage() {
   if (!userId) redirect("/sign-in");
 
 
-  const profile = await db.profile.findUnique({ where: { userId } });
-  if (profile?.activeBusinessId) {
-    const business = await db.business.findUnique({
-      where: { id: profile.activeBusinessId },
-      select: { slug: true },
+  const membership = await db.membership.findFirst({
+    where: { userId, status: "ACTIVE" },
+    select: { businessId: true, business: { select: { slug: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  if (membership) {
+    await db.profile.upsert({
+      where: { userId },
+      update: { activeBusinessId: membership.businessId },
+      create: { userId, activeBusinessId: membership.businessId },
     });
-    if (business) {
-      const membership = await db.membership.findFirst({
-        where: { businessId: profile.activeBusinessId, userId, status: "ACTIVE" },
-      });
-      if (membership) redirect(`/app/${business.slug}`);
-    }
+    redirect(`/app/${membership.business.slug}`);
   }
 
   return (

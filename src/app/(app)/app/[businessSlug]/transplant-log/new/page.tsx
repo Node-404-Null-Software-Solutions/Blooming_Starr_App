@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { createTransplantLog } from "@/lib/actions/data-entries";
@@ -10,13 +10,12 @@ export default async function NewTransplantLogPage({
 }: {
   params: Promise<{ businessSlug: string }>;
 }) {
-  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return null;
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const [lookups, plantSkus] = await Promise.all([
-    getLookupEntriesMulti([
+    getLookupEntriesMulti(businessSlug, [
       "transplantAction",
       "transplantMedia",
       "potSize",

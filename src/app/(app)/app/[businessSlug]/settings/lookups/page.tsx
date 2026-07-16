@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/authz";
+import { requireBusinessRole } from "@/lib/authz";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { getPlantSkuReferences } from "@/lib/actions/plant-sku-references";
 import type { LookupTable } from "@/lib/actions/lookups";
@@ -35,11 +35,11 @@ export default async function LookupsSettingsPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  await requireRole(["OWNER", "MANAGER"]);
+  await requireBusinessRole(businessSlug, ["OWNER", "MANAGER"]);
 
   const [lookups, plantSkuReferences] = await Promise.all([
-    getLookupEntriesMulti(ALL_TABLES.map((t) => t.key)),
-    getPlantSkuReferences(),
+    getLookupEntriesMulti(businessSlug, ALL_TABLES.map((t) => t.key)),
+    getPlantSkuReferences(businessSlug),
   ]);
 
   return (

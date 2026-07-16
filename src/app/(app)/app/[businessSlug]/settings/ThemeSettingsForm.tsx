@@ -44,6 +44,7 @@ export function ThemeSettingsForm({
     try {
       const formData = new FormData();
       formData.set("file", file);
+      formData.set("businessSlug", businessSlug);
       const res = await fetch("/api/upload-logo", {
         method: "POST",
         body: formData,

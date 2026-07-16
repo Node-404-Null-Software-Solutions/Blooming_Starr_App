@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 
 export async function createScheduleEntry(
   businessSlug: string,
   formData: FormData
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { business } = await requireActiveMembership();
+  const { business } = await requireBusinessMembership(businessSlug);
 
   const employeeId = String(formData.get("employeeId") ?? "").trim();
   const dateStr = String(formData.get("date") ?? "").trim();
@@ -55,7 +55,7 @@ export async function updateScheduleEntry(
     notes?: string | null;
   }
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireActiveMembership();
+  const { business } = await requireBusinessMembership(businessSlug);
 
   const existing = await db.scheduleEntry.findFirst({
     where: { id, businessId: business.id },
@@ -63,7 +63,14 @@ export async function updateScheduleEntry(
   if (!existing) return { ok: false, error: "Entry not found." };
 
   const updateData: Record<string, unknown> = {};
-  if (data.employeeId !== undefined) updateData.employeeId = data.employeeId;
+  if (data.employeeId !== undefined) {
+    const employee = await db.employee.findFirst({
+      where: { id: data.employeeId, businessId: business.id },
+      select: { id: true },
+    });
+    if (!employee) return { ok: false, error: "Employee not found." };
+    updateData.employeeId = data.employeeId;
+  }
   if (data.date !== undefined) updateData.date = new Date(data.date);
   if (data.startTime !== undefined) updateData.startTime = data.startTime;
   if (data.endTime !== undefined) updateData.endTime = data.endTime;
@@ -80,7 +87,7 @@ export async function deleteScheduleEntry(
   id: string,
   businessSlug: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireActiveMembership();
+  const { business } = await requireBusinessMembership(businessSlug);
 
   const existing = await db.scheduleEntry.findFirst({
     where: { id, businessId: business.id },

@@ -1,4 +1,4 @@
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { formatAppDate } from "@/lib/date-format";
 import ProductInventoryClient, {
@@ -19,9 +19,8 @@ export default async function ProductInventoryPage({
   const { businessSlug } = await params;
   const sp = (await searchParams) ?? {};
   const qRaw = typeof sp.q === "string" ? sp.q.trim() : "";
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return null;
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const [productIntakeRows, salesRows] = await Promise.all([
     db.productIntake.findMany({

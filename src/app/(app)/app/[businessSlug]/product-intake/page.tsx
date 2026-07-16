@@ -1,4 +1,4 @@
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { db } from "@/lib/db";
 import { sortByDateDescNullsLast } from "@/lib/sort";
@@ -25,11 +25,8 @@ export default async function ProductsPage({
   const { businessSlug } = await params;
   const sp = (await searchParams) ?? {};
 
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) {
-    return null;
-  }
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const fromRaw = typeof sp.from === "string" ? sp.from : "";
   const toRaw = typeof sp.to === "string" ? sp.to : "";
@@ -76,7 +73,7 @@ export default async function ProductsPage({
     notes: row.notes ?? "—",
   }));
 
-  const lookups = await getLookupEntriesMulti([
+  const lookups = await getLookupEntriesMulti(businessSlug, [
     "productSource",
     "productCategory",
     "productSize",

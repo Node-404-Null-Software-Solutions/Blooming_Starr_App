@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { getAllFertilizerProducts } from "@/lib/fertilizer-key";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
@@ -11,13 +11,12 @@ export default async function NewFertilizerLogPage({
 }: {
   params: Promise<{ businessSlug: string }>;
 }) {
-  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return null;
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const [lookups, plantSkus] = await Promise.all([
-    getLookupEntriesMulti(["fertilizerProduct", "potSize"]),
+    getLookupEntriesMulti(businessSlug, ["fertilizerProduct", "potSize"]),
     db.plantIntake.findMany({
       where: { businessId },
       select: { sku: true },

@@ -1,4 +1,4 @@
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import SkuScannerClient, { type InventoryLookupItem } from "./SkuScannerClient";
 
@@ -8,9 +8,8 @@ export default async function SkuScannerPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return null;
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const [productIntakes, plantIntakes, salesRows, transplantRows] =
     await Promise.all([

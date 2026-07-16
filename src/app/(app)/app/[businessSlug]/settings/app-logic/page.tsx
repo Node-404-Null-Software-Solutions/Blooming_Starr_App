@@ -7,7 +7,7 @@ export default async function AppLogicPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const rules = await listAppLogicRules();
+  const rules = await listAppLogicRules(businessSlug);
 
   return (
     <div className="space-y-5">

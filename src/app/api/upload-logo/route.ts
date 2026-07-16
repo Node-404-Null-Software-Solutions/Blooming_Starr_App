@@ -43,27 +43,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Too many uploads. Try again in a minute." }, { status: 429 });
   }
 
-  const { db } = await import("@/lib/db");
-  const profile = await db.profile.findUnique({ where: { userId } });
-  if (!profile?.activeBusinessId) {
-    return NextResponse.json({ error: "No active business" }, { status: 403 });
-  }
-
-  const membership = await db.membership.findFirst({
-    where: { businessId: profile.activeBusinessId, userId, status: "ACTIVE" },
-  });
-  if (!membership || !["OWNER", "MANAGER"].includes(membership.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const businessId = profile.activeBusinessId;
-
   let formData: FormData;
   try {
     formData = await request.formData();
   } catch {
     return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
   }
+
+  const businessSlug = String(formData.get("businessSlug") ?? "").trim();
+  if (!businessSlug) {
+    return NextResponse.json({ error: "Business is required" }, { status: 400 });
+  }
+
+  const { db } = await import("@/lib/db");
+  const membership = await db.membership.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE",
+      business: { slug: businessSlug },
+    },
+    select: { businessId: true, role: true },
+  });
+  if (!membership || !["OWNER", "MANAGER"].includes(membership.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const businessId = membership.businessId;
 
   const file = formData.get("file") ?? formData.get("logo");
   if (!file || !(file instanceof File)) {

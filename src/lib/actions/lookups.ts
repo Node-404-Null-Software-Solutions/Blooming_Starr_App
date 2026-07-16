@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
 
 export type LookupRow = {
@@ -44,11 +44,12 @@ function isValidTable(t: string): t is LookupTable {
 }
 
 export async function getLookupEntries(
+  businessSlug: string,
   table: string
 ): Promise<LookupRow[]> {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId || !isValidTable(table)) return [];
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
+  if (!isValidTable(table)) return [];
 
   return db.lookupEntry.findMany({
     where: { businessId, table },
@@ -58,11 +59,11 @@ export async function getLookupEntries(
 }
 
 export async function getLookupEntriesMulti(
+  businessSlug: string,
   tables: string[]
 ): Promise<Record<string, LookupRow[]>> {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return {};
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const validTables = tables.filter(isValidTable);
   if (validTables.length === 0) return {};
@@ -86,9 +87,8 @@ export async function createLookupEntry(
   code: string,
   parentCode?: string | null
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   if (!isValidTable(table)) return { ok: false, error: "Invalid table" };
 
   const trimName = name.trim();
@@ -122,9 +122,8 @@ export async function updateLookupEntry(
   businessSlug: string,
   data: { name?: string; code?: string; parentCode?: string | null; sortOrder?: number }
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const existing = await db.lookupEntry.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
@@ -149,9 +148,8 @@ export async function updateLookupEntry(
 }
 
 export async function deleteLookupEntry(id: string, businessSlug: string) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const existing = await db.lookupEntry.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };

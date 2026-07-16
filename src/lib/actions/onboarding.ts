@@ -23,16 +23,6 @@ export async function createBusinessAndProfile(
   }
 
 
-  const existingProfile = await db.profile.findUnique({ where: { userId } });
-  if (existingProfile?.activeBusinessId) {
-    const biz = await db.business.findUnique({
-      where: { id: existingProfile.activeBusinessId },
-      select: { slug: true },
-    });
-    if (biz) return { ok: true, slug: biz.slug };
-  }
-
-
   let baseSlug = slugify(businessName);
   if (!baseSlug) baseSlug = "my-business";
   let slug = baseSlug;
@@ -51,17 +41,11 @@ export async function createBusinessAndProfile(
       },
     });
 
-    const profile = existingProfile
-      ? await tx.profile.update({
-          where: { userId },
-          data: { activeBusinessId: business.id },
-        })
-      : await tx.profile.create({
-          data: {
-            userId,
-            activeBusinessId: business.id,
-          },
-        });
+    const profile = await tx.profile.upsert({
+      where: { userId },
+      update: { activeBusinessId: business.id },
+      create: { userId, activeBusinessId: business.id },
+    });
 
     await tx.membership.create({
       data: {

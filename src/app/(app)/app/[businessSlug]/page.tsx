@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import {
   getTaxSummary,
@@ -24,11 +24,9 @@ export default async function BusinessDashboardPage({
   params: Promise<{ businessSlug: string }>;
   searchParams?: SearchParams;
 }) {
-  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
-  const businessId = profile.activeBusinessId;
-
-  if (!businessId) return null;
+  const { business: authorizedBusiness } = await requireBusinessMembership(businessSlug);
+  const businessId = authorizedBusiness.id;
 
   const sp = (await searchParams) ?? {};
   const taxYear = parseTaxYear(sp.taxYear);

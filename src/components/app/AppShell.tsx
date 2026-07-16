@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import TopBar from "@/components/app/TopBar";
 import AppSidebar from "@/components/app/AppSidebar";
+import type { BusinessOption } from "@/components/app/BusinessSwitcher";
 
 function subscribeToDesktopChanges(callback: () => void) {
   const mediaQuery = window.matchMedia("(min-width: 768px)");
@@ -23,11 +24,13 @@ export default function AppShell({
   logoUrl,
   businessName,
   businessSlug,
+  businesses,
 }: {
   children: React.ReactNode;
   logoUrl?: string | null;
   businessName?: string | null;
   businessSlug?: string | null;
+  businesses: BusinessOption[];
 }) {
   const isDesktop = useSyncExternalStore(
     subscribeToDesktopChanges,
@@ -57,6 +60,8 @@ export default function AppShell({
       <TopBar
         logoUrl={logoUrl ?? null}
         businessName={businessName}
+        businessSlug={businessSlug ?? ""}
+        businesses={businesses}
         onMenuClick={toggleSidebar}
       />
 

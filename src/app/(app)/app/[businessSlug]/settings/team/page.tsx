@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/authz";
+import { requireBusinessRole } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { formatAppDate } from "@/lib/date-format";
 import { Users, UserPlus, Link as LinkIcon } from "lucide-react";
@@ -22,7 +22,7 @@ export default async function TeamSettingsPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business, userId: currentUserId } = await requireRole(["OWNER"]);
+  const { business, userId: currentUserId } = await requireBusinessRole(businessSlug, ["OWNER"]);
   const businessId = business.id;
 
   const [members, joinRequests] = await Promise.all([

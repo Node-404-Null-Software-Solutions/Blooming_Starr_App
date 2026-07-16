@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import {
   calculateDivisionCost,
   calculateOverheadDerived,
@@ -103,9 +103,8 @@ export async function updateSalesEntry(
   businessSlug: string,
   data: SalesEntryUpdate
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const existing = await db.salesEntry.findFirst({
     where: { id, businessId },
@@ -222,9 +221,8 @@ function revalidateTransplantPaths(businessSlug: string) {
 }
 
 export async function createSalesEntry(businessSlug: string, formData: FormData) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const sku = formStr(formData, "sku");
   if (!sku) return { ok: false, error: "SKU is required" };
@@ -270,9 +268,8 @@ export async function createSalesEntry(businessSlug: string, formData: FormData)
 }
 
 export async function createPlantIntake(businessSlug: string, formData: FormData) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const source = formStr(formData, "source");
   const genus = formStr(formData, "genus");
@@ -337,9 +334,8 @@ export async function createPlantIntake(businessSlug: string, formData: FormData
 }
 
 export async function createProductIntake(businessSlug: string, formData: FormData) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const source = formStr(formData, "source");
   const category = formStr(formData, "category");
@@ -414,9 +410,8 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
 }
 
 export async function createOverheadExpense(businessSlug: string, formData: FormData) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const subTotalCents = formCents(formData, "subTotal");
   const shippingCents = formCents(formData, "shipping");
@@ -456,9 +451,8 @@ export async function createOverheadExpense(businessSlug: string, formData: Form
 }
 
 export async function createTransplantLog(businessSlug: string, formData: FormData) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const originalSku = formStr(formData, "originalSku") || null;
   const action = formStr(formData, "action") || null;
@@ -518,9 +512,8 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
 }
 
 export async function createTreatmentTracking(businessSlug: string, formData: FormData) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const sku = formStr(formData, "sku");
   if (!sku) return { ok: false, error: "SKU is required" };
@@ -548,9 +541,8 @@ export async function createTreatmentTracking(businessSlug: string, formData: Fo
 }
 
 export async function createFertilizerLog(businessSlug: string, formData: FormData) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const date = formDate(formData, "date");
   const product = formStr(formData, "product") || null;
@@ -607,9 +599,8 @@ export async function updatePlantIntake(
   businessSlug: string,
   data: PlantIntakeUpdate
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.plantIntake.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
 
@@ -724,9 +715,8 @@ export async function updateProductIntake(
   businessSlug: string,
   data: ProductIntakeUpdate
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.productIntake.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
 
@@ -855,9 +845,8 @@ export async function updateTransplantLog(
   businessSlug: string,
   data: TransplantLogUpdate
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.transplantLog.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
 
@@ -908,9 +897,8 @@ export async function updateTreatmentTracking(
   businessSlug: string,
   data: TreatmentTrackingUpdate
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.treatmentTracking.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
 
@@ -975,9 +963,8 @@ export async function updateOverheadExpense(
   businessSlug: string,
   data: OverheadExpenseUpdate
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.overheadExpense.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
 
@@ -1041,9 +1028,8 @@ export async function updateFertilizerLog(
   businessSlug: string,
   data: FertilizerLogUpdate
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.fertilizerLog.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
 
@@ -1086,9 +1072,8 @@ export async function updateFertilizerLog(
 }
 
 export async function deleteSalesEntry(id: string, businessSlug: string) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.salesEntry.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.salesEntry.delete({ where: { id } });
@@ -1097,9 +1082,8 @@ export async function deleteSalesEntry(id: string, businessSlug: string) {
 }
 
 export async function deletePlantIntake(id: string, businessSlug: string) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.plantIntake.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.plantIntake.delete({ where: { id } });
@@ -1108,9 +1092,8 @@ export async function deletePlantIntake(id: string, businessSlug: string) {
 }
 
 export async function deleteProductIntake(id: string, businessSlug: string) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.productIntake.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.productIntake.delete({ where: { id } });
@@ -1119,9 +1102,8 @@ export async function deleteProductIntake(id: string, businessSlug: string) {
 }
 
 export async function deleteOverheadExpense(id: string, businessSlug: string) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.overheadExpense.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.overheadExpense.delete({ where: { id } });
@@ -1130,9 +1112,8 @@ export async function deleteOverheadExpense(id: string, businessSlug: string) {
 }
 
 export async function deleteTransplantLog(id: string, businessSlug: string) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.transplantLog.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.transplantLog.delete({ where: { id } });
@@ -1141,9 +1122,8 @@ export async function deleteTransplantLog(id: string, businessSlug: string) {
 }
 
 export async function deleteFertilizerLog(id: string, businessSlug: string) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.fertilizerLog.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.fertilizerLog.delete({ where: { id } });
@@ -1152,9 +1132,8 @@ export async function deleteFertilizerLog(id: string, businessSlug: string) {
 }
 
 export async function deleteTreatmentTracking(id: string, businessSlug: string) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const existing = await db.treatmentTracking.findFirst({ where: { id, businessId } });
   if (!existing) return { ok: false, error: "Not found" };
   await db.treatmentTracking.delete({ where: { id } });

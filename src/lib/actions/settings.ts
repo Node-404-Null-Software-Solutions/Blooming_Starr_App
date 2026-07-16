@@ -3,7 +3,7 @@
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { requireRole } from "@/lib/authz";
+import { requireBusinessRole } from "@/lib/authz";
 import { db } from "@/lib/db";
 import type { RequestedRole } from "@prisma/client";
 
@@ -21,7 +21,7 @@ export async function updateBusinessTheme(
   businessSlug: string,
   formData: FormData
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireRole(["OWNER", "MANAGER"]);
+  const { business } = await requireBusinessRole(businessSlug, ["OWNER", "MANAGER"]);
   const businessId = business.id;
 
   const primary = parseHex(formData.get("primaryColor") as string | null);
@@ -62,7 +62,7 @@ export async function updateBusinessName(
   businessSlug: string,
   formData: FormData
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireRole(["OWNER"]);
+  const { business } = await requireBusinessRole(businessSlug, ["OWNER"]);
   const businessId = business.id;
 
   const name = String(formData.get("name") ?? "").trim();
@@ -80,7 +80,7 @@ export async function approveJoinRequest(
   requestId: string,
   businessSlug: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business, userId } = await requireRole(["OWNER"]);
+  const { business, userId } = await requireBusinessRole(businessSlug, ["OWNER"]);
   const businessId = business.id;
 
   const request = await db.joinRequest.findFirst({
@@ -111,7 +111,7 @@ export async function createMemberInvite(
   businessSlug: string,
   role: RequestedRole
 ): Promise<{ ok: boolean; url?: string; error?: string }> {
-  const { business } = await requireRole(["OWNER"]);
+  const { business } = await requireBusinessRole(businessSlug, ["OWNER"]);
   const businessId = business.id;
 
   const token = randomBytes(32).toString("hex");
@@ -132,7 +132,7 @@ export async function createMemberInvite(
 export async function createCoOwnerInvite(
   businessSlug: string
 ): Promise<{ ok: boolean; url?: string; error?: string }> {
-  const { business } = await requireRole(["OWNER"]);
+  const { business } = await requireBusinessRole(businessSlug, ["OWNER"]);
   const businessId = business.id;
 
   const token = randomBytes(32).toString("hex");
@@ -154,7 +154,7 @@ export async function removeMembership(
   membershipId: string,
   businessSlug: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business, userId } = await requireRole(["OWNER"]);
+  const { business, userId } = await requireBusinessRole(businessSlug, ["OWNER"]);
 
   const membership = await db.membership.findFirst({
     where: { id: membershipId, businessId: business.id },
@@ -171,7 +171,7 @@ export async function denyJoinRequest(
   requestId: string,
   businessSlug: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business, userId } = await requireRole(["OWNER"]);
+  const { business, userId } = await requireBusinessRole(businessSlug, ["OWNER"]);
   const businessId = business.id;
 
   const request = await db.joinRequest.findFirst({

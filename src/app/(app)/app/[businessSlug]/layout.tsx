@@ -1,6 +1,7 @@
 import type * as React from "react";
-import { redirect } from "next/navigation";
-import { requireActiveMembership } from "@/lib/authz";
+import AppShell from "@/components/app/AppShell";
+import { requireBusinessMembership } from "@/lib/authz";
+import { db } from "@/lib/db";
 
 export default async function BusinessAppLayout({
   children,
@@ -10,11 +11,15 @@ export default async function BusinessAppLayout({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireActiveMembership();
-
-  if (businessSlug !== business.slug) {
-    redirect(`/app/${business.slug}`);
-  }
+  const { business, userId } = await requireBusinessMembership(businessSlug);
+  const memberships = await db.membership.findMany({
+    where: { userId, status: "ACTIVE" },
+    select: {
+      role: true,
+      business: { select: { id: true, name: true, slug: true, logoUrl: true } },
+    },
+    orderBy: { business: { name: "asc" } },
+  });
 
   return (
     <div
@@ -26,7 +31,14 @@ export default async function BusinessAppLayout({
         } as React.CSSProperties
       }
     >
-      {children}
+      <AppShell
+        logoUrl={business.logoUrl}
+        businessName={business.name}
+        businessSlug={business.slug}
+        businesses={memberships.map(({ business: item, role }) => ({ ...item, role }))}
+      >
+        {children}
+      </AppShell>
     </div>
   );
 }

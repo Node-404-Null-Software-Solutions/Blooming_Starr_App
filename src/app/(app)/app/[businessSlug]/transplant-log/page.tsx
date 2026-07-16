@@ -1,4 +1,4 @@
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
@@ -11,14 +11,10 @@ export default async function TransplantLogPage({
   params: Promise<{ businessSlug: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
-  const businessId = profile.activeBusinessId;
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
   const sp = (await searchParams) ?? {};
-
-  if (!businessId) {
-    return null;
-  }
 
   const fromRaw = typeof sp.from === "string" ? sp.from : "";
   const toRaw = typeof sp.to === "string" ? sp.to : "";
@@ -50,7 +46,7 @@ export default async function TransplantLogPage({
     : undefined;
 
   const [lookups, rows] = await Promise.all([
-    getLookupEntriesMulti(["transplantAction", "transplantMedia", "potSize", "potColor"]),
+    getLookupEntriesMulti(businessSlug, ["transplantAction", "transplantMedia", "potSize", "potColor"]),
     db.transplantLog.findMany({
     where: {
       businessId,

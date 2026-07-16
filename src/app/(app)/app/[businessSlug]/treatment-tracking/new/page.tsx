@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { createTreatmentTracking } from "@/lib/actions/data-entries";
 import {
   PlantStyleAddFormBody,
@@ -14,10 +14,8 @@ export default async function NewTreatmentTrackingPage({
 }: {
   params: Promise<{ businessSlug: string }>;
 }) {
-  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return null;
+  await requireBusinessMembership(businessSlug);
 
   async function submit(formData: FormData): Promise<void> {
     "use server";

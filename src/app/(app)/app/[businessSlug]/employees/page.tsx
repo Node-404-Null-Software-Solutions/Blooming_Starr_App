@@ -1,4 +1,4 @@
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import EmployeesClient from "./EmployeesClient";
 
@@ -8,7 +8,7 @@ export default async function EmployeesPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireActiveMembership();
+  const { business } = await requireBusinessMembership(businessSlug);
 
   const employees = await db.employee.findMany({
     where: { businessId: business.id },

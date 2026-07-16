@@ -16,6 +16,7 @@ import {
   Settings,
   ShoppingCart,
   Sprout,
+  Users,
 } from "lucide-react";
 
 type NavItem = {
@@ -58,6 +59,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Team",
     items: [
+      { label: "Employees", modulePath: "/employees", icon: Users },
       { label: "Schedule", modulePath: "/schedule", icon: Calendar },
     ],
   },

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { createProductIntake } from "@/lib/actions/data-entries";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import ProductIntakeForm from "./ProductIntakeForm";
@@ -9,12 +9,10 @@ export default async function NewProductIntakePage({
 }: {
   params: Promise<{ businessSlug: string }>;
 }) {
-  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return null;
+  await requireBusinessMembership(businessSlug);
 
-  const lookups = await getLookupEntriesMulti([
+  const lookups = await getLookupEntriesMulti(businessSlug, [
     "productSource",
     "productCategory",
     "productSize",

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import {
   createSkuReference,
   duplicateSkuReferenceMessage,
@@ -19,10 +19,9 @@ export type PlantSkuReferenceRow = {
   notes: string | null;
 };
 
-export async function getPlantSkuReferences(): Promise<PlantSkuReferenceRow[]> {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return [];
+export async function getPlantSkuReferences(businessSlug: string): Promise<PlantSkuReferenceRow[]> {
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   return db.plantSkuReference.findMany({
     where: { businessId },
@@ -43,9 +42,8 @@ export async function createPlantSkuReference(
   businessSlug: string,
   data: { scope: string; displayName: string; code: string; notes?: string | null }
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   try {
     await createSkuReference(db, businessId, {
@@ -68,9 +66,8 @@ export async function updatePlantSkuReference(
   businessSlug: string,
   data: { displayName?: string; code?: string; active?: boolean; notes?: string | null }
 ) {
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return { ok: false, error: "No business" };
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   try {
     await updateSkuReference(db, businessId, id, data);

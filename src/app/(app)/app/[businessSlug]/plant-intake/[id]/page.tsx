@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { formatAppDate } from "@/lib/date-format";
 
 const formatCurrency = (cents: number) =>
@@ -20,8 +20,8 @@ export default async function PlantIntakeDetailsPage({
   params: Promise<{ businessSlug: string; id: string }>;
 }) {
   const resolvedParams = await params;
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId ?? "";
+  const { business } = await requireBusinessMembership(resolvedParams.businessSlug);
+  const businessId = business.id;
 
   const record = await db.plantIntake.findFirst({
     where: { id: resolvedParams.id, businessId },

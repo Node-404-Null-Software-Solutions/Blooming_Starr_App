@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/authz";
+import { requireBusinessRole } from "@/lib/authz";
 import ImportWorkbookClient from "./ImportWorkbookClient";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ export default async function ImportSettingsPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  await requireRole(["OWNER", "MANAGER"]);
+  await requireBusinessRole(businessSlug, ["OWNER", "MANAGER"]);
 
   return (
     <div className="space-y-6">

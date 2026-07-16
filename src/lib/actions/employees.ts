@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 
 export async function createEmployee(
   businessSlug: string,
   formData: FormData
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { business } = await requireActiveMembership();
+  const { business } = await requireBusinessMembership(businessSlug);
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { ok: false, error: "Name is required." };
@@ -52,7 +52,7 @@ export async function updateEmployee(
   businessSlug: string,
   data: EmployeeUpdate
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireActiveMembership();
+  const { business } = await requireBusinessMembership(businessSlug);
 
   const existing = await db.employee.findFirst({
     where: { id, businessId: business.id },
@@ -69,7 +69,7 @@ export async function deactivateEmployee(
   id: string,
   businessSlug: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireActiveMembership();
+  const { business } = await requireBusinessMembership(businessSlug);
 
   const existing = await db.employee.findFirst({
     where: { id, businessId: business.id },
@@ -89,7 +89,7 @@ export async function reactivateEmployee(
   id: string,
   businessSlug: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireActiveMembership();
+  const { business } = await requireBusinessMembership(businessSlug);
 
   const existing = await db.employee.findFirst({
     where: { id, businessId: business.id },

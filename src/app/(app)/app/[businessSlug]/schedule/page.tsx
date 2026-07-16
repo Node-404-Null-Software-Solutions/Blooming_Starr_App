@@ -1,4 +1,4 @@
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import ScheduleClient from "./ScheduleClient";
 
@@ -21,7 +21,7 @@ export default async function SchedulePage({
 }) {
   const { businessSlug } = await params;
   const sp = await searchParams;
-  const { business } = await requireActiveMembership();
+  const { business } = await requireBusinessMembership(businessSlug);
 
   const monday = getMonday(sp.week);
   const sunday = new Date(monday);

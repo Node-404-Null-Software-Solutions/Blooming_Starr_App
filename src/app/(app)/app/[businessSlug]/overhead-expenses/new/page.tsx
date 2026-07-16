@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { createOverheadExpense } from "@/lib/actions/data-entries";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import {
@@ -16,12 +16,10 @@ export default async function NewOverheadExpensePage({
 }: {
   params: Promise<{ businessSlug: string }>;
 }) {
-  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return null;
+  await requireBusinessMembership(businessSlug);
 
-  const lookups = await getLookupEntriesMulti(["paymentMethod"]);
+  const lookups = await getLookupEntriesMulti(businessSlug, ["paymentMethod"]);
   const paymentMethods = lookups.paymentMethod ?? [];
 
   async function submit(formData: FormData): Promise<void> {

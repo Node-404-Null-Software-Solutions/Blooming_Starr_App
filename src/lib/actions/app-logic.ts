@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/authz";
+import { requireBusinessRole } from "@/lib/authz";
 import { db } from "@/lib/db";
 import {
   ensureDefaultAppLogicRules,
@@ -61,8 +61,8 @@ function readRuleForm(formData: FormData) {
   };
 }
 
-export async function listAppLogicRules(): Promise<AppLogicRuleRow[]> {
-  const { business } = await requireRole(["OWNER"]);
+export async function listAppLogicRules(businessSlug: string): Promise<AppLogicRuleRow[]> {
+  const { business } = await requireBusinessRole(businessSlug, ["OWNER"]);
   await ensureDefaultAppLogicRules(business.id);
 
   return db.appLogicRule.findMany({
@@ -86,7 +86,7 @@ export async function createAppLogicRule(
   businessSlug: string,
   formData: FormData
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireRole(["OWNER"]);
+  const { business } = await requireBusinessRole(businessSlug, ["OWNER"]);
   const parsed = readRuleForm(formData);
   if (!parsed.ok) return { ok: false, error: parsed.error };
 
@@ -111,7 +111,7 @@ export async function updateAppLogicRule(
   businessSlug: string,
   formData: FormData
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireRole(["OWNER"]);
+  const { business } = await requireBusinessRole(businessSlug, ["OWNER"]);
   const parsed = readRuleForm(formData);
   if (!parsed.ok) return { ok: false, error: parsed.error };
 
@@ -134,7 +134,7 @@ export async function deleteAppLogicRule(
   id: string,
   businessSlug: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireRole(["OWNER"]);
+  const { business } = await requireBusinessRole(businessSlug, ["OWNER"]);
 
   const existing = await db.appLogicRule.findFirst({
     where: { id, businessId: business.id },

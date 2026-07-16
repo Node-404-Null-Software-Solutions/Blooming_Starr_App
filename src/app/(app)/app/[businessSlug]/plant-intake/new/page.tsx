@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { createPlantIntake } from "@/lib/actions/data-entries";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import PlantIntakeForm from "./PlantIntakeForm";
@@ -9,12 +9,10 @@ export default async function NewPlantIntakePage({
 }: {
   params: Promise<{ businessSlug: string }>;
 }) {
-  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return null;
+  await requireBusinessMembership(businessSlug);
 
-  const lookups = await getLookupEntriesMulti([
+  const lookups = await getLookupEntriesMulti(businessSlug, [
     "plantSource",
     "genus",
     "cultivar",

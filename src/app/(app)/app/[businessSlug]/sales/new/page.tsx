@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { createSalesEntry } from "@/lib/actions/data-entries";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import ModuleHeader from "../../_components/ModuleHeader";
@@ -10,12 +10,10 @@ export default async function NewSalesEntryPage({
 }: {
   params: Promise<{ businessSlug: string }>;
 }) {
-  const { profile } = await requireActiveMembership();
   const { businessSlug } = await params;
-  const businessId = profile.activeBusinessId;
-  if (!businessId) return null;
+  await requireBusinessMembership(businessSlug);
 
-  const lookups = await getLookupEntriesMulti(["salesChannel", "paymentMethod"]);
+  const lookups = await getLookupEntriesMulti(businessSlug, ["salesChannel", "paymentMethod"]);
   const salesChannels = lookups.salesChannel ?? [];
   const paymentMethods = lookups.paymentMethod ?? [];
 

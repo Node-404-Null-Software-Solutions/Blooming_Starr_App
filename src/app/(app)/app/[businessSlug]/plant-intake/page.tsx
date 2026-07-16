@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireActiveMembership } from "@/lib/authz";
+import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { sortByDateDescNullsLast } from "@/lib/sort";
@@ -16,12 +16,8 @@ export default async function PlantIntakePage({
   const { businessSlug } = await params;
   const sp = (await searchParams) ?? {};
 
-  const { profile } = await requireActiveMembership();
-  const businessId = profile.activeBusinessId;
-
-  if (!businessId) {
-    return null;
-  }
+  const { business } = await requireBusinessMembership(businessSlug);
+  const businessId = business.id;
 
   const priceTypeRaw = typeof sp.priceType === "string" ? sp.priceType : "";
   const priceType =
@@ -97,7 +93,7 @@ export default async function PlantIntakePage({
   const genusOptions = genusRows
     .map((row: GenusRow) => row.genus)
     .filter((value): value is string => Boolean(value && value.trim().length > 0));
-  const lookups = await getLookupEntriesMulti([
+  const lookups = await getLookupEntriesMulti(businessSlug, [
     "plantSource",
     "genus",
     "cultivar",
