@@ -11,6 +11,11 @@ import {
   runDetailedAppLogicRowPipeline,
   runAppLogicRowPipeline,
 } from "@/lib/app-logic-row-service";
+import {
+  dateFieldsFromAppLogicScope,
+  dateFieldsToAppLogicScope,
+} from "@/lib/app-logic-row-mapping";
+import type { DateAppLogicFields } from "@/lib/app-logic-row-mapping";
 import { executeGovernedAppLogicActions } from "@/lib/app-logic-action-broker";
 import { appLogicFailureMessage } from "@/lib/app-logic-audit";
 import { generateSku } from "@/lib/plant-sku-service";
@@ -45,6 +50,24 @@ async function runAppLogicSafely<T>(operation: () => Promise<T>) {
   } catch (error) {
     return { ok: false as const, error: appLogicFailureMessage(error) };
   }
+}
+
+async function runDateAppLogicSafely(
+  context: BusinessContext,
+  module: "treatmentTracking" | "fertilizerLog",
+  fields: DateAppLogicFields,
+  sourceRowId?: string
+) {
+  return runAppLogicSafely(async () => {
+    const execution = await runDetailedAppLogicRowPipeline(
+      context,
+      module,
+      "INTERACTIVE",
+      dateFieldsToAppLogicScope(fields),
+      { sourceRowId }
+    );
+    return dateFieldsFromAppLogicScope(execution.scope);
+  });
 }
 
 async function upsertProductFromRow(
@@ -345,6 +368,23 @@ export async function createPlantIntake(businessSlug: string, formData: FormData
   const genus = formStr(formData, "genus");
   const cultivar = formStr(formData, "cultivar");
   if (!genus) return { ok: false, error: "Plant name is required" };
+  const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
+  const costCents = formCents(formData, "cost");
+  const msrpCents = formCents(formData, "msrp");
+  const logicResult = await runAppLogicSafely(() =>
+    runDetailedAppLogicRowPipeline(
+      businessContext,
+      "plantIntake",
+      "INTERACTIVE",
+      { qty, costCents, msrpCents }
+    )
+  );
+  if (!logicResult.ok) return logicResult;
+  const plantExecution = logicResult.value;
+  const plantLogic = plantExecution.scope;
+  const calculatedQty = Math.round(plantLogic.qty);
+  const calculatedCostCents = Math.round(plantLogic.costCents);
+  const calculatedMsrpCents = Math.round(plantLogic.msrpCents);
 
   try {
     await withTenantRlsTransaction(businessContext, async (tx) => {
@@ -356,32 +396,42 @@ export async function createPlantIntake(businessSlug: string, formData: FormData
         varietyName: cultivar || null,
         suffix: formStr(formData, "locationCode") || null,
       });
-      const costCents = formCents(formData, "cost");
-      const msrpCents = formCents(formData, "msrp");
-
       await products.create({
         sku: generated.sku,
         productName: [genus, cultivar].filter(Boolean).join(" ") || genus,
-        defaultCostCents: costCents,
-        defaultSalePriceCents: msrpCents,
+        defaultCostCents: calculatedCostCents,
+        defaultSalePriceCents: calculatedMsrpCents,
       });
 
-      await plantIntakes.create({
+      const intake = await plantIntakes.create({
         date: formDate(formData, "date"),
         source,
         genus,
         cultivar,
         sku: generated.sku,
         locationCode: formStr(formData, "locationCode") || null,
-        qty: Math.max(1, Math.floor(Number(formData.get("qty")) || 1)),
-        costCents,
-        msrpCents,
+        qty: calculatedQty,
+        costCents: calculatedCostCents,
+        msrpCents: calculatedMsrpCents,
         potType: formStr(formData, "potType") || null,
         paymentMethod: formStr(formData, "paymentMethod") || null,
         cardLast4: formStr(formData, "cardLast4") || null,
         location: formStr(formData, "location") || null,
         status: formStr(formData, "status") || null,
       });
+      await executeGovernedAppLogicActions(
+        businessContext,
+        {
+          module: "plantIntake",
+          rowId: intake.id,
+          sku: generated.sku,
+          productName: [genus, cultivar].filter(Boolean).join(" ") || genus,
+          defaultCostCents: calculatedCostCents,
+          defaultSalePriceCents: calculatedMsrpCents,
+        },
+        plantExecution.actions,
+        tx
+      );
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
@@ -577,9 +627,20 @@ export async function createTreatmentTracking(businessSlug: string, formData: Fo
 
   const sku = formStr(formData, "sku");
   if (!sku) return { ok: false, error: "SKU is required" };
+  const logicResult = await runDateAppLogicSafely(
+    businessContext,
+    "treatmentTracking",
+    {
+      date: formDate(formData, "date"),
+      nextEarliest: formDate(formData, "nextEarliest"),
+      nextLatest: formDate(formData, "nextLatest"),
+    }
+  );
+  if (!logicResult.ok) return logicResult;
+  const calculatedDates = logicResult.value;
 
   await treatments.create({
-    date: formDate(formData, "date"),
+    date: calculatedDates.date,
     sku,
     target: formStr(formData, "target") || null,
     product: formStr(formData, "product") || null,
@@ -589,8 +650,8 @@ export async function createTreatmentTracking(businessSlug: string, formData: Fo
     potSize: formStr(formData, "potSize") || null,
     method: formStr(formData, "method") || null,
     initials: formStr(formData, "initials") || null,
-    nextEarliest: formDate(formData, "nextEarliest"),
-    nextLatest: formDate(formData, "nextLatest"),
+    nextEarliest: calculatedDates.nextEarliest,
+    nextLatest: calculatedDates.nextLatest,
   });
 
   revalidatePath(`/app/${businessSlug}/treatment-tracking`);
@@ -614,17 +675,24 @@ export async function createFertilizerLog(businessSlug: string, formData: FormDa
       nextLatest = calc.nextLatest;
     }
   }
+  const logicResult = await runDateAppLogicSafely(
+    businessContext,
+    "fertilizerLog",
+    { date, nextEarliest, nextLatest }
+  );
+  if (!logicResult.ok) return logicResult;
+  const calculatedDates = logicResult.value;
 
   await fertilizerLogs.create({
-    date,
+    date: calculatedDates.date,
     plantSku: formStr(formData, "plantSku") || null,
     potSku: formStr(formData, "potSku") || null,
     product,
     method: formStr(formData, "method") || null,
     rate: formStr(formData, "rate") || null,
     unit: formStr(formData, "unit") || null,
-    nextEarliest,
-    nextLatest,
+    nextEarliest: calculatedDates.nextEarliest,
+    nextLatest: calculatedDates.nextLatest,
     notes: formStr(formData, "notes") || null,
   });
 
@@ -657,6 +725,25 @@ export async function updatePlantIntake(
   const plantIntakes = createPlantIntakeRepository(businessContext);
   const existing = await plantIntakes.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
+  const logicResult = await runAppLogicSafely(() =>
+    runDetailedAppLogicRowPipeline(
+      businessContext,
+      "plantIntake",
+      "INTERACTIVE",
+      {
+        qty: data.qty ?? existing.qty,
+        costCents: data.costCents ?? existing.costCents,
+        msrpCents: data.msrpCents ?? existing.msrpCents,
+      },
+      { sourceRowId: id }
+    )
+  );
+  if (!logicResult.ok) return logicResult;
+  const plantExecution = logicResult.value;
+  const plantLogic = plantExecution.scope;
+  const calculatedQty = Math.round(plantLogic.qty);
+  const calculatedCostCents = Math.round(plantLogic.costCents);
+  const calculatedMsrpCents = Math.round(plantLogic.msrpCents);
 
   const dateValue =
     data.date !== undefined
@@ -702,8 +789,8 @@ export async function updatePlantIntake(
       productUpsert = {
         sku: generated.sku,
         productName: [nextGenus, nextCultivar].filter(Boolean).join(" ") || nextGenus,
-        defaultCostCents: data.costCents ?? existing.costCents,
-        defaultSalePriceCents: data.msrpCents ?? existing.msrpCents,
+        defaultCostCents: calculatedCostCents,
+        defaultSalePriceCents: calculatedMsrpCents,
       };
     } else {
       if (data.source !== undefined) updateData.source = data.source;
@@ -712,9 +799,9 @@ export async function updatePlantIntake(
       if (data.locationCode !== undefined) updateData.locationCode = data.locationCode;
     }
   }
-  if (data.qty !== undefined) updateData.qty = data.qty;
-  if (data.costCents !== undefined) updateData.costCents = data.costCents;
-  if (data.msrpCents !== undefined) updateData.msrpCents = data.msrpCents;
+  updateData.qty = calculatedQty;
+  updateData.costCents = calculatedCostCents;
+  updateData.msrpCents = calculatedMsrpCents;
   if (data.potType !== undefined) updateData.potType = data.potType;
   if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
   if (data.cardLast4 !== undefined) updateData.cardLast4 = data.cardLast4;
@@ -748,6 +835,21 @@ export async function updatePlantIntake(
     const updated = await plantIntakes.updateById(id, updateData);
     if (!updated) return { ok: false, error: "Not found" };
   }
+  const skuAfter = productUpsert?.sku ?? existing.sku;
+  const genusAfter = data.genus ?? existing.genus;
+  const cultivarAfter = data.cultivar ?? existing.cultivar;
+  await executeGovernedAppLogicActions(
+    businessContext,
+    {
+      module: "plantIntake",
+      rowId: id,
+      sku: skuAfter,
+      productName: [genusAfter, cultivarAfter].filter(Boolean).join(" "),
+      defaultCostCents: calculatedCostCents,
+      defaultSalePriceCents: calculatedMsrpCents,
+    },
+    plantExecution.actions
+  );
   revalidatePath(`/app/${businessSlug}/plant-intake`);
   return { ok: true };
 }
@@ -1001,9 +1103,25 @@ export async function updateTreatmentTracking(
         ? null
         : new Date(data.nextLatest)
       : undefined;
+  const logicResult = await runDateAppLogicSafely(
+    businessContext,
+    "treatmentTracking",
+    {
+      date: dateValue === undefined ? existing.date : dateValue,
+      nextEarliest:
+        nextEarliestValue === undefined
+          ? existing.nextEarliest
+          : nextEarliestValue,
+      nextLatest:
+        nextLatestValue === undefined ? existing.nextLatest : nextLatestValue,
+    },
+    id
+  );
+  if (!logicResult.ok) return logicResult;
+  const calculatedDates = logicResult.value;
 
   const updated = await treatments.updateById(id, {
-    ...(dateValue !== undefined && { date: dateValue }),
+    date: calculatedDates.date,
     ...(data.sku !== undefined && { sku: data.sku }),
     ...(data.target !== undefined && { target: data.target }),
     ...(data.product !== undefined && { product: data.product }),
@@ -1013,8 +1131,8 @@ export async function updateTreatmentTracking(
     ...(data.potSize !== undefined && { potSize: data.potSize }),
     ...(data.method !== undefined && { method: data.method }),
     ...(data.initials !== undefined && { initials: data.initials }),
-    ...(nextEarliestValue !== undefined && { nextEarliest: nextEarliestValue }),
-    ...(nextLatestValue !== undefined && { nextLatest: nextLatestValue }),
+    nextEarliest: calculatedDates.nextEarliest,
+    nextLatest: calculatedDates.nextLatest,
   });
   if (!updated) return { ok: false, error: "Not found" };
   revalidatePath(`/app/${businessSlug}/treatment-tracking`);
@@ -1133,17 +1251,33 @@ export async function updateFertilizerLog(
         ? null
         : new Date(data.nextLatest)
       : undefined;
+  const logicResult = await runDateAppLogicSafely(
+    businessContext,
+    "fertilizerLog",
+    {
+      date: dateValue === undefined ? existing.date : dateValue,
+      nextEarliest:
+        nextEarliestValue === undefined
+          ? existing.nextEarliest
+          : nextEarliestValue,
+      nextLatest:
+        nextLatestValue === undefined ? existing.nextLatest : nextLatestValue,
+    },
+    id
+  );
+  if (!logicResult.ok) return logicResult;
+  const calculatedDates = logicResult.value;
 
   const updated = await fertilizerLogs.updateById(id, {
-    ...(dateValue !== undefined && { date: dateValue }),
+    date: calculatedDates.date,
     ...(data.plantSku !== undefined && { plantSku: data.plantSku }),
     ...(data.potSku !== undefined && { potSku: data.potSku }),
     ...(data.product !== undefined && { product: data.product }),
     ...(data.method !== undefined && { method: data.method }),
     ...(data.rate !== undefined && { rate: data.rate }),
     ...(data.unit !== undefined && { unit: data.unit }),
-    ...(nextEarliestValue !== undefined && { nextEarliest: nextEarliestValue }),
-    ...(nextLatestValue !== undefined && { nextLatest: nextLatestValue }),
+    nextEarliest: calculatedDates.nextEarliest,
+    nextLatest: calculatedDates.nextLatest,
     ...(data.notes !== undefined && { notes: data.notes }),
   });
   if (!updated) return { ok: false, error: "Not found" };

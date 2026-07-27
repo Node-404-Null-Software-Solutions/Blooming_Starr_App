@@ -26,9 +26,13 @@ import { runManualAppLogicForRow } from "@/lib/app-logic-row-service";
 import { persistAppLogicExecutionAudit } from "@/lib/app-logic-audit";
 import { createAppLogicRuleRepository } from "@/lib/repositories/app-logic-rule";
 import { createAppLogicExecutionLogRepository } from "@/lib/repositories/app-logic-execution-log";
+import { createFertilizerLogRepository } from "@/lib/repositories/fertilizer-log";
 import { createOverheadExpenseRepository } from "@/lib/repositories/overhead-expense";
+import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
 import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
 import { createSalesRepository } from "@/lib/repositories/sales";
+import { createScheduleEntryRepository } from "@/lib/repositories/schedule-entry";
+import { createTreatmentTrackingRepository } from "@/lib/repositories/treatment-tracking";
 
 function readRuleForm(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -209,6 +213,63 @@ export async function listManualAppLogicRows(
       rows: rows.map((row) => ({
         id: row.id,
         label: `${shortDate(row.date)} · ${row.sku} · ${row.category}`,
+      })),
+    };
+  }
+  if (moduleValue === "plantIntake") {
+    const rows = await createPlantIntakeRepository(
+      businessContext
+    ).listForManualRun(limit);
+    return {
+      ok: true,
+      rows: rows.map((row) => ({
+        id: row.id,
+        label: `${shortDate(row.date)} · ${row.sku} · ${[
+          row.genus,
+          row.cultivar,
+        ]
+          .filter(Boolean)
+          .join(" ")}`,
+      })),
+    };
+  }
+  if (moduleValue === "treatmentTracking") {
+    const rows = await createTreatmentTrackingRepository(
+      businessContext
+    ).listForManualRun(limit);
+    return {
+      ok: true,
+      rows: rows.map((row) => ({
+        id: row.id,
+        label: `${shortDate(row.date)} · ${row.sku} · ${row.product ?? ""}`,
+      })),
+    };
+  }
+  if (moduleValue === "fertilizerLog") {
+    const rows = await createFertilizerLogRepository(
+      businessContext
+    ).listForManualRun(limit);
+    return {
+      ok: true,
+      rows: rows.map((row) => ({
+        id: row.id,
+        label: `${shortDate(row.date)} · ${row.plantSku ?? ""} · ${
+          row.product ?? ""
+        }`,
+      })),
+    };
+  }
+  if (moduleValue === "schedule") {
+    const rows = await createScheduleEntryRepository(
+      businessContext
+    ).listForManualRun(limit);
+    return {
+      ok: true,
+      rows: rows.map((row) => ({
+        id: row.id,
+        label: `${shortDate(row.date)} · ${row.employee.name} · ${
+          row.startTime
+        }–${row.endTime}${row.title ? ` · ${row.title}` : ""}`,
       })),
     };
   }

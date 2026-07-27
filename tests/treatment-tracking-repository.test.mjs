@@ -91,6 +91,16 @@ test("Treatment Tracking create overwrites a runtime-supplied business", async (
   assert.equal(mock.calls[0].args.data.businessId, "business-a");
 });
 
+test("Treatment Tracking manual rows are tenant scoped and bounded", async () => {
+  const mock = createMockClient();
+  const treatments = createTreatmentTrackingRepository(context, mock.client);
+
+  await treatments.listForManualRun(25);
+
+  assert.deepEqual(mock.calls[0].args.where, { businessId: "business-a" });
+  assert.equal(mock.calls[0].args.take, 25);
+});
+
 test("Treatment Tracking update and delete include the context business", async () => {
   const mock = createMockClient();
   const treatments = createTreatmentTrackingRepository(context, mock.client);

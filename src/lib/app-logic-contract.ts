@@ -2,8 +2,7 @@ export const APP_LOGIC_MODULES = [
   {
     value: "plantIntake",
     label: "Plant Intake",
-    available: false,
-    unavailableReason: "Plant Intake is not connected to the app-logic runtime yet.",
+    available: true,
   },
   { value: "productIntake", label: "Product Intake", available: true },
   { value: "sales", label: "Sales", available: true },
@@ -16,21 +15,17 @@ export const APP_LOGIC_MODULES = [
   {
     value: "treatmentTracking",
     label: "Treatment Tracking",
-    available: false,
-    unavailableReason:
-      "Treatment Tracking is not connected to the app-logic runtime yet.",
+    available: true,
   },
   {
     value: "fertilizerLog",
     label: "Fertilizer Log",
-    available: false,
-    unavailableReason: "Fertilizer Log is not connected to the app-logic runtime yet.",
+    available: true,
   },
   {
     value: "schedule",
     label: "Schedule",
-    available: false,
-    unavailableReason: "Schedule is not connected to the app-logic runtime yet.",
+    available: true,
   },
 ] as const;
 
@@ -51,10 +46,14 @@ export type AppLogicTrigger = (typeof APP_LOGIC_TRIGGERS)[number]["value"];
 export type AppLogicMode = (typeof APP_LOGIC_MODES)[number]["value"];
 
 export type ExecutableAppLogicModule =
+  | "plantIntake"
   | "sales"
   | "productIntake"
   | "overheadExpenses"
-  | "transplantLog";
+  | "transplantLog"
+  | "treatmentTracking"
+  | "fertilizerLog"
+  | "schedule";
 
 export type ExecutableModuleContract = {
   readableFields: readonly string[];
@@ -63,6 +62,11 @@ export type ExecutableModuleContract = {
 };
 
 export const APP_LOGIC_EXECUTABLE_MODULE_CONTRACTS = {
+  plantIntake: {
+    readableFields: ["qty", "costCents", "msrpCents"],
+    writableFields: ["qty", "costCents", "msrpCents"],
+    sampleScope: { qty: 4, costCents: 1200, msrpCents: 0 },
+  },
   sales: {
     readableFields: [
       "qty",
@@ -111,13 +115,60 @@ export const APP_LOGIC_EXECUTABLE_MODULE_CONTRACTS = {
     writableFields: ["costCents"],
     sampleScope: { originalCostCents: 3000, totalParts: 3, costCents: 0 },
   },
+  treatmentTracking: {
+    readableFields: [
+      "dateEpochDays",
+      "nextEarliestEpochDays",
+      "nextLatestEpochDays",
+    ],
+    writableFields: [
+      "dateEpochDays",
+      "nextEarliestEpochDays",
+      "nextLatestEpochDays",
+    ],
+    sampleScope: {
+      dateEpochDays: 20661,
+      nextEarliestEpochDays: 20668,
+      nextLatestEpochDays: 20675,
+    },
+  },
+  fertilizerLog: {
+    readableFields: [
+      "dateEpochDays",
+      "nextEarliestEpochDays",
+      "nextLatestEpochDays",
+    ],
+    writableFields: [
+      "dateEpochDays",
+      "nextEarliestEpochDays",
+      "nextLatestEpochDays",
+    ],
+    sampleScope: {
+      dateEpochDays: 20661,
+      nextEarliestEpochDays: 20691,
+      nextLatestEpochDays: 20721,
+    },
+  },
+  schedule: {
+    readableFields: ["dateEpochDays", "startMinutes", "endMinutes"],
+    writableFields: ["dateEpochDays", "startMinutes", "endMinutes"],
+    sampleScope: {
+      dateEpochDays: 20661,
+      startMinutes: 540,
+      endMinutes: 1020,
+    },
+  },
 } as const satisfies Record<ExecutableAppLogicModule, ExecutableModuleContract>;
 
 export const APP_LOGIC_MODULE_TRIGGERS = {
+  plantIntake: ["beforeSave", "afterSave", "afterImport", "manual"],
   sales: ["beforeSave", "afterSave", "afterImport", "manual"],
   productIntake: ["beforeSave", "afterSave", "afterImport", "manual"],
   overheadExpenses: ["beforeSave", "afterSave", "afterImport", "manual"],
   transplantLog: ["beforeSave"],
+  treatmentTracking: ["beforeSave", "afterSave", "afterImport", "manual"],
+  fertilizerLog: ["beforeSave", "afterSave", "afterImport", "manual"],
+  schedule: ["beforeSave", "afterSave", "manual"],
 } as const satisfies Record<ExecutableAppLogicModule, readonly AppLogicTrigger[]>;
 
 export const APP_LOGIC_HELPERS = [
@@ -133,10 +184,14 @@ export const APP_LOGIC_ACTIONS = ["SYNC_PRODUCT_MASTER"] as const;
 export type AppLogicActionName = (typeof APP_LOGIC_ACTIONS)[number];
 
 export const APP_LOGIC_MODULE_ACTIONS = {
+  plantIntake: ["SYNC_PRODUCT_MASTER"],
   sales: ["SYNC_PRODUCT_MASTER"],
   productIntake: ["SYNC_PRODUCT_MASTER"],
   overheadExpenses: [],
   transplantLog: [],
+  treatmentTracking: [],
+  fertilizerLog: [],
+  schedule: [],
 } as const satisfies Record<
   ExecutableAppLogicModule,
   readonly AppLogicActionName[]
@@ -236,7 +291,11 @@ export function getAppLogicSelectionMessage(
 ): string | null {
   const moduleOption = APP_LOGIC_MODULES.find((item) => item.value === module);
   if (!moduleOption) return "Choose a recognized module.";
-  if (!moduleOption.available) return moduleOption.unavailableReason;
+  if (!moduleOption.available) {
+    return "unavailableReason" in moduleOption
+      ? String(moduleOption.unavailableReason)
+      : `${moduleOption.label} is not connected to app logic.`;
+  }
 
   const triggerOption = APP_LOGIC_TRIGGERS.find(
     (item) => item.value === trigger

@@ -58,6 +58,20 @@ export function createTreatmentTrackingRepository(
       });
     },
 
+    listForManualRun(limit: number) {
+      return client.treatmentTracking.findMany({
+        where: { businessId },
+        select: {
+          id: true,
+          date: true,
+          sku: true,
+          product: true,
+        },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        take: limit,
+      });
+    },
+
     listForImportDeduplication() {
       return client.treatmentTracking.findMany({
         where: { businessId },

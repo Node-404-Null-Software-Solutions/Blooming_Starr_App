@@ -41,6 +41,20 @@ function loadService(overrides = {}) {
             overrides.executeGovernedAppLogicActions ?? (async () => []),
         };
       }
+      if (moduleName === "@/lib/app-logic-row-mapping") {
+        return {
+          dateFieldsToAppLogicScope: overrides.dateFieldsToAppLogicScope ?? (() => ({})),
+          dateFieldsFromAppLogicScope: overrides.dateFieldsFromAppLogicScope ?? (() => ({})),
+          scheduleToAppLogicScope: overrides.scheduleToAppLogicScope ?? (() => ({})),
+          scheduleFromAppLogicScope: overrides.scheduleFromAppLogicScope ?? (() => ({})),
+        };
+      }
+      if (moduleName === "@/lib/repositories/fertilizer-log") {
+        return {
+          createFertilizerLogRepository:
+            overrides.createFertilizerLogRepository ?? (() => ({})),
+        };
+      }
       if (moduleName === "@/lib/repositories/sales") {
         return { createSalesRepository: overrides.createSalesRepository ?? (() => ({})) };
       }
@@ -56,6 +70,24 @@ function loadService(overrides = {}) {
             overrides.createOverheadExpenseRepository ?? (() => ({})),
         };
       }
+      if (moduleName === "@/lib/repositories/plant-intake") {
+        return {
+          createPlantIntakeRepository:
+            overrides.createPlantIntakeRepository ?? (() => ({})),
+        };
+      }
+      if (moduleName === "@/lib/repositories/schedule-entry") {
+        return {
+          createScheduleEntryRepository:
+            overrides.createScheduleEntryRepository ?? (() => ({})),
+        };
+      }
+      if (moduleName === "@/lib/repositories/treatment-tracking") {
+        return {
+          createTreatmentTrackingRepository:
+            overrides.createTreatmentTrackingRepository ?? (() => ({})),
+        };
+      }
       throw new Error(`Unexpected row-service test import: ${moduleName}`);
     }
   );
@@ -68,6 +100,10 @@ const contract = {
     productIntake: ["beforeSave", "afterSave", "afterImport", "manual"],
     overheadExpenses: ["beforeSave", "afterSave", "afterImport", "manual"],
     transplantLog: ["beforeSave"],
+    plantIntake: ["beforeSave", "afterSave", "afterImport", "manual"],
+    treatmentTracking: ["beforeSave", "afterSave", "afterImport", "manual"],
+    fertilizerLog: ["beforeSave", "afterSave", "afterImport", "manual"],
+    schedule: ["beforeSave", "afterSave", "manual"],
   },
 };
 
@@ -187,4 +223,112 @@ test("manual execution reads and updates only through the context repository", a
       marginPct: 0,
     },
   });
+});
+
+test("manual Treatment Tracking execution maps numeric dates back to the tenant row", async () => {
+  const context = { businessId: "business-a" };
+  const calls = [];
+  const expectedDates = {
+    date: new Date("2026-07-27T00:00:00.000Z"),
+    nextEarliest: new Date("2026-08-03T00:00:00.000Z"),
+    nextLatest: new Date("2026-08-10T00:00:00.000Z"),
+  };
+  const service = loadService({
+    contract,
+    loadDetailedAppLogicRunner: async () => (scope) => ({
+      scope: { ...scope, nextEarliestEpochDays: 20668 },
+      actions: [],
+      executions: [],
+    }),
+    dateFieldsToAppLogicScope: (fields) => {
+      calls.push({ operation: "map-in", fields });
+      return {
+        dateEpochDays: 20661,
+        nextEarliestEpochDays: 0,
+        nextLatestEpochDays: 20675,
+      };
+    },
+    dateFieldsFromAppLogicScope: (scope) => {
+      calls.push({ operation: "map-out", scope });
+      return expectedDates;
+    },
+    createTreatmentTrackingRepository: (receivedContext) => {
+      assert.equal(receivedContext, context);
+      return {
+        findById: async () => ({
+          date: expectedDates.date,
+          nextEarliest: null,
+          nextLatest: expectedDates.nextLatest,
+        }),
+        updateById: async (id, data) => {
+          calls.push({ operation: "update", id, data });
+          return true;
+        },
+      };
+    },
+  });
+
+  const result = await service.runManualAppLogicForRow(
+    context,
+    "treatmentTracking",
+    "treatment-a"
+  );
+
+  assert.equal(result.found, true);
+  assert.equal(result.scope.nextEarliestEpochDays, 20668);
+  assert.deepEqual(calls.at(-1), {
+    operation: "update",
+    id: "treatment-a",
+    data: expectedDates,
+  });
+});
+
+test("manual Schedule execution persists mapped date and minute fields", async () => {
+  const context = { businessId: "business-a" };
+  const mappedSchedule = {
+    date: new Date("2026-07-27T00:00:00.000Z"),
+    startTime: "09:30",
+    endTime: "17:00",
+  };
+  let updateCall;
+  const service = loadService({
+    contract,
+    loadDetailedAppLogicRunner: async () => (scope) => ({
+      scope: { ...scope, startMinutes: 570 },
+      actions: [],
+      executions: [],
+    }),
+    scheduleToAppLogicScope: () => ({
+      dateEpochDays: 20661,
+      startMinutes: 540,
+      endMinutes: 1020,
+    }),
+    scheduleFromAppLogicScope: (scope) => {
+      assert.equal(scope.startMinutes, 570);
+      return mappedSchedule;
+    },
+    createScheduleEntryRepository: (receivedContext) => {
+      assert.equal(receivedContext, context);
+      return {
+        findById: async () => ({
+          date: mappedSchedule.date,
+          startTime: "09:00",
+          endTime: "17:00",
+        }),
+        updateById: async (id, data) => {
+          updateCall = { id, data };
+          return true;
+        },
+      };
+    },
+  });
+
+  const result = await service.runManualAppLogicForRow(
+    context,
+    "schedule",
+    "schedule-a"
+  );
+
+  assert.equal(result.found, true);
+  assert.deepEqual(updateCall, { id: "schedule-a", data: mappedSchedule });
 });

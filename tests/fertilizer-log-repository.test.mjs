@@ -91,6 +91,16 @@ test("Fertilizer Log create overwrites a runtime-supplied business", async () =>
   assert.equal(mock.calls[0].args.data.businessId, "business-a");
 });
 
+test("Fertilizer Log manual rows are tenant scoped and bounded", async () => {
+  const mock = createMockClient();
+  const fertilizerLogs = createFertilizerLogRepository(context, mock.client);
+
+  await fertilizerLogs.listForManualRun(25);
+
+  assert.deepEqual(mock.calls[0].args.where, { businessId: "business-a" });
+  assert.equal(mock.calls[0].args.take, 25);
+});
+
 test("Fertilizer Log update and delete include the context business", async () => {
   const mock = createMockClient();
   const fertilizerLogs = createFertilizerLogRepository(context, mock.client);

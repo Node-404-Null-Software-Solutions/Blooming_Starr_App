@@ -15,9 +15,19 @@ import {
   type AppLogicExecutionSource,
 } from "@/lib/app-logic-audit";
 import { AppLogicExecutionFailure } from "@/lib/app-logic-engine";
+import {
+  dateFieldsFromAppLogicScope,
+  dateFieldsToAppLogicScope,
+  scheduleFromAppLogicScope,
+  scheduleToAppLogicScope,
+} from "@/lib/app-logic-row-mapping";
+import { createFertilizerLogRepository } from "@/lib/repositories/fertilizer-log";
 import { createOverheadExpenseRepository } from "@/lib/repositories/overhead-expense";
+import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
 import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
 import { createSalesRepository } from "@/lib/repositories/sales";
+import { createScheduleEntryRepository } from "@/lib/repositories/schedule-entry";
+import { createTreatmentTrackingRepository } from "@/lib/repositories/treatment-tracking";
 
 export type AppLogicRowLifecycle = "IMPORT" | "INTERACTIVE";
 export type AppLogicNumericScope = Record<string, number>;
@@ -286,6 +296,84 @@ export async function runManualAppLogicForRow(
       unitCostCents: Math.round(scope.unitCostCents),
       totalCents: Math.round(scope.totalCents),
     });
+    return { found: true, scope };
+  }
+
+  if (module === "plantIntake") {
+    const rows = createPlantIntakeRepository(context);
+    const row = await rows.findById(rowId);
+    if (!row) return { found: false };
+    const execution = await runAudited({
+      qty: row.qty,
+      costCents: row.costCents,
+      msrpCents: row.msrpCents,
+    });
+    const scope = execution.scope;
+    await rows.updateById(rowId, {
+      qty: Math.round(scope.qty),
+      costCents: Math.round(scope.costCents),
+      msrpCents: Math.round(scope.msrpCents),
+    });
+    await executeGovernedAppLogicActions(
+      context,
+      {
+        module,
+        rowId,
+        sku: row.sku,
+        productName: [row.genus, row.cultivar].filter(Boolean).join(" "),
+        defaultCostCents: Math.round(scope.costCents),
+        defaultSalePriceCents: Math.round(scope.msrpCents),
+      },
+      execution.actions
+    );
+    return { found: true, scope };
+  }
+
+  if (module === "treatmentTracking") {
+    const rows = createTreatmentTrackingRepository(context);
+    const row = await rows.findById(rowId);
+    if (!row) return { found: false };
+    const execution = await runAudited(
+      dateFieldsToAppLogicScope({
+        date: row.date,
+        nextEarliest: row.nextEarliest,
+        nextLatest: row.nextLatest,
+      })
+    );
+    const scope = execution.scope;
+    await rows.updateById(rowId, dateFieldsFromAppLogicScope(scope));
+    return { found: true, scope };
+  }
+
+  if (module === "fertilizerLog") {
+    const rows = createFertilizerLogRepository(context);
+    const row = await rows.findById(rowId);
+    if (!row) return { found: false };
+    const execution = await runAudited(
+      dateFieldsToAppLogicScope({
+        date: row.date,
+        nextEarliest: row.nextEarliest,
+        nextLatest: row.nextLatest,
+      })
+    );
+    const scope = execution.scope;
+    await rows.updateById(rowId, dateFieldsFromAppLogicScope(scope));
+    return { found: true, scope };
+  }
+
+  if (module === "schedule") {
+    const rows = createScheduleEntryRepository(context);
+    const row = await rows.findById(rowId);
+    if (!row) return { found: false };
+    const execution = await runAudited(
+      scheduleToAppLogicScope({
+        date: row.date,
+        startTime: row.startTime,
+        endTime: row.endTime,
+      })
+    );
+    const scope = execution.scope;
+    await rows.updateById(rowId, scheduleFromAppLogicScope(scope));
     return { found: true, scope };
   }
 

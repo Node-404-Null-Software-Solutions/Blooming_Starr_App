@@ -93,6 +93,19 @@ test("Schedule Entry create overwrites a runtime-supplied business", async () =>
   assert.equal(mock.calls[0].args.data.businessId, "business-a");
 });
 
+test("Schedule manual rows are tenant scoped and bounded", async () => {
+  const mock = createMockClient();
+  const schedule = createScheduleEntryRepository(context, mock.client);
+
+  await schedule.listForManualRun(25);
+
+  assert.deepEqual(mock.calls[0].args.where, { businessId: "business-a" });
+  assert.equal(mock.calls[0].args.take, 25);
+  assert.deepEqual(mock.calls[0].args.select.employee, {
+    select: { name: true },
+  });
+});
+
 test("Schedule Entry update and delete include the context business", async () => {
   const mock = createMockClient();
   const schedule = createScheduleEntryRepository(context, mock.client);

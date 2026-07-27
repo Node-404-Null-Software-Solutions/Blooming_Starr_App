@@ -10,10 +10,21 @@ test("interactive and import spreadsheet writes route through lifecycle pipeline
   const dataEntries = source("src/lib/actions/data-entries.ts");
   const imports = source("src/lib/actions/import.ts");
 
-  for (const moduleName of ["sales", "productIntake", "overheadExpenses"]) {
+  for (const moduleName of [
+    "plantIntake",
+    "sales",
+    "productIntake",
+    "overheadExpenses",
+    "treatmentTracking",
+    "fertilizerLog",
+  ]) {
     assert.match(dataEntries, new RegExp(`runDetailedAppLogicRowPipeline\\([\\s\\S]*?"${moduleName}"`));
     assert.match(imports, new RegExp(`loadAuditedDetailedAppLogicRowPipeline\\([\\s\\S]*?"${moduleName}"`));
   }
+  assert.match(
+    source("src/lib/actions/schedule.ts"),
+    /runDetailedAppLogicRowPipeline\([\s\S]*?"schedule"/
+  );
   assert.match(dataEntries, /"INTERACTIVE"/);
   assert.match(imports, /"IMPORT"/);
 });

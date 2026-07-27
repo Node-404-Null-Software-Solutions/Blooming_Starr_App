@@ -58,6 +58,20 @@ export function createFertilizerLogRepository(
       });
     },
 
+    listForManualRun(limit: number) {
+      return client.fertilizerLog.findMany({
+        where: { businessId },
+        select: {
+          id: true,
+          date: true,
+          plantSku: true,
+          product: true,
+        },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        take: limit,
+      });
+    },
+
     listForImportDeduplication() {
       return client.fertilizerLog.findMany({
         where: { businessId },

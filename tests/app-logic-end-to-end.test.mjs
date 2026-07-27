@@ -232,6 +232,17 @@ function createHarness() {
       if (moduleName === "@/lib/app-logic-engine") return engine;
       if (moduleName === "@/lib/app-logic-audit") return audit;
       if (moduleName === "@/lib/app-logic-action-broker") return broker;
+      if (moduleName === "@/lib/app-logic-row-mapping") {
+        return {
+          dateFieldsToAppLogicScope: () => ({}),
+          dateFieldsFromAppLogicScope: () => ({}),
+          scheduleToAppLogicScope: () => ({}),
+          scheduleFromAppLogicScope: () => ({}),
+        };
+      }
+      if (moduleName === "@/lib/repositories/fertilizer-log") {
+        return { createFertilizerLogRepository: () => ({}) };
+      }
       if (moduleName === "@/lib/repositories/sales") {
         return {
           createSalesRepository: (context) => ({
@@ -251,6 +262,15 @@ function createHarness() {
       }
       if (moduleName === "@/lib/repositories/overhead-expense") {
         return { createOverheadExpenseRepository: () => ({}) };
+      }
+      if (moduleName === "@/lib/repositories/plant-intake") {
+        return { createPlantIntakeRepository: () => ({}) };
+      }
+      if (moduleName === "@/lib/repositories/schedule-entry") {
+        return { createScheduleEntryRepository: () => ({}) };
+      }
+      if (moduleName === "@/lib/repositories/treatment-tracking") {
+        return { createTreatmentTrackingRepository: () => ({}) };
       }
       throw new Error(`Unexpected integrated row-service import: ${moduleName}`);
     }

@@ -66,7 +66,17 @@ test("App Logic contract exposes only the fields a connected module may read and
     "profitCents",
     "marginPct",
   ]);
-  assert.equal(contract.getAppLogicModuleContract("plantIntake"), null);
+  const plantIntake = contract.getAppLogicModuleContract("plantIntake");
+  assert.deepEqual(plantIntake.readableFields, [
+    "qty",
+    "costCents",
+    "msrpCents",
+  ]);
+  assert.deepEqual(plantIntake.writableFields, [
+    "qty",
+    "costCents",
+    "msrpCents",
+  ]);
 });
 
 test("connected before-save formulas may be activated", () => {
@@ -216,7 +226,7 @@ test("governed actions are allowlisted by module and lifecycle trigger", () => {
   assert.match(unknown.error, /unknown governed action DELETE_EVERYTHING/);
 });
 
-test("planned modules preserve safe inactive drafts but reject activation", () => {
+test("Plant Intake formulas are executable and may be activated", () => {
   const draft = contract.validateAppLogicRuleContract({
     module: "plantIntake",
     trigger: "beforeSave",
@@ -232,11 +242,37 @@ test("planned modules preserve safe inactive drafts but reject activation", () =
     enabled: true,
   });
 
-  assert.deepEqual(draft, { ok: true, program: null });
-  assert.deepEqual(active, {
-    ok: false,
-    error: "Plant Intake is not connected to the app-logic runtime yet.",
+  assert.equal(draft.ok, true);
+  assert.equal(draft.program.module, "plantIntake");
+  assert.equal(active.ok, true);
+});
+
+test("date and schedule modules expose numeric, executable contracts", () => {
+  const treatment = contract.validateAppLogicRuleContract({
+    module: "treatmentTracking",
+    trigger: "beforeSave",
+    mode: "FORMULA",
+    expression: "nextEarliestEpochDays = dateEpochDays + 7",
+    enabled: true,
   });
+  const fertilizer = contract.validateAppLogicRuleContract({
+    module: "fertilizerLog",
+    trigger: "afterImport",
+    mode: "FORMULA",
+    expression: "nextLatestEpochDays = dateEpochDays + 60",
+    enabled: true,
+  });
+  const schedule = contract.validateAppLogicRuleContract({
+    module: "schedule",
+    trigger: "beforeSave",
+    mode: "SCRIPT",
+    expression: "REQUIRE endMinutes > startMinutes",
+    enabled: true,
+  });
+
+  assert.equal(treatment.ok, true);
+  assert.equal(fertilizer.ok, true);
+  assert.equal(schedule.ok, true);
 });
 
 test("module-specific unconnected triggers may remain drafts but cannot be activated", () => {
@@ -303,6 +339,22 @@ test("the executable selection matrix is explicit", () => {
       "transplantLog",
       "manual",
       "SCRIPT"
+    ),
+    false
+  );
+  assert.equal(
+    contract.isExecutableAppLogicSelection(
+      "fertilizerLog",
+      "afterImport",
+      "FORMULA"
+    ),
+    true
+  );
+  assert.equal(
+    contract.isExecutableAppLogicSelection(
+      "schedule",
+      "afterImport",
+      "FORMULA"
     ),
     false
   );

@@ -233,7 +233,14 @@ function PreviewPanel({
   );
 }
 
-type ManualModule = "sales" | "productIntake" | "overheadExpenses";
+type ManualModule =
+  | "plantIntake"
+  | "sales"
+  | "productIntake"
+  | "overheadExpenses"
+  | "treatmentTracking"
+  | "fertilizerLog"
+  | "schedule";
 
 function ManualRunner({
   businessSlug,
@@ -302,9 +309,13 @@ function ManualRunner({
             }}
             className={inputClass}
           >
+            <option value="plantIntake">Plant Intake</option>
             <option value="sales">Sales</option>
             <option value="productIntake">Product Intake</option>
             <option value="overheadExpenses">Overhead Expenses</option>
+            <option value="treatmentTracking">Treatment Tracking</option>
+            <option value="fertilizerLog">Fertilizer Log</option>
+            <option value="schedule">Schedule</option>
           </select>
         </label>
         <label className="grid gap-1.5">

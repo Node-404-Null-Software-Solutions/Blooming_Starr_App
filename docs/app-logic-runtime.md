@@ -11,9 +11,10 @@ and output from one rule becomes input to the next rule for that row.
 
 ## Executable selections
 
-- Sales, Product Intake, and Overhead Expenses: Before Save, After Save,
-  After Import, and Manual
+- Plant Intake, Sales, Product Intake, Overhead Expenses, Treatment Tracking,
+  and Fertilizer Log: Before Save, After Save, After Import, and Manual
 - Transplant Log: Before Save
+- Schedule: Before Save, After Save, and Manual
 - Types: Formula and Script
 
 Interactive writes run Before Save and then After Save. Workbook imports run
@@ -46,9 +47,15 @@ raises a `REQUIREMENT` runtime error. `SET` must produce a finite number and may
 only target an output listed for the selected module.
 
 `ACTION` emits a governed intent. It does not receive a database client or run
-arbitrary code. `SYNC_PRODUCT_MASTER` is allowlisted for Sales and Product
-Intake on After Save and Manual triggers. A tenant-bound server broker validates
-the source row and performs the product upsert through the Product repository.
+arbitrary code. `SYNC_PRODUCT_MASTER` is allowlisted for Plant Intake, Sales,
+and Product Intake on After Save and Manual triggers. A tenant-bound server
+broker validates the source row and performs the product upsert through the
+Product repository.
+
+Treatment Tracking and Fertilizer Log represent dates as whole UTC epoch days.
+`0` means no optional date. Schedule represents its date the same way and its
+start/end times as minutes after midnight from `0` through `1439`. Mapping back
+to an invalid date or time fails closed before the row is written.
 
 ## Expressions
 

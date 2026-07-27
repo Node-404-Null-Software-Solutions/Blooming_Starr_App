@@ -58,6 +58,21 @@ export function createPlantIntakeRepository(
       });
     },
 
+    listForManualRun(limit: number) {
+      return client.plantIntake.findMany({
+        where: { businessId },
+        select: {
+          id: true,
+          date: true,
+          sku: true,
+          genus: true,
+          cultivar: true,
+        },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        take: limit,
+      });
+    },
+
     findLatestBySku(sku: string) {
       return client.plantIntake.findFirst({
         where: withBusinessScope(businessId, { sku }),

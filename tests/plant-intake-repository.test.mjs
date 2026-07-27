@@ -91,6 +91,16 @@ test("Plant Intake create overwrites a runtime-supplied business", async () => {
   assert.equal(mock.calls[0].args.data.businessId, "business-a");
 });
 
+test("Plant Intake manual rows are tenant scoped and bounded", async () => {
+  const mock = createMockClient();
+  const plants = createPlantIntakeRepository(context, mock.client);
+
+  await plants.listForManualRun(25);
+
+  assert.deepEqual(mock.calls[0].args.where, { businessId: "business-a" });
+  assert.equal(mock.calls[0].args.take, 25);
+});
+
 test("Plant Intake update and delete include the context business", async () => {
   const mock = createMockClient();
   const plants = createPlantIntakeRepository(context, mock.client);

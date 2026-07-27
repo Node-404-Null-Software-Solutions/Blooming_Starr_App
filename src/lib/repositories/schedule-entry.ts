@@ -50,6 +50,22 @@ export function createScheduleEntryRepository(
       });
     },
 
+    listForManualRun(limit: number) {
+      return client.scheduleEntry.findMany({
+        where: { businessId },
+        select: {
+          id: true,
+          date: true,
+          startTime: true,
+          endTime: true,
+          title: true,
+          employee: { select: { name: true } },
+        },
+        orderBy: [{ date: "desc" }, { startTime: "asc" }],
+        take: limit,
+      });
+    },
+
     listForWeek(rangeStart: Date, rangeEnd: Date) {
       return client.scheduleEntry.findMany({
         where: withBusinessScope(businessId, {

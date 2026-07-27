@@ -6,6 +6,10 @@ import { revalidatePath } from "next/cache";
 import { loadAuditedDetailedAppLogicRowPipeline } from "@/lib/app-logic-row-service";
 import { appLogicFailureMessage } from "@/lib/app-logic-audit";
 import {
+  dateFieldsFromAppLogicScope,
+  dateFieldsToAppLogicScope,
+} from "@/lib/app-logic-row-mapping";
+import {
   buildHeaderMap,
   chunk,
   findHeaderRow,
@@ -563,36 +567,52 @@ async function importPlantIntake(
   const seenSku = new Set<string>();
 
   const toCreate: TenantPlantIntakeCreateManyInput[] = [];
+  const calculatePlantIntake = await loadAuditedDetailedAppLogicRowPipeline(
+    businessContext,
+    "plantIntake",
+    "IMPORT"
+  );
 
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber <= headerRow.number) return;
-    const source = cSource ? toStringCell(row.getCell(cSource).value) : "";
-    const genus = cGenus ? toStringCell(row.getCell(cGenus).value) : "";
-    const cultivar = cCultivar ? toStringCell(row.getCell(cCultivar).value) : "";
-    const sku = cSku ? toStringCell(row.getCell(cSku).value) : "";
+  try {
+    ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber <= headerRow.number) return;
+      const source = cSource ? toStringCell(row.getCell(cSource).value) : "";
+      const genus = cGenus ? toStringCell(row.getCell(cGenus).value) : "";
+      const cultivar = cCultivar ? toStringCell(row.getCell(cCultivar).value) : "";
+      const sku = cSku ? toStringCell(row.getCell(cSku).value) : "";
 
-    if (!source || !genus || !cultivar || !sku) { skippedMissing++; return; }
+      if (!source || !genus || !cultivar || !sku) { skippedMissing++; return; }
 
-    if (existingSku.has(sku) || seenSku.has(sku)) { skippedDuplicates++; return; }
-    seenSku.add(sku);
+      if (existingSku.has(sku) || seenSku.has(sku)) { skippedDuplicates++; return; }
+      seenSku.add(sku);
 
-    const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
-    const costCents = cCost ? parseCurrencyToCents(row.getCell(cCost).value) : 0;
-    const msrpCents = cMsrp ? parseCurrencyToCents(row.getCell(cMsrp).value) : 0;
+      const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
+      const costCents = cCost ? parseCurrencyToCents(row.getCell(cCost).value) : 0;
+      const msrpCents = cMsrp ? parseCurrencyToCents(row.getCell(cMsrp).value) : 0;
+      const plantLogic = calculatePlantIntake.run({
+        qty: qty > 0 ? qty : 1,
+        costCents: costCents >= 0 ? costCents : 0,
+        msrpCents: msrpCents >= 0 ? msrpCents : 0,
+      }).scope;
 
-    toCreate.push({
-      date: cDate ? parseDate(row.getCell(cDate).value) : null,
-      source, genus, cultivar, sku,
-      locationCode: cId ? toStringCell(row.getCell(cId).value) || null : null,
-      qty: qty > 0 ? qty : 1,
-      costCents: costCents >= 0 ? costCents : 0,
-      msrpCents: msrpCents >= 0 ? msrpCents : 0,
-      potType: cPot ? toStringCell(row.getCell(cPot).value) || null : null,
-      paymentMethod: null, cardLast4: null,
-      location: cLocation ? toStringCell(row.getCell(cLocation).value) || null : null,
-      status: cStatus ? toStringCell(row.getCell(cStatus).value) || null : null,
+      toCreate.push({
+        date: cDate ? parseDate(row.getCell(cDate).value) : null,
+        source, genus, cultivar, sku,
+        locationCode: cId ? toStringCell(row.getCell(cId).value) || null : null,
+        qty: Math.round(plantLogic.qty),
+        costCents: Math.round(plantLogic.costCents),
+        msrpCents: Math.round(plantLogic.msrpCents),
+        potType: cPot ? toStringCell(row.getCell(cPot).value) || null : null,
+        paymentMethod: null, cardLast4: null,
+        location: cLocation ? toStringCell(row.getCell(cLocation).value) || null : null,
+        status: cStatus ? toStringCell(row.getCell(cStatus).value) || null : null,
+      });
     });
-  });
+  } catch (error) {
+    await calculatePlantIntake.flush();
+    throw error;
+  }
+  await calculatePlantIntake.flush();
 
   for (const part of chunk(toCreate, 1000)) {
     const res = await plantIntakes.createMany(part);
@@ -1046,31 +1066,71 @@ async function importFertilizerLog(
   const seenComposite = new Set<string>();
 
   const toCreate: TenantFertilizerLogCreateManyInput[] = [];
+  const calculateFertilizerLog = await loadAuditedDetailedAppLogicRowPipeline(
+    businessContext,
+    "fertilizerLog",
+    "IMPORT"
+  );
 
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber <= headerRow.number) return;
-    const date = cDate ? parseDate(row.getCell(cDate).value) : null;
-    const plantSku = cPlantSku ? toStringCell(row.getCell(cPlantSku).value) : "";
-    if (!date || !plantSku) { skippedMissing++; return; }
+  try {
+    ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber <= headerRow.number) return;
+      const date = cDate ? parseDate(row.getCell(cDate).value) : null;
+      const plantSku = cPlantSku
+        ? toStringCell(row.getCell(cPlantSku).value)
+        : "";
+      if (!date || !plantSku) {
+        skippedMissing++;
+        return;
+      }
 
-    const product = cProduct ? toStringCell(row.getCell(cProduct).value) || null : null;
-    const method = cMethod ? toStringCell(row.getCell(cMethod).value) || null : null;
-    const key = `${plantSku}|${dateKey(date)}|${product ?? ""}|${method ?? ""}`;
-    if (existingComposite.has(key) || seenComposite.has(key)) { skippedDuplicates++; return; }
-    seenComposite.add(key);
+      const product = cProduct
+        ? toStringCell(row.getCell(cProduct).value) || null
+        : null;
+      const method = cMethod
+        ? toStringCell(row.getCell(cMethod).value) || null
+        : null;
+      const key = `${plantSku}|${dateKey(date)}|${product ?? ""}|${method ?? ""}`;
+      if (existingComposite.has(key) || seenComposite.has(key)) {
+        skippedDuplicates++;
+        return;
+      }
+      seenComposite.add(key);
 
-    toCreate.push({
-      date, plantSku,
-      potSku: cPotSku ? toStringCell(row.getCell(cPotSku).value) || null : null,
-      product,
-      method,
-      rate: cRate ? toStringCell(row.getCell(cRate).value) || null : null,
-      unit: cUnit ? toStringCell(row.getCell(cUnit).value) || null : null,
-      nextEarliest: cNextEarliest ? parseDate(row.getCell(cNextEarliest).value) : null,
-      nextLatest: cNextLatest ? parseDate(row.getCell(cNextLatest).value) : null,
-      notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
+      const calculatedDates = dateFieldsFromAppLogicScope(
+        calculateFertilizerLog.run(
+          dateFieldsToAppLogicScope({
+            date,
+            nextEarliest: cNextEarliest
+              ? parseDate(row.getCell(cNextEarliest).value)
+              : null,
+            nextLatest: cNextLatest
+              ? parseDate(row.getCell(cNextLatest).value)
+              : null,
+          })
+        ).scope
+      );
+
+      toCreate.push({
+        date: calculatedDates.date,
+        plantSku,
+        potSku: cPotSku
+          ? toStringCell(row.getCell(cPotSku).value) || null
+          : null,
+        product,
+        method,
+        rate: cRate ? toStringCell(row.getCell(cRate).value) || null : null,
+        unit: cUnit ? toStringCell(row.getCell(cUnit).value) || null : null,
+        nextEarliest: calculatedDates.nextEarliest,
+        nextLatest: calculatedDates.nextLatest,
+        notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
+      });
     });
-  });
+  } catch (error) {
+    await calculateFertilizerLog.flush();
+    throw error;
+  }
+  await calculateFertilizerLog.flush();
 
   for (const part of chunk(toCreate, 1000)) {
     const res = await fertilizerLogs.createMany(part, { skipDuplicates: true });
@@ -1123,33 +1183,75 @@ async function importTreatmentTracking(
   const seenComposite = new Set<string>();
 
   const toCreate: TenantTreatmentTrackingCreateManyInput[] = [];
+  const calculateTreatmentTracking = await loadAuditedDetailedAppLogicRowPipeline(
+    businessContext,
+    "treatmentTracking",
+    "IMPORT"
+  );
 
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber <= headerRow.number) return;
-    const date = cDate ? parseDate(row.getCell(cDate).value) : null;
-    const sku = cSku ? toStringCell(row.getCell(cSku).value) : "";
-    if (!date || !sku) { skippedMissing++; return; }
+  try {
+    ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber <= headerRow.number) return;
+      const date = cDate ? parseDate(row.getCell(cDate).value) : null;
+      const sku = cSku ? toStringCell(row.getCell(cSku).value) : "";
+      if (!date || !sku) {
+        skippedMissing++;
+        return;
+      }
 
-    const target = cTarget ? toStringCell(row.getCell(cTarget).value) || null : null;
-    const product = cProduct ? toStringCell(row.getCell(cProduct).value) || null : null;
-    const key = `${sku}|${dateKey(date)}|${target ?? ""}|${product ?? ""}`;
-    if (existingComposite.has(key) || seenComposite.has(key)) { skippedDuplicates++; return; }
-    seenComposite.add(key);
+      const target = cTarget
+        ? toStringCell(row.getCell(cTarget).value) || null
+        : null;
+      const product = cProduct
+        ? toStringCell(row.getCell(cProduct).value) || null
+        : null;
+      const key = `${sku}|${dateKey(date)}|${target ?? ""}|${product ?? ""}`;
+      if (existingComposite.has(key) || seenComposite.has(key)) {
+        skippedDuplicates++;
+        return;
+      }
+      seenComposite.add(key);
 
-    toCreate.push({
-      date, sku,
-      target,
-      product,
-      activeIngredient: cActive ? toStringCell(row.getCell(cActive).value) || null : null,
-      epaNumber: cEpa ? toStringCell(row.getCell(cEpa).value) || null : null,
-      rate: cRate ? toStringCell(row.getCell(cRate).value) || null : null,
-      potSize: cPot ? toStringCell(row.getCell(cPot).value) || null : null,
-      method: cMethod ? toStringCell(row.getCell(cMethod).value) || null : null,
-      initials: cInit ? toStringCell(row.getCell(cInit).value) || null : null,
-      nextEarliest: cNextEarliest ? parseDate(row.getCell(cNextEarliest).value) : null,
-      nextLatest: cNextLatest ? parseDate(row.getCell(cNextLatest).value) : null,
+      const calculatedDates = dateFieldsFromAppLogicScope(
+        calculateTreatmentTracking.run(
+          dateFieldsToAppLogicScope({
+            date,
+            nextEarliest: cNextEarliest
+              ? parseDate(row.getCell(cNextEarliest).value)
+              : null,
+            nextLatest: cNextLatest
+              ? parseDate(row.getCell(cNextLatest).value)
+              : null,
+          })
+        ).scope
+      );
+
+      toCreate.push({
+        date: calculatedDates.date,
+        sku,
+        target,
+        product,
+        activeIngredient: cActive
+          ? toStringCell(row.getCell(cActive).value) || null
+          : null,
+        epaNumber: cEpa
+          ? toStringCell(row.getCell(cEpa).value) || null
+          : null,
+        rate: cRate ? toStringCell(row.getCell(cRate).value) || null : null,
+        potSize: cPot ? toStringCell(row.getCell(cPot).value) || null : null,
+        method: cMethod
+          ? toStringCell(row.getCell(cMethod).value) || null
+          : null,
+        initials: cInit ? toStringCell(row.getCell(cInit).value) || null : null,
+        nextEarliest: calculatedDates.nextEarliest,
+        nextLatest: calculatedDates.nextLatest,
+      });
     });
-  });
+  } catch (error) {
+    await calculateTreatmentTracking.flush();
+    throw error;
+  }
+  await calculateTreatmentTracking.flush();
 
   for (const part of chunk(toCreate, 1000)) {
     const res = await treatments.createMany(part, { skipDuplicates: true });

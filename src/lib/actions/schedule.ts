@@ -2,6 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { requireBusinessMembership } from "@/lib/authz";
+import { appLogicFailureMessage } from "@/lib/app-logic-audit";
+import {
+  scheduleFromAppLogicScope,
+  scheduleToAppLogicScope,
+} from "@/lib/app-logic-row-mapping";
+import { runDetailedAppLogicRowPipeline } from "@/lib/app-logic-row-service";
 import { createEmployeeRepository } from "@/lib/repositories/employee";
 import {
   createScheduleEntryRepository,
@@ -26,15 +32,33 @@ export async function createScheduleEntry(
   if (!employeeId) return { ok: false, error: "Employee is required." };
   if (!dateStr) return { ok: false, error: "Date is required." };
   if (!startTime || !endTime) return { ok: false, error: "Start and end times are required." };
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) {
+    return { ok: false, error: "Enter a valid date." };
+  }
 
   const employee = await employees.findById(employeeId);
   if (!employee) return { ok: false, error: "Employee not found." };
+  let calculatedSchedule: {
+    date: Date;
+    startTime: string;
+    endTime: string;
+  };
+  try {
+    const execution = await runDetailedAppLogicRowPipeline(
+      businessContext,
+      "schedule",
+      "INTERACTIVE",
+      scheduleToAppLogicScope({ date, startTime, endTime })
+    );
+    calculatedSchedule = scheduleFromAppLogicScope(execution.scope);
+  } catch (error) {
+    return { ok: false, error: appLogicFailureMessage(error) };
+  }
 
   await schedule.create({
     employeeId,
-    date: new Date(dateStr),
-    startTime,
-    endTime,
+    ...calculatedSchedule,
     title,
     notes,
   });
@@ -65,9 +89,29 @@ export async function updateScheduleEntry(
     if (!employee) return { ok: false, error: "Employee not found." };
     updateData.employeeId = data.employeeId;
   }
-  if (data.date !== undefined) updateData.date = new Date(data.date);
-  if (data.startTime !== undefined) updateData.startTime = data.startTime;
-  if (data.endTime !== undefined) updateData.endTime = data.endTime;
+  const existing = await schedule.findById(id);
+  if (!existing) return { ok: false, error: "Entry not found." };
+  const date = data.date === undefined ? existing.date : new Date(data.date);
+  if (Number.isNaN(date.getTime())) {
+    return { ok: false, error: "Enter a valid date." };
+  }
+  const startTime = data.startTime ?? existing.startTime;
+  const endTime = data.endTime ?? existing.endTime;
+  try {
+    const execution = await runDetailedAppLogicRowPipeline(
+      businessContext,
+      "schedule",
+      "INTERACTIVE",
+      scheduleToAppLogicScope({ date, startTime, endTime }),
+      { sourceRowId: id }
+    );
+    const calculatedSchedule = scheduleFromAppLogicScope(execution.scope);
+    updateData.date = calculatedSchedule.date;
+    updateData.startTime = calculatedSchedule.startTime;
+    updateData.endTime = calculatedSchedule.endTime;
+  } catch (error) {
+    return { ok: false, error: appLogicFailureMessage(error) };
+  }
   if (data.title !== undefined) updateData.title = data.title;
   if (data.notes !== undefined) updateData.notes = data.notes;
 

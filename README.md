@@ -502,8 +502,8 @@ Use Treatment Tracking to record:
 - applicator initials; and
 - next earliest and latest application dates.
 
-SKU is required. Treatment dates are entered manually. App Logic is not
-connected to Treatment Tracking in the current version.
+SKU is required. Treatment dates are entered manually. App Logic can validate
+or calculate the treatment date window using UTC epoch-day fields.
 
 ### Fertilizer Log
 
@@ -523,7 +523,8 @@ If both next-application dates are blank, the app automatically calculates a
 7-to-14-day window for product names containing `Ferti-lome` or `Arber`.
 Other fertilizer products do not receive automatic dates.
 
-App Logic is not connected to Fertilizer Log in the current version.
+App Logic can validate or replace the application date window after the
+built-in product-name calculation runs.
 
 ## Employees and schedule
 
@@ -561,6 +562,7 @@ To add a shift:
 
 Hover over a shift and use the trash icon to delete it. The current Schedule
 does not provide an edit dialog; delete and recreate a shift to change it.
+App Logic can validate or adjust a new shift's date and minute-of-day values.
 
 ## Search and QR scanning
 
@@ -614,8 +616,9 @@ Imports are additive. They do not replace the database. The importer:
 - skips rows missing required identity values;
 - skips duplicates using each module's duplicate key;
 - seeds lookup options from recognized KEY sheets; and
-- applies active Before Save and After Import App Logic rules to Sales,
-  Product Intake, and Overhead Expenses.
+- applies active Before Save and After Import App Logic rules to Plant Intake,
+  Product Intake, Sales, Overhead Expenses, Treatment Tracking, and Fertilizer
+  Log.
 
 Always keep a copy of the original workbook and review the import report.
 
@@ -877,12 +880,12 @@ or replace its rule instead of relying on an empty rule list.
 | Product Intake | Yes | Yes | Yes | Yes |
 | Overhead Expenses | Yes | Yes | Yes | Yes |
 | Transplant Log | Yes | No | No | No |
-| Plant Intake | No | No | No | No |
-| Treatment Tracking | No | No | No | No |
-| Fertilizer Log | No | No | No | No |
-| Schedule | No | No | No | No |
+| Plant Intake | Yes | Yes | Yes | Yes |
+| Treatment Tracking | Yes | Yes | Yes | Yes |
+| Fertilizer Log | Yes | Yes | Yes | Yes |
+| Schedule | Yes | Yes | No | Yes |
 
-Unavailable modules appear as **Planned** and cannot be activated.
+Schedule has no workbook import workflow, so After Import is unavailable.
 
 ### Trigger meanings
 
@@ -910,6 +913,16 @@ in creation order.
 ### Fields by module
 
 Field names are case-sensitive and must be entered exactly as shown.
+
+#### Plant Intake
+
+Readable and writable:
+
+```text
+qty
+costCents
+msrpCents
+```
 
 #### Sales
 
@@ -982,6 +995,33 @@ totalParts
 costCents
 ```
 
+#### Treatment Tracking and Fertilizer Log
+
+Readable and writable:
+
+```text
+dateEpochDays
+nextEarliestEpochDays
+nextLatestEpochDays
+```
+
+An epoch-day value is the whole number of UTC days since January 1, 1970.
+Optional dates use `0` for no date. For example, a seven-day treatment window
+can set `nextEarliestEpochDays = dateEpochDays + 7`.
+
+#### Schedule
+
+Readable and writable:
+
+```text
+dateEpochDays
+startMinutes
+endMinutes
+```
+
+`startMinutes` and `endMinutes` are minutes after midnight from `0` through
+`1439`. A Schedule rule must leave `dateEpochDays` as a valid, nonzero date.
+
 Writable:
 
 ```text
@@ -1038,10 +1078,11 @@ The only supported action is:
 ACTION SYNC_PRODUCT_MASTER
 ```
 
-It refreshes the underlying Product record from a Sales or Product Intake row.
+It refreshes the underlying Product record from a Plant Intake, Sales, or
+Product Intake row.
 It is allowed only for:
 
-- Sales or Product Intake; and
+- Plant Intake, Sales, or Product Intake; and
 - After Save or Manual triggers.
 
 Preview reports the action intent but never executes it.
@@ -1394,7 +1435,7 @@ Normal business rules should remain much smaller than these limits.
 
 App Logic cannot currently:
 
-- change text fields, dates, SKUs, categories, statuses, notes, or names;
+- change text fields, SKUs, categories, statuses, notes, or names;
 - create arbitrary new fields;
 - read another row;
 - aggregate multiple rows;
@@ -1403,9 +1444,8 @@ App Logic cannot currently:
 - call an API;
 - run JavaScript or SQL;
 - update an arbitrary database table;
-- change Plant Intake calculations;
-- schedule Treatment or Fertilizer dates; or
-- change Schedule behavior.
+- change records other than the current row, except through the governed
+  `SYNC_PRODUCT_MASTER` action.
 
 A requirement outside the supported numeric row fields requires an application
 code change, not a different App Logic expression.
@@ -1446,7 +1486,8 @@ Confirm that:
 
 - the rule is Active;
 - its Trigger is Manual;
-- the module is Sales, Product Intake, or Overhead Expenses;
+- the module supports Manual execution (all connected modules except Transplant
+  Log);
 - rows were loaded;
 - a row was selected; and
 - Execution History shows the attempt.
@@ -1521,37 +1562,35 @@ isolated. Switch to the intended business before making corrections.
 The following behavior is present in this repository and should be understood
 before relying on the app:
 
-1. **App Logic coverage is limited.** Plant Intake, Treatment Tracking,
-   Fertilizer Log, and Schedule are not connected.
-2. **Photo support is incomplete.** Plant photo buttons and Product Intake photo
+1. **Photo support is incomplete.** Plant photo buttons and Product Intake photo
    selection do not currently persist and display record photos. Inventory photo
    cells are placeholders.
-3. **Top-bar Refresh is visual only.** Use the browser reload command when a
+2. **Top-bar Refresh is visual only.** Use the browser reload command when a
    manual refresh is required.
-4. **Selection mode has no bulk operation.** It marks rows but does not currently
+3. **Selection mode has no bulk operation.** It marks rows but does not currently
    update or delete them in bulk.
-5. **Top-bar search is not universal.** Use module filters on Product Intake,
+4. **Top-bar search is not universal.** Use module filters on Product Intake,
    Overhead Expenses, Treatment Tracking, and Fertilizer Log.
-6. **Sales has placeholder columns.** Customer Name is not stored by the current
+5. **Sales has placeholder columns.** Customer Name is not stored by the current
    Sales model and the table displays Status as Sold.
-7. **Treatment Notes are not persisted.** The new Treatment form displays a
+6. **Treatment Notes are not persisted.** The new Treatment form displays a
    Notes field, but the current create/update data contract does not save it.
-8. **Treatment and Fertilizer next dates are read-only after creation** in the
+7. **Treatment and Fertilizer next dates are read-only after creation** in the
    current tables.
-9. **Overhead Shipping cannot be edited from the list/detail view.** It can be
+8. **Overhead Shipping cannot be edited from the list/detail view.** It can be
    entered during creation or import and is used in recalculation.
-10. **Employee compensation inline editing has inconsistent dollars/cents
+9. **Employee compensation inline editing has inconsistent dollars/cents
     conversion.** Enter the initial amount through Add Employee and verify any
     later inline wage edit immediately.
-11. **The Schedule does not edit existing shifts.** Delete and recreate a shift.
-12. **Raw transaction export is not provided.** The Dashboard exports a tax
+10. **The Schedule does not edit existing shifts.** Delete and recreate a shift.
+11. **Raw transaction export is not provided.** The Dashboard exports a tax
     summary CSV only.
-13. **Some new-record forms do not show server-side rule errors inline.** Check
+12. **Some new-record forms do not show server-side rule errors inline.** Check
     App Logic Execution History when Save leaves the form open.
-14. **Plant Intake cost labeling is ambiguous.** The form says Total Cost while
+13. **Plant Intake cost labeling is ambiguous.** The form says Total Cost while
     parts of the inventory calculation treat the stored amount as a cost that is
     multiplied by quantity.
-15. **Operational permissions are broad.** All active members, including the
+14. **Operational permissions are broad.** All active members, including the
     Employee role, can currently edit and delete operational data, employees,
     and schedule entries.
 

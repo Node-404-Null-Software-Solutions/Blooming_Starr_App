@@ -9,7 +9,7 @@ import type { TenantScopedClient } from "@/lib/tenant-rls";
 import { persistAppLogicExecutionAudit } from "@/lib/app-logic-audit";
 
 type ProductSyncSource = {
-  module: "sales" | "productIntake";
+  module: "plantIntake" | "sales" | "productIntake";
   rowId: string;
   sku: string;
   productName: string | null;
