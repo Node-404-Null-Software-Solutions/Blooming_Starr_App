@@ -41,6 +41,11 @@ test("RLS migration creates a non-bypass tenant role", () => {
   assert.match(migration, /NOLOGIN/);
   assert.match(migration, /NOSUPERUSER/);
   assert.match(migration, /NOBYPASSRLS/);
+  assert.doesNotMatch(
+    migration,
+    /ALTER ROLE blooming_starr_tenant[\s\S]*?NOSUPERUSER/
+  );
+  assert.match(migration, /unsafe role attributes/);
   assert.match(migration, /GRANT %I TO %I/);
 });
 

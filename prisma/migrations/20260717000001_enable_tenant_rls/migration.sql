@@ -17,14 +17,31 @@ BEGIN
 END
 $$;
 
-ALTER ROLE blooming_starr_tenant
-    NOLOGIN
-    NOSUPERUSER
-    NOCREATEDB
-    NOCREATEROLE
-    NOINHERIT
-    NOREPLICATION
-    NOBYPASSRLS;
+-- A non-superuser with CREATEROLE may create this safe role, but PostgreSQL
+-- reserves changes to SUPERUSER/REPLICATION/BYPASSRLS attributes for a
+-- superuser. Assert the existing or newly-created role instead of issuing a
+-- redundant privileged ALTER ROLE.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_roles
+        WHERE rolname = 'blooming_starr_tenant'
+          AND (
+              rolcanlogin
+              OR rolsuper
+              OR rolcreatedb
+              OR rolcreaterole
+              OR rolinherit
+              OR rolreplication
+              OR rolbypassrls
+          )
+    ) THEN
+        RAISE EXCEPTION
+            'blooming_starr_tenant exists with unsafe role attributes';
+    END IF;
+END
+$$;
 
 DO $$
 BEGIN
