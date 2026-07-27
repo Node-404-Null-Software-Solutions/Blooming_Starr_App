@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
+import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import PlantIntakeClient from "./PlantIntakeClient";
 
@@ -16,8 +16,8 @@ export default async function PlantIntakePage({
   const { businessSlug } = await params;
   const sp = (await searchParams) ?? {};
 
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const plantIntakes = createPlantIntakeRepository(businessContext);
 
   const priceTypeRaw = typeof sp.priceType === "string" ? sp.priceType : "";
   const priceType =
@@ -83,12 +83,7 @@ export default async function PlantIntakePage({
       }
     : undefined;
 
-  const genusRows = await db.plantIntake.findMany({
-    where: { businessId },
-    distinct: ["genus"],
-    select: { genus: true },
-    orderBy: { genus: "asc" },
-  });
+  const genusRows = await plantIntakes.listDistinctGenera();
   type GenusRow = (typeof genusRows)[number];
   const genusOptions = genusRows
     .map((row: GenusRow) => row.genus)
@@ -101,16 +96,16 @@ export default async function PlantIntakePage({
     "paymentMethod",
   ]);
 
-  const rawRows = await db.plantIntake.findMany({
-    where: {
-      businessId,
-      ...(searchFilter ? searchFilter : {}),
-      ...(genusFilter ? { genus: genusFilter } : {}),
-      ...(dateFilter ? { date: dateFilter } : {}),
-      ...(priceType === "msrp" && priceFilter ? { msrpCents: priceFilter } : {}),
-      ...(priceType === "cost" && priceFilter ? { costCents: priceFilter } : {}),
-    },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+  const rawRows = await plantIntakes.list({
+    ...(searchFilter ? searchFilter : {}),
+    ...(genusFilter ? { genus: genusFilter } : {}),
+    ...(dateFilter ? { date: dateFilter } : {}),
+    ...(priceType === "msrp" && priceFilter
+      ? { msrpCents: priceFilter }
+      : {}),
+    ...(priceType === "cost" && priceFilter
+      ? { costCents: priceFilter }
+      : {}),
   });
   const sortedRows = sortByDateDescNullsLast(rawRows);
 

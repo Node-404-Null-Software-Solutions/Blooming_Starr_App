@@ -1,18 +1,26 @@
-import { db } from "@/lib/db";
-
-type RuleModule =
-  | "sales"
-  | "productIntake"
-  | "overheadExpenses"
-  | "transplantLog";
-
-type RuleTrigger = "beforeSave";
+import type { BusinessContext } from "@/lib/business-context";
+import {
+  isAppLogicMode,
+  validateAppLogicRuleContract,
+} from "@/lib/app-logic-contract";
+import type {
+  AppLogicMode,
+  AppLogicTrigger,
+  ExecutableAppLogicModule,
+} from "@/lib/app-logic-contract";
+import {
+  AppLogicRuntimeError,
+  compileAppLogicProgram,
+  executeAppLogicProgramDetailed,
+} from "@/lib/app-logic-runtime";
+import type { AppLogicActionIntent } from "@/lib/app-logic-runtime";
+import { createAppLogicRuleRepository } from "@/lib/repositories/app-logic-rule";
 
 type LogicRule = {
   name: string;
-  module: RuleModule;
-  trigger: RuleTrigger;
-  mode: "FORMULA" | "SCRIPT";
+  module: ExecutableAppLogicModule;
+  trigger: AppLogicTrigger;
+  mode: AppLogicMode;
   expression: string;
   notes: string;
   enabled: boolean;
@@ -72,149 +80,212 @@ const DEFAULT_RULES: LogicRule[] = [
   },
 ];
 
-const HELPERS = {
-  abs: Math.abs,
-  ceil: Math.ceil,
-  floor: Math.floor,
-  max: Math.max,
-  min: Math.min,
-  round: Math.round,
-};
-
-const FORBIDDEN_TOKENS =
-  /\b(?:constructor|document|eval|fetch|Function|global|globalThis|import|process|prototype|require|window)\b|__proto__/;
-
-const SAMPLE_SCOPES: Record<RuleModule, Record<string, number>> = {
-  sales: {
-    qty: 2,
-    salePriceCents: 1500,
-    costCents: 700,
-  },
-  productIntake: {
-    totalCostCents: 4800,
-    qty: 12,
-  },
-  overheadExpenses: {
-    subTotalCents: 12000,
-    shippingCents: 1500,
-    discountCents: 500,
-    qty: 4,
-  },
-  transplantLog: {
-    originalCostCents: 3000,
-    totalParts: 3,
-  },
-};
-
 function normalizeNumber(value: unknown): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 }
 
-export async function ensureDefaultAppLogicRules(businessId: string) {
-  const count = await db.appLogicRule.count({ where: { businessId } });
+export async function ensureDefaultAppLogicRules(context: BusinessContext) {
+  const rules = createAppLogicRuleRepository(context);
+  const count = await rules.countAll();
   if (count > 0) return;
 
-  await db.appLogicRule.createMany({
-    data: DEFAULT_RULES.map((rule) => ({
-      businessId,
-      ...rule,
-    })),
-  });
+  await rules.createMany(DEFAULT_RULES);
 }
 
-function assertSafeExpression(expression: string) {
-  if (!/^[A-Za-z0-9_$\s+\-*/%().,<>=!?:&|]+$/.test(expression)) {
-    throw new Error("Only numbers, fields, math operators, comparisons, and helper functions are allowed.");
-  }
-  if (/\.[A-Za-z_$]/.test(expression)) {
-    throw new Error("Property access is not allowed in app logic formulas.");
-  }
-  if (FORBIDDEN_TOKENS.test(expression)) {
-    throw new Error("This formula uses a blocked keyword.");
+export type GovernedAppLogicActionIntent = AppLogicActionIntent & {
+  ruleId: string;
+  ruleName: string;
+  module: ExecutableAppLogicModule;
+  trigger: AppLogicTrigger;
+};
+
+export const APP_LOGIC_EXECUTION_LIMITS = Object.freeze({
+  maxRulesPerTrigger: 25,
+  maxStatementsPerTrigger: 250,
+  maxActionsPerTrigger: 10,
+});
+
+export type AppLogicExecutionAudit = {
+  ruleId: string;
+  ruleName: string;
+  module: ExecutableAppLogicModule;
+  trigger: AppLogicTrigger;
+  mode: AppLogicMode;
+  status: "FAILED" | "SUCCEEDED";
+  durationMs: number;
+  statementCount: number;
+  actionCount: number;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
+export class AppLogicExecutionFailure extends AppLogicRuntimeError {
+  readonly executions: AppLogicExecutionAudit[];
+
+  constructor(
+    code: AppLogicRuntimeError["code"],
+    message: string,
+    executions: AppLogicExecutionAudit[]
+  ) {
+    super(code, message);
+    this.name = "AppLogicExecutionFailure";
+    this.executions = executions;
   }
 }
 
-function evaluateExpression(expression: string, scope: Record<string, number>): number {
-  assertSafeExpression(expression);
+export type AppLogicRunnerResult = {
+  scope: Record<string, number>;
+  actions: GovernedAppLogicActionIntent[];
+  executions: AppLogicExecutionAudit[];
+};
 
-  const values = { ...HELPERS, ...scope };
-  const names = Object.keys(values);
-  const args = Object.values(values);
-  const evaluator = new Function(
-    ...names,
-    `"use strict"; return (${expression});`
-  );
-  return normalizeNumber(evaluator(...args));
-}
+export async function loadDetailedAppLogicRunner(
+  context: BusinessContext,
+  module: ExecutableAppLogicModule,
+  trigger: AppLogicTrigger
+) {
+  await ensureDefaultAppLogicRules(context);
+  const appLogicRules = createAppLogicRuleRepository(context);
 
-function applyFormula(
-  expression: string,
-  input: Record<string, number>
-): Record<string, number> {
-  const scope = { ...input };
-  const lines = expression
-    .split(/[\n;]/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => !line.startsWith("#") && !line.startsWith("//"));
-
-  for (const line of lines) {
-    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/);
-    if (!match) {
-      throw new Error(`Invalid app logic line: ${line}`);
+  const rules = await appLogicRules.listEnabled(module, trigger);
+  if (rules.length > APP_LOGIC_EXECUTION_LIMITS.maxRulesPerTrigger) {
+    throw new AppLogicRuntimeError(
+      "LIMIT",
+      `${module}.${trigger} exceeds ${APP_LOGIC_EXECUTION_LIMITS.maxRulesPerTrigger} active rules.`
+    );
+  }
+  const programs = rules.map((rule) => {
+    if (!isAppLogicMode(rule.mode)) {
+      throw new Error(
+        `Active app logic rule "${rule.name}" has an invalid stored mode.`
+      );
     }
-
-    const [, field, formula] = match;
-    scope[field] = evaluateExpression(formula, scope);
+    const validation = validateAppLogicRuleContract({
+      module,
+      trigger,
+      mode: rule.mode,
+      expression: rule.expression,
+      enabled: true,
+    });
+    if (!validation.ok) {
+      throw new Error(
+        `Active app logic rule "${rule.name}" is invalid: ${validation.error}`
+      );
+    }
+    if (!validation.program) {
+      throw new Error(
+        `Active app logic rule "${rule.name}" has no executable program.`
+      );
+    }
+    try {
+      return {
+        id: rule.id,
+        name: rule.name,
+        mode: rule.mode,
+        program: compileAppLogicProgram(validation.program),
+      };
+    } catch (error) {
+      throw new Error(
+        `Active app logic rule "${rule.name}" is invalid: ${
+          error instanceof Error ? error.message : "Compilation failed."
+        }`
+      );
+    }
+  });
+  const totalStatements = programs.reduce(
+    (total, rule) => total + rule.program.statements.length,
+    0
+  );
+  if (totalStatements > APP_LOGIC_EXECUTION_LIMITS.maxStatementsPerTrigger) {
+    throw new AppLogicRuntimeError(
+      "LIMIT",
+      `${module}.${trigger} exceeds ${APP_LOGIC_EXECUTION_LIMITS.maxStatementsPerTrigger} total statements.`
+    );
   }
 
-  return scope;
-}
-
-export function validateAppLogicExpression(
-  module: string,
-  expression: string
-): { ok: true } | { ok: false; error: string } {
-  const sample = SAMPLE_SCOPES[module as RuleModule];
-  if (!sample) return { ok: true };
-
-  try {
-    applyFormula(expression, sample);
-    return { ok: true };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Invalid formula.",
-    };
-  }
+  return (input: Record<string, number>): AppLogicRunnerResult => {
+    let scope = { ...input };
+    const actions: GovernedAppLogicActionIntent[] = [];
+    const executions: AppLogicExecutionAudit[] = [];
+    for (const rule of programs) {
+      const startedAt = Date.now();
+      try {
+        const result = executeAppLogicProgramDetailed(rule.program, scope);
+        if (
+          actions.length + result.actions.length >
+          APP_LOGIC_EXECUTION_LIMITS.maxActionsPerTrigger
+        ) {
+          throw new AppLogicRuntimeError(
+            "LIMIT",
+            `Trigger exceeds ${APP_LOGIC_EXECUTION_LIMITS.maxActionsPerTrigger} governed actions.`
+          );
+        }
+        scope = result.scope;
+        actions.push(
+          ...result.actions.map((action) => ({
+            ...action,
+            ruleId: rule.id,
+            ruleName: rule.name,
+            module,
+            trigger,
+          }))
+        );
+        executions.push({
+          ruleId: rule.id,
+          ruleName: rule.name,
+          module,
+          trigger,
+          mode: rule.mode,
+          status: "SUCCEEDED",
+          durationMs: Math.max(0, Date.now() - startedAt),
+          statementCount: rule.program.statements.length,
+          actionCount: result.actions.length,
+        });
+      } catch (error) {
+        const runtimeError =
+          error instanceof AppLogicRuntimeError
+            ? error
+            : new AppLogicRuntimeError(
+                "TYPE",
+                error instanceof Error ? error.message : "Unknown runtime failure."
+              );
+        const message = `Rule "${rule.name}": ${runtimeError.message}`;
+        executions.push({
+          ruleId: rule.id,
+          ruleName: rule.name,
+          module,
+          trigger,
+          mode: rule.mode,
+          status: "FAILED",
+          durationMs: Math.max(0, Date.now() - startedAt),
+          statementCount: rule.program.statements.length,
+          actionCount: 0,
+          errorCode: runtimeError.code,
+          errorMessage: runtimeError.message,
+        });
+        throw new AppLogicExecutionFailure(
+          runtimeError.code,
+          message,
+          executions
+        );
+      }
+    }
+    return { scope, actions, executions };
+  };
 }
 
 export async function loadAppLogicRunner(
-  businessId: string,
-  module: RuleModule,
-  trigger: RuleTrigger
+  context: BusinessContext,
+  module: ExecutableAppLogicModule,
+  trigger: AppLogicTrigger
 ) {
-  await ensureDefaultAppLogicRules(businessId);
-
-  const rules = await db.appLogicRule.findMany({
-    where: {
-      businessId,
-      module,
-      trigger,
-      enabled: true,
-    },
-    select: { expression: true },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-  });
-
-  return (input: Record<string, number>) => {
-    let scope = { ...input };
-    for (const rule of rules) {
-      scope = applyFormula(rule.expression, scope);
-    }
-    return scope;
-  };
+  const runDetailed = await loadDetailedAppLogicRunner(
+    context,
+    module,
+    trigger
+  );
+  return (input: Record<string, number>) => runDetailed(input).scope;
 }
 
 function pickInt(scope: Record<string, number>, key: string): number {
@@ -225,8 +296,8 @@ function pickFloat(scope: Record<string, number>, key: string): number {
   return normalizeNumber(scope[key]);
 }
 
-export async function loadSalesDerivedCalculator(businessId: string) {
-  const runLogic = await loadAppLogicRunner(businessId, "sales", "beforeSave");
+export async function loadSalesDerivedCalculator(context: BusinessContext) {
+  const runLogic = await loadAppLogicRunner(context, "sales", "beforeSave");
 
   return (input: {
     qty: number;
@@ -248,27 +319,27 @@ export async function loadSalesDerivedCalculator(businessId: string) {
 }
 
 export async function calculateSalesDerived(
-  businessId: string,
+  context: BusinessContext,
   qty: number,
   salePriceCents: number,
   costCents: number
 ) {
-  const calculate = await loadSalesDerivedCalculator(businessId);
+  const calculate = await loadSalesDerivedCalculator(context);
   return calculate({ qty, salePriceCents, costCents });
 }
 
 export async function calculateProductIntakeDerived(
-  businessId: string,
+  context: BusinessContext,
   totalCostCents: number,
   qty: number
 ) {
-  const calculate = await loadProductIntakeDerivedCalculator(businessId);
+  const calculate = await loadProductIntakeDerivedCalculator(context);
   return calculate({ totalCostCents, qty });
 }
 
-export async function loadProductIntakeDerivedCalculator(businessId: string) {
+export async function loadProductIntakeDerivedCalculator(context: BusinessContext) {
   const runLogic = await loadAppLogicRunner(
-    businessId,
+    context,
     "productIntake",
     "beforeSave"
   );
@@ -284,19 +355,19 @@ export async function loadProductIntakeDerivedCalculator(businessId: string) {
 }
 
 export async function calculateOverheadDerived(
-  businessId: string,
+  context: BusinessContext,
   subTotalCents: number,
   shippingCents: number,
   discountCents: number,
   qty: number
 ) {
-  const calculate = await loadOverheadDerivedCalculator(businessId);
+  const calculate = await loadOverheadDerivedCalculator(context);
   return calculate({ subTotalCents, shippingCents, discountCents, qty });
 }
 
-export async function loadOverheadDerivedCalculator(businessId: string) {
+export async function loadOverheadDerivedCalculator(context: BusinessContext) {
   const runLogic = await loadAppLogicRunner(
-    businessId,
+    context,
     "overheadExpenses",
     "beforeSave"
   );
@@ -322,12 +393,12 @@ export async function loadOverheadDerivedCalculator(businessId: string) {
 }
 
 export async function calculateDivisionCost(
-  businessId: string,
+  context: BusinessContext,
   originalCostCents: number,
   totalParts: number
 ) {
   const runLogic = await loadAppLogicRunner(
-    businessId,
+    context,
     "transplantLog",
     "beforeSave"
   );

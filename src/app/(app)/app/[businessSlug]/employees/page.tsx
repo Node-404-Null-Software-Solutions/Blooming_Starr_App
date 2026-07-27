@@ -1,5 +1,5 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
+import { createEmployeeRepository } from "@/lib/repositories/employee";
 import EmployeesClient from "./EmployeesClient";
 
 export default async function EmployeesPage({
@@ -8,23 +8,10 @@ export default async function EmployeesPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const employeeRepository = createEmployeeRepository(businessContext);
 
-  const employees = await db.employee.findMany({
-    where: { businessId: business.id },
-    orderBy: [{ status: "asc" }, { name: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      position: true,
-      hourlyRateCents: true,
-      salaryRateCents: true,
-      status: true,
-      notes: true,
-    },
-  });
+  const employees = await employeeRepository.listForManagement();
 
   const rows = employees.map((e) => ({
     id: e.id,

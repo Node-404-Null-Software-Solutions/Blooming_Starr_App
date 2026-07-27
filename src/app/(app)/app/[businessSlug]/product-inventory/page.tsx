@@ -1,6 +1,7 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
 import { formatAppDate } from "@/lib/date-format";
+import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
+import { createSalesRepository } from "@/lib/repositories/sales";
 import ProductInventoryClient, {
   type ProductInventoryRow,
 } from "./ProductInventoryClient";
@@ -19,31 +20,13 @@ export default async function ProductInventoryPage({
   const { businessSlug } = await params;
   const sp = (await searchParams) ?? {};
   const qRaw = typeof sp.q === "string" ? sp.q.trim() : "";
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const sales = createSalesRepository(businessContext);
+  const productIntakes = createProductIntakeRepository(businessContext);
 
   const [productIntakeRows, salesRows] = await Promise.all([
-    db.productIntake.findMany({
-      where: { businessId },
-      select: {
-        sku: true,
-        date: true,
-        vendor: true,
-        category: true,
-        style: true,
-        size: true,
-        qty: true,
-        totalCostCents: true,
-        unitCostCents: true,
-        notes: true,
-        createdAt: true,
-      },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    }),
-    db.salesEntry.findMany({
-      where: { businessId },
-      select: { sku: true, qty: true },
-    }),
+    productIntakes.listInventoryFacts(),
+    sales.listInventoryFacts(),
   ]);
 
   const productSkuSet = new Set(productIntakeRows.map((product) => product.sku));

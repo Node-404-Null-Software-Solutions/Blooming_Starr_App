@@ -1,10 +1,11 @@
-import { Prisma, type PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import type { BusinessContext } from "@/lib/business-context";
+import { createPlantSkuReferenceRepository } from "@/lib/repositories/plant-sku-reference";
+import { createProductRepository } from "@/lib/repositories/product";
 import {
   buildFinalSku,
   isSkuReferenceScope,
-  isValidReferenceCode,
   normalizeName,
-  normalizeReferenceCode,
   normalizeSuffix,
   resolveUniqueCodeCandidate,
   type SkuReferenceScope,
@@ -55,19 +56,16 @@ function isUniqueConstraintError(error: unknown): boolean {
   );
 }
 
-function scopeToPrisma(scope: SkuReferenceScope) {
-  return scope;
-}
-
 export async function getOrCreateSkuReference(
   tx: DbClient,
-  businessId: string,
+  businessContext: BusinessContext,
   scope: SkuReferenceScope,
   displayName: string
 ): Promise<ResolvedReference> {
   if (!isSkuReferenceScope(scope)) {
     throw new Error("Invalid SKU reference scope");
   }
+  const references = createPlantSkuReferenceRepository(businessContext, tx);
 
   const trimmedName = displayName.trim();
   const normalizedName = normalizeName(displayName);
@@ -75,15 +73,10 @@ export async function getOrCreateSkuReference(
     throw new Error("SKU reference name is required");
   }
 
-  const existing = await tx.plantSkuReference.findFirst({
-    where: {
-      businessId,
-      scope: scopeToPrisma(scope),
-      normalizedName,
-      active: true,
-    },
-    select: { displayName: true, code: true },
-  });
+  const existing = await references.findActiveByNormalizedName(
+    scope,
+    normalizedName
+  );
   if (existing) {
     return {
       displayName: existing.displayName,
@@ -94,27 +87,20 @@ export async function getOrCreateSkuReference(
   }
 
   for (let attempt = 0; attempt < 5; attempt++) {
-    const existingCodes = await tx.plantSkuReference.findMany({
-      where: { businessId, scope: scopeToPrisma(scope), active: true },
-      select: { code: true },
-    });
+    const existingCodes = await references.listActiveCodes(scope);
     const code = resolveUniqueCodeCandidate(
       normalizedName,
       existingCodes.map((row) => row.code)
     );
 
     try {
-      const created = await tx.plantSkuReference.create({
-        data: {
-          businessId,
-          scope: scopeToPrisma(scope),
-          displayName: trimmedName,
-          normalizedName,
-          code,
-          active: true,
-          notes: GENERATED_NOTES,
-        },
-        select: { displayName: true, code: true },
+      const created = await references.create({
+        scope,
+        displayName: trimmedName,
+        normalizedName,
+        code,
+        active: true,
+        notes: GENERATED_NOTES,
       });
       return {
         displayName: created.displayName,
@@ -125,15 +111,10 @@ export async function getOrCreateSkuReference(
     } catch (error) {
       if (!isUniqueConstraintError(error)) throw error;
 
-      const nowExisting = await tx.plantSkuReference.findFirst({
-        where: {
-          businessId,
-          scope: scopeToPrisma(scope),
-          normalizedName,
-          active: true,
-        },
-        select: { displayName: true, code: true },
-      });
+      const nowExisting = await references.findActiveByNormalizedName(
+        scope,
+        normalizedName
+      );
       if (nowExisting) {
         return {
           displayName: nowExisting.displayName,
@@ -150,7 +131,7 @@ export async function getOrCreateSkuReference(
 
 async function previewSkuReference(
   tx: DbClient,
-  businessId: string,
+  businessContext: BusinessContext,
   scope: SkuReferenceScope,
   displayName: string
 ): Promise<ResolvedReference> {
@@ -159,16 +140,9 @@ async function previewSkuReference(
   if (!normalizedName) {
     throw new Error("SKU reference name is required");
   }
+  const references = createPlantSkuReferenceRepository(businessContext, tx);
 
-  const existing = await tx.plantSkuReference.findFirst({
-    where: {
-      businessId,
-      scope: scopeToPrisma(scope),
-      normalizedName,
-      active: true,
-    },
-    select: { displayName: true, code: true },
-  });
+  const existing = await references.findActiveByNormalizedName(scope, normalizedName);
   if (existing) {
     return {
       displayName: existing.displayName,
@@ -178,10 +152,7 @@ async function previewSkuReference(
     };
   }
 
-  const existingCodes = await tx.plantSkuReference.findMany({
-    where: { businessId, scope: scopeToPrisma(scope), active: true },
-    select: { code: true },
-  });
+  const existingCodes = await references.listActiveCodes(scope);
 
   return {
     displayName: trimmedName,
@@ -196,7 +167,7 @@ async function previewSkuReference(
 
 export async function previewSku(
   tx: DbClient,
-  businessId: string,
+  businessContext: BusinessContext,
   input: PlantSkuInput
 ): Promise<PlantSkuResult> {
   const plantName = normalizeName(input.plantName);
@@ -204,14 +175,29 @@ export async function previewSku(
     throw new Error("Plant name is required");
   }
 
-  const plant = await previewSkuReference(tx, businessId, "plant", input.plantName);
+  const plant = await previewSkuReference(
+    tx,
+    businessContext,
+    "plant",
+    input.plantName
+  );
   const categoryName = normalizeName(input.categoryName);
   const varietyName = normalizeName(input.varietyName);
   const category = categoryName
-    ? await previewSkuReference(tx, businessId, "category", input.categoryName ?? "")
+    ? await previewSkuReference(
+        tx,
+        businessContext,
+        "category",
+        input.categoryName ?? ""
+      )
     : null;
   const variety = varietyName
-    ? await previewSkuReference(tx, businessId, "variety", input.varietyName ?? "")
+    ? await previewSkuReference(
+        tx,
+        businessContext,
+        "variety",
+        input.varietyName ?? ""
+      )
     : null;
   const suffix = normalizeSuffix(input.suffix);
   const sku = buildFinalSku({
@@ -242,7 +228,7 @@ export async function previewSku(
 
 export async function generateSku(
   tx: DbClient,
-  businessId: string,
+  businessContext: BusinessContext,
   input: PlantSkuInput
 ): Promise<PlantSkuResult> {
   const plantName = normalizeName(input.plantName);
@@ -250,14 +236,29 @@ export async function generateSku(
     throw new Error("Plant name is required");
   }
 
-  const plant = await getOrCreateSkuReference(tx, businessId, "plant", input.plantName);
+  const plant = await getOrCreateSkuReference(
+    tx,
+    businessContext,
+    "plant",
+    input.plantName
+  );
   const categoryName = normalizeName(input.categoryName);
   const varietyName = normalizeName(input.varietyName);
   const category = categoryName
-    ? await getOrCreateSkuReference(tx, businessId, "category", input.categoryName ?? "")
+    ? await getOrCreateSkuReference(
+        tx,
+        businessContext,
+        "category",
+        input.categoryName ?? ""
+      )
     : null;
   const variety = varietyName
-    ? await getOrCreateSkuReference(tx, businessId, "variety", input.varietyName ?? "")
+    ? await getOrCreateSkuReference(
+        tx,
+        businessContext,
+        "variety",
+        input.varietyName ?? ""
+      )
     : null;
   const suffix = normalizeSuffix(input.suffix);
   const baseSku = buildFinalSku({
@@ -266,7 +267,7 @@ export async function generateSku(
     variety: variety?.code,
     suffix,
   });
-  const sku = await resolveUniqueFinalSku(tx, businessId, baseSku);
+  const sku = await resolveUniqueFinalSku(tx, businessContext, baseSku);
 
   return {
     sku: sku,
@@ -289,97 +290,14 @@ export async function generateSku(
 
 export async function resolveUniqueFinalSku(
   tx: DbClient,
-  businessId: string,
+  businessContext: BusinessContext,
   baseSku: string
 ): Promise<string> {
+  const products = createProductRepository(businessContext, tx);
   for (let counter = 1; counter < Number.MAX_SAFE_INTEGER; counter++) {
     const candidate = counter === 1 ? baseSku : `${baseSku}-${counter}`;
-    const existing = await tx.product.findUnique({
-      where: { businessId_sku: { businessId, sku: candidate } },
-      select: { id: true },
-    });
-    if (!existing) return candidate;
+    if (!(await products.skuExists(candidate))) return candidate;
   }
 
   throw new Error("Unable to resolve a unique SKU");
-}
-
-export async function createSkuReference(
-  tx: DbClient,
-  businessId: string,
-  input: {
-    scope: string;
-    displayName: string;
-    code: string;
-    active?: boolean;
-    notes?: string | null;
-  }
-) {
-  if (!isSkuReferenceScope(input.scope)) {
-    throw new Error("Reference scope must be plant, category, or variety");
-  }
-
-  const displayName = input.displayName.trim();
-  const normalizedName = normalizeName(displayName);
-  const code = normalizeReferenceCode(input.code);
-  if (!displayName) throw new Error("Display name is required");
-  if (!code) throw new Error("Code is required");
-  if (!isValidReferenceCode(code)) {
-    throw new Error("Code must be uppercase and contain only A-Z, 0-9, or numeric suffixes");
-  }
-
-  return tx.plantSkuReference.create({
-    data: {
-      businessId,
-      scope: input.scope,
-      displayName,
-      normalizedName,
-      code,
-      active: input.active ?? true,
-      notes: input.notes?.trim() || null,
-    },
-  });
-}
-
-export async function updateSkuReference(
-  tx: DbClient,
-  businessId: string,
-  id: string,
-  data: {
-    displayName?: string;
-    code?: string;
-    active?: boolean;
-    notes?: string | null;
-  }
-) {
-  const existing = await tx.plantSkuReference.findFirst({
-    where: { id, businessId },
-    select: { id: true },
-  });
-  if (!existing) throw new Error("Not found");
-
-  const update: Record<string, unknown> = {};
-  if (data.displayName !== undefined) {
-    const displayName = data.displayName.trim();
-    if (!displayName) throw new Error("Display name is required");
-    update.displayName = displayName;
-    update.normalizedName = normalizeName(displayName);
-  }
-  if (data.code !== undefined) {
-    const code = normalizeReferenceCode(data.code);
-    if (!code) throw new Error("Code is required");
-    if (!isValidReferenceCode(code)) {
-      throw new Error("Code must be uppercase and contain only A-Z, 0-9, or numeric suffixes");
-    }
-    update.code = code;
-  }
-  if (data.active !== undefined) update.active = data.active;
-  if (data.notes !== undefined) update.notes = data.notes?.trim() || null;
-
-  return tx.plantSkuReference.update({ where: { id }, data: update });
-}
-
-export function duplicateSkuReferenceMessage(error: unknown): string | null {
-  if (isUniqueConstraintError(error)) return "Duplicate reference name or code";
-  return null;
 }

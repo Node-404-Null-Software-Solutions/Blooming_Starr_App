@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
+import { createEmployeeRepository } from "@/lib/repositories/employee";
 
 export async function createEmployee(
   businessSlug: string,
   formData: FormData
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { business } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const employees = createEmployeeRepository(businessContext);
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { ok: false, error: "Name is required." };
@@ -20,17 +21,14 @@ export async function createEmployee(
   const salaryRateCents = Math.round(parseFloat(String(formData.get("salaryRate") ?? "0")) * 100) || 0;
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
-  await db.employee.create({
-    data: {
-      businessId: business.id,
-      name,
-      email,
-      phone,
-      position,
-      hourlyRateCents,
-      salaryRateCents,
-      notes,
-    },
+  await employees.create({
+    name,
+    email,
+    phone,
+    position,
+    hourlyRateCents,
+    salaryRateCents,
+    notes,
   });
 
   revalidatePath(`/app/${businessSlug}/employees`);
@@ -52,14 +50,10 @@ export async function updateEmployee(
   businessSlug: string,
   data: EmployeeUpdate
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireBusinessMembership(businessSlug);
-
-  const existing = await db.employee.findFirst({
-    where: { id, businessId: business.id },
-  });
-  if (!existing) return { ok: false, error: "Employee not found." };
-
-  await db.employee.update({ where: { id }, data });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const employees = createEmployeeRepository(businessContext);
+  const updated = await employees.updateById(id, data);
+  if (!updated) return { ok: false, error: "Employee not found." };
 
   revalidatePath(`/app/${businessSlug}/employees`);
   return { ok: true };
@@ -69,17 +63,10 @@ export async function deactivateEmployee(
   id: string,
   businessSlug: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireBusinessMembership(businessSlug);
-
-  const existing = await db.employee.findFirst({
-    where: { id, businessId: business.id },
-  });
-  if (!existing) return { ok: false, error: "Employee not found." };
-
-  await db.employee.update({
-    where: { id },
-    data: { status: "INACTIVE" },
-  });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const employees = createEmployeeRepository(businessContext);
+  const updated = await employees.updateById(id, { status: "INACTIVE" });
+  if (!updated) return { ok: false, error: "Employee not found." };
 
   revalidatePath(`/app/${businessSlug}/employees`);
   return { ok: true };
@@ -89,17 +76,10 @@ export async function reactivateEmployee(
   id: string,
   businessSlug: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { business } = await requireBusinessMembership(businessSlug);
-
-  const existing = await db.employee.findFirst({
-    where: { id, businessId: business.id },
-  });
-  if (!existing) return { ok: false, error: "Employee not found." };
-
-  await db.employee.update({
-    where: { id },
-    data: { status: "ACTIVE" },
-  });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const employees = createEmployeeRepository(businessContext);
+  const updated = await employees.updateById(id, { status: "ACTIVE" });
+  if (!updated) return { ok: false, error: "Employee not found." };
 
   revalidatePath(`/app/${businessSlug}/employees`);
   return { ok: true };

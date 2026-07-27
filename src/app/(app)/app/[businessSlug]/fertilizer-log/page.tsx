@@ -1,5 +1,5 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
+import { createFertilizerLogRepository } from "@/lib/repositories/fertilizer-log";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import FertilizerLogClient from "./FertilizerLogClient";
 
@@ -11,8 +11,8 @@ export default async function FertilizerLogPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const fertilizerLogs = createFertilizerLogRepository(businessContext);
   const sp = (await searchParams) ?? {};
 
   const fromRaw = typeof sp.from === "string" ? sp.from : "";
@@ -27,15 +27,11 @@ export default async function FertilizerLogPage({
   const dateFilter =
     validFrom || validTo ? { gte: validFrom ?? undefined, lte: validTo ?? undefined } : undefined;
 
-  const rows = await db.fertilizerLog.findMany({
-    where: {
-      businessId,
-      ...(dateFilter ? { date: dateFilter } : {}),
-      ...(plantSkuRaw ? { plantSku: { contains: plantSkuRaw, mode: "insensitive" as const } } : {}),
-      ...(potSkuRaw ? { potSku: { contains: potSkuRaw, mode: "insensitive" as const } } : {}),
-      ...(productRaw ? { product: { contains: productRaw, mode: "insensitive" as const } } : {}),
-    },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+  const rows = await fertilizerLogs.list({
+    ...(dateFilter ? { date: dateFilter } : {}),
+    ...(plantSkuRaw ? { plantSku: { contains: plantSkuRaw, mode: "insensitive" as const } } : {}),
+    ...(potSkuRaw ? { potSku: { contains: potSkuRaw, mode: "insensitive" as const } } : {}),
+    ...(productRaw ? { product: { contains: productRaw, mode: "insensitive" as const } } : {}),
   });
   const sortedRows = sortByDateDescNullsLast(rows);
 

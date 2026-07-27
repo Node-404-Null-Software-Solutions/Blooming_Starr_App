@@ -1,5 +1,9 @@
-import { db } from "@/lib/db";
 import { formatAppDate } from "@/lib/date-format";
+import type { BusinessContext } from "@/lib/business-context";
+import { createOverheadExpenseRepository } from "@/lib/repositories/overhead-expense";
+import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
+import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
+import { createSalesRepository } from "@/lib/repositories/sales";
 
 export type ExpenseByCategory = { category: string; totalCents: number };
 
@@ -101,7 +105,14 @@ function formatDateOnly(value: Date | null): string | null {
   return formatAppDate(value);
 }
 
-export async function getTaxSummary(businessId: string, year: number): Promise<TaxSummary> {
+export async function getTaxSummary(
+  businessContext: BusinessContext,
+  year: number
+): Promise<TaxSummary> {
+  const sales = createSalesRepository(businessContext);
+  const overheadExpenses = createOverheadExpenseRepository(businessContext);
+  const plantIntakes = createPlantIntakeRepository(businessContext);
+  const productIntakes = createProductIntakeRepository(businessContext);
   const rangeStart = new Date(year, 0, 1);
   const rangeEnd = endOfDay(new Date(year, 11, 31));
   const rangeWhere = buildDateWhere(rangeStart, rangeEnd);
@@ -113,38 +124,11 @@ export async function getTaxSummary(businessId: string, year: number): Promise<T
     productSkus,
     plantIntakeRows,
   ] = await Promise.all([
-    db.salesEntry.findMany({
-      where: { businessId, ...(rangeWhere ?? {}) },
-      select: {
-        date: true,
-        createdAt: true,
-        sku: true,
-        totalSaleCents: true,
-        costCents: true,
-        profitCents: true,
-        channel: true,
-      },
-      orderBy: { date: "asc" },
-    }),
-    db.overheadExpense.groupBy({
-      by: ["category"],
-      where: { businessId, ...(rangeWhere ?? {}) },
-      _sum: { totalCents: true },
-    }),
-    db.overheadExpense.findMany({
-      where: { businessId, ...(rangeWhere ?? {}) },
-      select: { id: true, date: true, vendor: true, category: true, description: true, totalCents: true },
-      orderBy: { date: "asc" },
-    }),
-    db.productIntake.findMany({
-      where: { businessId },
-      select: { sku: true },
-      distinct: ["sku"],
-    }),
-    db.plantIntake.findMany({
-      where: { businessId, ...(rangeWhere ?? {}) },
-      select: { sku: true, status: true, costCents: true, msrpCents: true, qty: true },
-    }),
+    sales.listForTaxSummary(rangeWhere),
+    overheadExpenses.summarizeByCategory(rangeWhere),
+    overheadExpenses.listForTaxSummary(rangeWhere),
+    productIntakes.listDistinctSkus(),
+    plantIntakes.listForDashboard(rangeWhere),
   ]);
 
 

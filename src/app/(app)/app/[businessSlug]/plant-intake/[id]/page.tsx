@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
 import { requireBusinessMembership } from "@/lib/authz";
 import { formatAppDate } from "@/lib/date-format";
+import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
 
 const formatCurrency = (cents: number) =>
   new Intl.NumberFormat("en-US", {
@@ -20,12 +20,12 @@ export default async function PlantIntakeDetailsPage({
   params: Promise<{ businessSlug: string; id: string }>;
 }) {
   const resolvedParams = await params;
-  const { business } = await requireBusinessMembership(resolvedParams.businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(
+    resolvedParams.businessSlug
+  );
+  const plantIntakes = createPlantIntakeRepository(businessContext);
 
-  const record = await db.plantIntake.findFirst({
-    where: { id: resolvedParams.id, businessId },
-  });
+  const record = await plantIntakes.findById(resolvedParams.id);
 
   if (!record) {
     notFound();

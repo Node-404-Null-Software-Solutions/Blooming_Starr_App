@@ -1,8 +1,7 @@
 "use server";
 
-import { db } from "@/lib/db";
 import { requireBusinessMembership } from "@/lib/authz";
-import { revalidatePath } from "next/cache";
+import { createLookupEntryRepository } from "@/lib/repositories/lookup-entry";
 
 export type LookupRow = {
   id: string;
@@ -43,119 +42,20 @@ function isValidTable(t: string): t is LookupTable {
   return (VALID_TABLES as readonly string[]).includes(t);
 }
 
-export async function getLookupEntries(
-  businessSlug: string,
-  table: string
-): Promise<LookupRow[]> {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  if (!isValidTable(table)) return [];
-
-  return db.lookupEntry.findMany({
-    where: { businessId, table },
-    select: { id: true, table: true, name: true, code: true, parentCode: true, sortOrder: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-  });
-}
-
 export async function getLookupEntriesMulti(
   businessSlug: string,
   tables: string[]
 ): Promise<Record<string, LookupRow[]>> {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const lookupEntries = createLookupEntryRepository(businessContext);
 
   const validTables = tables.filter(isValidTable);
   if (validTables.length === 0) return {};
 
-  const rows = await db.lookupEntry.findMany({
-    where: { businessId, table: { in: validTables } },
-    select: { id: true, table: true, name: true, code: true, parentCode: true, sortOrder: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-  });
+  const rows = await lookupEntries.list({ table: { in: validTables } });
 
   const result: Record<string, LookupRow[]> = {};
   for (const t of validTables) result[t] = [];
   for (const row of rows) result[row.table].push(row);
   return result;
-}
-
-export async function createLookupEntry(
-  businessSlug: string,
-  table: string,
-  name: string,
-  code: string,
-  parentCode?: string | null
-) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  if (!isValidTable(table)) return { ok: false, error: "Invalid table" };
-
-  const trimName = name.trim();
-  const trimCode = code.trim().toUpperCase();
-  if (!trimName) return { ok: false, error: "Name is required" };
-  if (!trimCode) return { ok: false, error: "Code is required" };
-
-  try {
-    await db.lookupEntry.create({
-      data: {
-        businessId,
-        table,
-        name: trimName,
-        code: trimCode,
-        parentCode: parentCode?.trim() || null,
-      },
-    });
-  } catch (e: unknown) {
-    if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
-      return { ok: false, error: "Duplicate name or code" };
-    }
-    throw e;
-  }
-
-  revalidatePath(`/app/${businessSlug}/settings/lookups`);
-  return { ok: true };
-}
-
-export async function updateLookupEntry(
-  id: string,
-  businessSlug: string,
-  data: { name?: string; code?: string; parentCode?: string | null; sortOrder?: number }
-) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-
-  const existing = await db.lookupEntry.findFirst({ where: { id, businessId } });
-  if (!existing) return { ok: false, error: "Not found" };
-
-  const update: Record<string, unknown> = {};
-  if (data.name !== undefined) update.name = data.name.trim();
-  if (data.code !== undefined) update.code = data.code.trim().toUpperCase();
-  if (data.parentCode !== undefined) update.parentCode = data.parentCode?.trim() || null;
-  if (data.sortOrder !== undefined) update.sortOrder = data.sortOrder;
-
-  try {
-    await db.lookupEntry.update({ where: { id }, data: update });
-  } catch (e: unknown) {
-    if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
-      return { ok: false, error: "Duplicate name or code" };
-    }
-    throw e;
-  }
-
-  revalidatePath(`/app/${businessSlug}/settings/lookups`);
-  return { ok: true };
-}
-
-export async function deleteLookupEntry(id: string, businessSlug: string) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-
-  const existing = await db.lookupEntry.findFirst({ where: { id, businessId } });
-  if (!existing) return { ok: false, error: "Not found" };
-
-  await db.lookupEntry.delete({ where: { id } });
-
-  revalidatePath(`/app/${businessSlug}/settings/lookups`);
-  return { ok: true };
 }

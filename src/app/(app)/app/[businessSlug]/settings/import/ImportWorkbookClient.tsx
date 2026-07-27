@@ -108,7 +108,7 @@ export default function ImportWorkbookClient({
             {Object.keys(report.lookups).length > 0 && (
               <div>
                 <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-                  Lookup Tables Seeded
+                  Reference Data Seeded
                 </h2>
                 <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
                   {Object.entries(report.lookups).map(([name, result]) => (
@@ -120,7 +120,7 @@ export default function ImportWorkbookClient({
 
             {Object.keys(report.lookups).length === 0 && (
               <p className="text-sm italic text-gray-500">
-                No KEY sheets found — lookup tables were not seeded. Make sure your workbook
+                No KEY sheets found — reference data was not seeded. Make sure your workbook
                 includes sheets named &quot;Plant KEY&quot;, &quot;Product KEY&quot;, etc.
               </p>
             )}
@@ -133,7 +133,7 @@ export default function ImportWorkbookClient({
         <div>
           <h2 className="text-sm font-semibold text-red-700">Danger Zone</h2>
           <p className="mt-0.5 text-sm text-red-600">
-            Permanently deletes <strong>all records and lookup entries</strong> for this business.
+            Permanently deletes <strong>all records and imported reference data</strong> for this business.
             Use this before re-importing a corrected workbook. This cannot be undone.
           </p>
         </div>

@@ -1,4 +1,7 @@
-import { listAppLogicRules } from "@/lib/actions/app-logic";
+import {
+  listAppLogicExecutionLogs,
+  listAppLogicRules,
+} from "@/lib/actions/app-logic";
 import AppLogicManager from "./AppLogicManager";
 
 export default async function AppLogicPage({
@@ -7,7 +10,10 @@ export default async function AppLogicPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const rules = await listAppLogicRules(businessSlug);
+  const [rules, logs] = await Promise.all([
+    listAppLogicRules(businessSlug),
+    listAppLogicExecutionLogs(businessSlug),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -18,7 +24,11 @@ export default async function AppLogicPage({
         </p>
       </div>
 
-      <AppLogicManager businessSlug={businessSlug} initialRules={rules} />
+      <AppLogicManager
+        businessSlug={businessSlug}
+        initialRules={rules}
+        initialLogs={logs}
+      />
     </div>
   );
 }

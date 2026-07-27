@@ -1,6 +1,9 @@
+import "server-only";
+
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
+import { createTenantRlsRuntime } from "@/lib/tenant-rls";
 
 type GlobalForDb = {
   pgPool?: pg.Pool;
@@ -32,6 +35,10 @@ if (process.env.NODE_ENV !== "production") {
 const adapter = new PrismaPg(pool);
 
 export const db = globalForDb.prisma ?? new PrismaClient({ adapter });
+
+const tenantRls = createTenantRlsRuntime(db);
+export const createTenantScopedClient = tenantRls.createTenantScopedClient;
+export const withTenantRlsTransaction = tenantRls.withTenantRlsTransaction;
 
 if (process.env.NODE_ENV !== "production") {
   globalForDb.prisma = db;

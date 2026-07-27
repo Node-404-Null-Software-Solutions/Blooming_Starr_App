@@ -1,5 +1,5 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
+import { createOverheadExpenseRepository } from "@/lib/repositories/overhead-expense";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import OverheadExpensesClient from "./OverheadExpensesClient";
 
@@ -11,8 +11,8 @@ export default async function OverheadExpensesPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const overheadExpenses = createOverheadExpenseRepository(businessContext);
   const sp = (await searchParams) ?? {};
 
   const fromRaw = typeof sp.from === "string" ? sp.from : "";
@@ -26,14 +26,10 @@ export default async function OverheadExpensesPage({
   const dateFilter =
     validFrom || validTo ? { gte: validFrom ?? undefined, lte: validTo ?? undefined } : undefined;
 
-  const rows = await db.overheadExpense.findMany({
-    where: {
-      businessId,
-      ...(dateFilter ? { date: dateFilter } : {}),
-      ...(vendorRaw ? { vendor: { contains: vendorRaw, mode: "insensitive" as const } } : {}),
-      ...(categoryRaw ? { category: { contains: categoryRaw, mode: "insensitive" as const } } : {}),
-    },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+  const rows = await overheadExpenses.list({
+    ...(dateFilter ? { date: dateFilter } : {}),
+    ...(vendorRaw ? { vendor: { contains: vendorRaw, mode: "insensitive" as const } } : {}),
+    ...(categoryRaw ? { category: { contains: categoryRaw, mode: "insensitive" as const } } : {}),
   });
   const sortedRows = sortByDateDescNullsLast(rows);
 

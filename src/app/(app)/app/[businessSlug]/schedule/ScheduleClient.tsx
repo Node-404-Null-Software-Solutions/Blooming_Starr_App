@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useTransition, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
-import { createScheduleEntry, deleteScheduleEntry } from "@/lib/actions/schedule";
+import { deleteScheduleEntry } from "@/lib/actions/schedule";
 import { formatAppDate } from "@/lib/date-format";
 import ShiftForm from "./ShiftForm";
 

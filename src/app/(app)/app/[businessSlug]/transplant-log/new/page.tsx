@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { createTransplantLog } from "@/lib/actions/data-entries";
+import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
 import TransplantLogForm from "./TransplantLogForm";
 
 export default async function NewTransplantLogPage({
@@ -11,8 +11,8 @@ export default async function NewTransplantLogPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const plantIntakes = createPlantIntakeRepository(businessContext);
 
   const [lookups, plantSkus] = await Promise.all([
     getLookupEntriesMulti(businessSlug, [
@@ -21,12 +21,7 @@ export default async function NewTransplantLogPage({
       "potSize",
       "potColor",
     ]),
-    db.plantIntake.findMany({
-      where: { businessId },
-      select: { sku: true },
-      orderBy: { sku: "asc" },
-      distinct: ["sku"],
-    }),
+    plantIntakes.listDistinctSkus(),
   ]);
 
   const actionOptions = lookups.transplantAction?.map((entry) => entry.name) ?? [];

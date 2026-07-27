@@ -1,6 +1,9 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
 import { formatAppDate } from "@/lib/date-format";
+import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
+import { createPricingEntryRepository } from "@/lib/repositories/pricing-entry";
+import { createSalesRepository } from "@/lib/repositories/sales";
+import { createTransplantLogRepository } from "@/lib/repositories/transplant-log";
 import PlantInventoryClient, { type PlantInventoryRow } from "./PlantInventoryClient";
 
 function formatDate(value: Date | null) {
@@ -46,61 +49,17 @@ export default async function PlantInventoryPage({
   const { businessSlug } = await params;
   const sp = (await searchParams) ?? {};
   const qRaw = typeof sp.q === "string" ? sp.q.trim() : "";
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const sales = createSalesRepository(businessContext);
+  const plantIntakes = createPlantIntakeRepository(businessContext);
+  const pricing = createPricingEntryRepository(businessContext);
+  const transplants = createTransplantLogRepository(businessContext);
 
   const [plantIntakeRows, salesRows, pricingRows, transplantRows] = await Promise.all([
-    db.plantIntake.findMany({
-      where: { businessId },
-      select: {
-        sku: true,
-        date: true,
-        genus: true,
-        cultivar: true,
-        costCents: true,
-        msrpCents: true,
-        qty: true,
-        status: true,
-        createdAt: true,
-      },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    }),
-    db.salesEntry.findMany({
-      where: { businessId },
-      select: {
-        sku: true,
-        qty: true,
-        salePriceCents: true,
-        totalSaleCents: true,
-        profitCents: true,
-        marginPct: true,
-      },
-    }),
-    db.pricingEntry.findMany({
-      where: { businessId },
-      select: {
-        sku: true,
-        date: true,
-        productName: true,
-        plantCostCents: true,
-        potOrProdCostCents: true,
-        overheadCents: true,
-        totalCostCents: true,
-        estimatedSellPriceCents: true,
-        actualSellPriceCents: true,
-        profitCents: true,
-        marginPct: true,
-        status: true,
-        notes: true,
-        msrpCents: true,
-        updatedAt: true,
-      },
-      orderBy: [{ updatedAt: "desc" }],
-    }),
-    db.transplantLog.findMany({
-      where: { businessId },
-      select: { originalSku: true, divisionSku: true, costCents: true },
-    }),
+    plantIntakes.listInventoryFacts(),
+    sales.listInventoryFacts(),
+    pricing.listInventoryFacts(),
+    transplants.listInventoryFacts(),
   ]);
 
   const salesMap = new Map<

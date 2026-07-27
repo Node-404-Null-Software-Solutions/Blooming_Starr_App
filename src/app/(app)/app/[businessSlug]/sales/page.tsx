@@ -1,5 +1,5 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
+import { createSalesRepository } from "@/lib/repositories/sales";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import SalesModuleClient from "./SalesModuleClient";
 
@@ -11,8 +11,8 @@ export default async function SalesPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const sales = createSalesRepository(businessContext);
   const sp = (await searchParams) ?? {};
 
   const fromRaw = typeof sp.from === "string" ? sp.from : "";
@@ -28,9 +28,7 @@ export default async function SalesPage({
       ? { gte: validFrom ?? undefined, lte: validTo ?? undefined }
       : undefined;
 
-  const rows = await db.salesEntry.findMany({
-    where: {
-      businessId,
+  const rows = await sales.list({
       ...(dateFilter ? { date: dateFilter } : {}),
       ...(channelRaw
         ? { channel: { contains: channelRaw, mode: "insensitive" as const } }
@@ -44,8 +42,6 @@ export default async function SalesPage({
             ],
           }
         : {}),
-    },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
   });
   const sortedRows = sortByDateDescNullsLast(rows);
 

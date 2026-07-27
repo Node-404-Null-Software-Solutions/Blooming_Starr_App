@@ -1,5 +1,5 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
+import { createTreatmentTrackingRepository } from "@/lib/repositories/treatment-tracking";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import TreatmentTrackingClient from "./TreatmentTrackingClient";
 
@@ -11,8 +11,8 @@ export default async function TreatmentTrackingPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const treatments = createTreatmentTrackingRepository(businessContext);
   const sp = (await searchParams) ?? {};
 
   const fromRaw = typeof sp.from === "string" ? sp.from : "";
@@ -27,15 +27,11 @@ export default async function TreatmentTrackingPage({
   const dateFilter =
     validFrom || validTo ? { gte: validFrom ?? undefined, lte: validTo ?? undefined } : undefined;
 
-  const rows = await db.treatmentTracking.findMany({
-    where: {
-      businessId,
-      ...(dateFilter ? { date: dateFilter } : {}),
-      ...(skuRaw ? { sku: { contains: skuRaw, mode: "insensitive" as const } } : {}),
-      ...(targetRaw ? { target: { contains: targetRaw, mode: "insensitive" as const } } : {}),
-      ...(productRaw ? { product: { contains: productRaw, mode: "insensitive" as const } } : {}),
-    },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+  const rows = await treatments.list({
+    ...(dateFilter ? { date: dateFilter } : {}),
+    ...(skuRaw ? { sku: { contains: skuRaw, mode: "insensitive" as const } } : {}),
+    ...(targetRaw ? { target: { contains: targetRaw, mode: "insensitive" as const } } : {}),
+    ...(productRaw ? { product: { contains: productRaw, mode: "insensitive" as const } } : {}),
   });
   const sortedRows = sortByDateDescNullsLast(rows);
 

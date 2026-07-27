@@ -1,5 +1,8 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
+import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
+import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
+import { createSalesRepository } from "@/lib/repositories/sales";
+import { createTransplantLogRepository } from "@/lib/repositories/transplant-log";
 import SkuScannerClient, { type InventoryLookupItem } from "./SkuScannerClient";
 
 export default async function SkuScannerPage({
@@ -8,43 +11,18 @@ export default async function SkuScannerPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const sales = createSalesRepository(businessContext);
+  const plantIntakeRepo = createPlantIntakeRepository(businessContext);
+  const productIntakeRepo = createProductIntakeRepository(businessContext);
+  const transplants = createTransplantLogRepository(businessContext);
 
   const [productIntakes, plantIntakes, salesRows, transplantRows] =
     await Promise.all([
-      db.productIntake.findMany({
-        where: { businessId },
-        select: {
-          sku: true,
-          vendor: true,
-          category: true,
-          size: true,
-          style: true,
-          qty: true,
-          unitCostCents: true,
-        },
-      }),
-      db.plantIntake.findMany({
-        where: { businessId },
-        select: {
-          sku: true,
-          genus: true,
-          cultivar: true,
-          qty: true,
-          costCents: true,
-          msrpCents: true,
-          status: true,
-        },
-      }),
-      db.salesEntry.findMany({
-        where: { businessId },
-        select: { sku: true, qty: true },
-      }),
-      db.transplantLog.findMany({
-        where: { businessId, divisionSku: { not: null } },
-        select: { divisionSku: true, originalSku: true },
-      }),
+      productIntakeRepo.listForScanner(),
+      plantIntakeRepo.listForScanner(),
+      sales.listInventoryFacts(),
+      transplants.listScannerDivisions(),
     ]);
 
   const salesBySku = new Map<string, number>();

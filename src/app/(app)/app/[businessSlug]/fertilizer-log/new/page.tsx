@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
 import { getAllFertilizerProducts } from "@/lib/fertilizer-key";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { createFertilizerLog } from "@/lib/actions/data-entries";
+import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
 import FertilizerLogForm from "./FertilizerLogForm";
 
 export default async function NewFertilizerLogPage({
@@ -12,17 +12,12 @@ export default async function NewFertilizerLogPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const plantIntakes = createPlantIntakeRepository(businessContext);
 
   const [lookups, plantSkus] = await Promise.all([
     getLookupEntriesMulti(businessSlug, ["fertilizerProduct", "potSize"]),
-    db.plantIntake.findMany({
-      where: { businessId },
-      select: { sku: true },
-      orderBy: { sku: "asc" },
-      distinct: ["sku"],
-    }),
+    plantIntakes.listDistinctSkus(),
   ]);
 
   const productOptions = Array.from(

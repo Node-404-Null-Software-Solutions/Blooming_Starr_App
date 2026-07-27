@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, ScrollText, Table, Upload, Users } from "lucide-react";
+import { Building2, ScrollText, Upload, Users } from "lucide-react";
 
 const navItems = [
   { label: "Business", icon: Building2, segment: "business" },
   { label: "Team", icon: Users, segment: "team" },
-  { label: "Lookups", icon: Table, segment: "lookups" },
   { label: "Import", icon: Upload, segment: "import" },
   { label: "App Logic", icon: ScrollText, segment: "app-logic" },
 ];

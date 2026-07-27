@@ -1,13 +1,10 @@
 "use server";
 
-import { db } from "@/lib/db";
 import { requireBusinessRole } from "@/lib/authz";
+import type { BusinessContext } from "@/lib/business-context";
 import { revalidatePath } from "next/cache";
-import {
-  loadOverheadDerivedCalculator,
-  loadProductIntakeDerivedCalculator,
-  loadSalesDerivedCalculator,
-} from "@/lib/app-logic-engine";
+import { loadAuditedDetailedAppLogicRowPipeline } from "@/lib/app-logic-row-service";
+import { appLogicFailureMessage } from "@/lib/app-logic-audit";
 import {
   buildHeaderMap,
   chunk,
@@ -21,6 +18,36 @@ import {
   type Workbook,
   type Worksheet,
 } from "@/lib/import/xlsx";
+import {
+  createFertilizerLogRepository,
+  type TenantFertilizerLogCreateManyInput,
+} from "@/lib/repositories/fertilizer-log";
+import { createLookupEntryRepository } from "@/lib/repositories/lookup-entry";
+import {
+  createPlantIntakeRepository,
+  type TenantPlantIntakeCreateManyInput,
+} from "@/lib/repositories/plant-intake";
+import {
+  createOverheadExpenseRepository,
+  type TenantOverheadExpenseCreateManyInput,
+} from "@/lib/repositories/overhead-expense";
+import {
+  createProductIntakeRepository,
+  type TenantProductIntakeCreateManyInput,
+} from "@/lib/repositories/product-intake";
+import { createPricingEntryRepository } from "@/lib/repositories/pricing-entry";
+import {
+  createSalesRepository,
+  type TenantSalesCreateManyInput,
+} from "@/lib/repositories/sales";
+import {
+  createTransplantLogRepository,
+  type TenantTransplantLogCreateManyInput,
+} from "@/lib/repositories/transplant-log";
+import {
+  createTreatmentTrackingRepository,
+  type TenantTreatmentTrackingCreateManyInput,
+} from "@/lib/repositories/treatment-tracking";
 
 
 function findSheetStrict(
@@ -53,7 +80,6 @@ export type ImportReport = {
 
 function revalidateImportedDataPaths(businessSlug: string) {
   const base = `/app/${businessSlug}`;
-  revalidatePath(`${base}/settings/lookups`);
   revalidatePath(`${base}/plant-intake`);
   revalidatePath(`${base}/product-intake`);
   revalidatePath(`${base}/sales`);
@@ -88,11 +114,12 @@ function autoCode(name: string, seen: Set<string>): string {
 
 
 async function seedLookup(
-  businessId: string,
+  businessContext: BusinessContext,
   table: string,
   entries: NameCode[]
 ): Promise<LookupResult> {
   if (!entries.length) return { added: 0, alreadyExisted: 0 };
+  const lookupEntries = createLookupEntryRepository(businessContext);
 
 
   const seenNames = new Set<string>();
@@ -108,7 +135,6 @@ async function seedLookup(
   }
 
   const data = deduped.map((e) => ({
-    businessId,
     table,
     name: e.name,
     code: e.code,
@@ -118,10 +144,7 @@ async function seedLookup(
 
   let added = 0;
   for (const part of chunk(data, 500)) {
-    const res = await db.lookupEntry.createMany({
-      data: part,
-      skipDuplicates: true,
-    });
+    const res = await lookupEntries.createMany(part, { skipDuplicates: true });
     added += res.count;
   }
 
@@ -177,19 +200,19 @@ function addResults(a: LookupResult, b: LookupResult): LookupResult {
 
 async function parsePlantKey(
   ws: Worksheet,
-  businessId: string,
+  businessContext: BusinessContext,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
   const HEADER_ROW = 1;
 
   lookups["Plant Sources"] = await seedLookup(
-    businessId, "plantSource", readColumnPairs(ws, 1, 2, HEADER_ROW)
+    businessContext, "plantSource", readColumnPairs(ws, 1, 2, HEADER_ROW)
   );
   lookups["Genera"] = await seedLookup(
-    businessId, "genus", readColumnPairs(ws, 3, 4, HEADER_ROW)
+    businessContext, "genus", readColumnPairs(ws, 3, 4, HEADER_ROW)
   );
   lookups["Cultivars"] = await seedLookup(
-    businessId, "cultivar", readColumnPairs(ws, 5, 6, HEADER_ROW)
+    businessContext, "cultivar", readColumnPairs(ws, 5, 6, HEADER_ROW)
   );
 
 
@@ -198,40 +221,46 @@ async function parsePlantKey(
     name: n,
     code: n.toUpperCase().replace(/[^A-Z0-9\-]/g, "").slice(0, 10) || n.slice(0, 10),
   }));
-  lookups["Plant IDs"] = await seedLookup(businessId, "plantId", plantIds);
+  lookups["Plant IDs"] = await seedLookup(
+    businessContext,
+    "plantId",
+    plantIds
+  );
 
 
   lookups["Payment Methods"] = await seedLookup(
-    businessId, "paymentMethod", namesToNameCode(readColumnNames(ws, 9, HEADER_ROW))
+    businessContext,
+    "paymentMethod",
+    namesToNameCode(readColumnNames(ws, 9, HEADER_ROW))
   );
 }
 
 
 async function parseProductKey(
   ws: Worksheet,
-  businessId: string,
+  businessContext: BusinessContext,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
   const HEADER_ROW = 1;
 
   lookups["Product Sources"] = await seedLookup(
-    businessId, "productSource", readColumnPairs(ws, 2, 3, HEADER_ROW)
+    businessContext, "productSource", readColumnPairs(ws, 2, 3, HEADER_ROW)
   );
   lookups["Product Categories"] = await seedLookup(
-    businessId, "productCategory", readColumnPairs(ws, 4, 5, HEADER_ROW)
+    businessContext, "productCategory", readColumnPairs(ws, 4, 5, HEADER_ROW)
   );
   lookups["Product Sizes"] = await seedLookup(
-    businessId, "productSize", readColumnPairs(ws, 6, 7, HEADER_ROW)
+    businessContext, "productSize", readColumnPairs(ws, 6, 7, HEADER_ROW)
   );
   lookups["Product Styles"] = await seedLookup(
-    businessId, "productStyle", readColumnPairs(ws, 8, 9, HEADER_ROW)
+    businessContext, "productStyle", readColumnPairs(ws, 8, 9, HEADER_ROW)
   );
 }
 
 
 async function parseTransplantKey(
   ws: Worksheet,
-  businessId: string,
+  businessContext: BusinessContext,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
 
@@ -288,20 +317,32 @@ async function parseTransplantKey(
     }));
 
   if (cMedia) {
-    lookups["Transplant Media"] = await seedLookup(businessId, "transplantMedia", toNameCode(media));
+    lookups["Transplant Media"] = await seedLookup(
+      businessContext,
+      "transplantMedia",
+      toNameCode(media)
+    );
   }
   if (cAction) {
-    lookups["Transplant Actions"] = await seedLookup(businessId, "transplantAction", toNameCode(actions));
+    lookups["Transplant Actions"] = await seedLookup(
+      businessContext,
+      "transplantAction",
+      toNameCode(actions)
+    );
   }
   if (cFromPot || cToPot) {
-    lookups["Pot Sizes"] = await seedLookup(businessId, "potSize", toNameCode(potSizes));
+    lookups["Pot Sizes"] = await seedLookup(
+      businessContext,
+      "potSize",
+      toNameCode(potSizes)
+    );
   }
 }
 
 
 async function parseTreatmentKey(
   ws: Worksheet,
-  businessId: string,
+  businessContext: BusinessContext,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
   const headerRow = findHeaderRow(ws, ["Product"]);
@@ -324,13 +365,17 @@ async function parseTreatmentKey(
     code: autoCode(n, usedCodes),
   }));
 
-  lookups["Treatment Products"] = await seedLookup(businessId, "treatmentProduct", entries);
+  lookups["Treatment Products"] = await seedLookup(
+    businessContext,
+    "treatmentProduct",
+    entries
+  );
 }
 
 
 async function parseFertilizerKey(
   ws: Worksheet,
-  businessId: string,
+  businessContext: BusinessContext,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
   const headerRow =
@@ -357,27 +402,37 @@ async function parseFertilizerKey(
     code: autoCode(n, usedCodes),
   }));
 
-  lookups["Fertilizer Products"] = await seedLookup(businessId, "fertilizerProduct", entries);
+  lookups["Fertilizer Products"] = await seedLookup(
+    businessContext,
+    "fertilizerProduct",
+    entries
+  );
 }
 
 
 async function parseOverheadKey(
   ws: Worksheet,
-  businessId: string,
+  businessContext: BusinessContext,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
   const HEADER_ROW = 1;
 
   lookups["Expense Vendors"] = await seedLookup(
-    businessId, "expenseVendor", namesToNameCode(readColumnNames(ws, 2, HEADER_ROW))
+    businessContext,
+    "expenseVendor",
+    namesToNameCode(readColumnNames(ws, 2, HEADER_ROW))
   );
   lookups["Expense Categories"] = await seedLookup(
-    businessId, "expenseCategory", namesToNameCode(readColumnNames(ws, 4, HEADER_ROW))
+    businessContext,
+    "expenseCategory",
+    namesToNameCode(readColumnNames(ws, 4, HEADER_ROW))
   );
 
 
   const pmtResult = await seedLookup(
-    businessId, "paymentMethod", namesToNameCode(readColumnNames(ws, 6, HEADER_ROW))
+    businessContext,
+    "paymentMethod",
+    namesToNameCode(readColumnNames(ws, 6, HEADER_ROW))
   );
   lookups["Payment Methods"] = addResults(
     lookups["Payment Methods"] ?? { added: 0, alreadyExisted: 0 },
@@ -388,22 +443,34 @@ async function parseOverheadKey(
 
 async function parseSkuKey(
   ws: Worksheet,
-  businessId: string,
+  businessContext: BusinessContext,
   lookups: Record<string, LookupResult>
 ): Promise<void> {
   const HEADER_ROW = 1;
 
   lookups["Plant Sources"] = addResults(
     lookups["Plant Sources"] ?? { added: 0, alreadyExisted: 0 },
-    await seedLookup(businessId, "plantSource", readColumnPairs(ws, 1, 2, HEADER_ROW))
+    await seedLookup(
+      businessContext,
+      "plantSource",
+      readColumnPairs(ws, 1, 2, HEADER_ROW)
+    )
   );
   lookups["Genera"] = addResults(
     lookups["Genera"] ?? { added: 0, alreadyExisted: 0 },
-    await seedLookup(businessId, "genus", readColumnPairs(ws, 3, 4, HEADER_ROW))
+    await seedLookup(
+      businessContext,
+      "genus",
+      readColumnPairs(ws, 3, 4, HEADER_ROW)
+    )
   );
   lookups["Cultivars"] = addResults(
     lookups["Cultivars"] ?? { added: 0, alreadyExisted: 0 },
-    await seedLookup(businessId, "cultivar", readColumnPairs(ws, 5, 6, HEADER_ROW))
+    await seedLookup(
+      businessContext,
+      "cultivar",
+      readColumnPairs(ws, 5, 6, HEADER_ROW)
+    )
   );
 
 
@@ -414,22 +481,22 @@ async function parseSkuKey(
   }));
   lookups["Plant IDs"] = addResults(
     lookups["Plant IDs"] ?? { added: 0, alreadyExisted: 0 },
-    await seedLookup(businessId, "plantId", plantIds)
+    await seedLookup(businessContext, "plantId", plantIds)
   );
 
 
   lookups["Origins"] = await seedLookup(
-    businessId, "origin", readColumnPairs(ws, 9, 10, HEADER_ROW)
+    businessContext, "origin", readColumnPairs(ws, 9, 10, HEADER_ROW)
   );
 
 
   lookups["Statuses"] = await seedLookup(
-    businessId, "status", readColumnPairs(ws, 12, 13, HEADER_ROW)
+    businessContext, "status", readColumnPairs(ws, 12, 13, HEADER_ROW)
   );
 
 
   lookups["Environments"] = await seedLookup(
-    businessId, "environment", readColumnPairs(ws, 15, 16, HEADER_ROW)
+    businessContext, "environment", readColumnPairs(ws, 15, 16, HEADER_ROW)
   );
 }
 
@@ -446,8 +513,9 @@ function dateKey(value: Date | null | undefined): string {
 
 async function importPlantIntake(
   ws: Worksheet,
-  businessId: string
+  businessContext: BusinessContext
 ): Promise<SheetResult> {
+  const plantIntakes = createPlantIntakeRepository(businessContext);
   const headerRow = findHeaderRow(ws, ["Source", "SKU"]);
   if (!headerRow) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
@@ -487,19 +555,14 @@ async function importPlantIntake(
 
   const existingSku = new Set<string>();
   for (const part of chunk([...new Set(skus)], 1000)) {
-    const rows = await db.plantIntake.findMany({
-      where: { businessId, sku: { in: part } },
-      select: { sku: true },
-    });
+    const rows = await plantIntakes.listExistingSkus(part);
     for (const r of rows) existingSku.add(r.sku);
   }
 
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
   const seenSku = new Set<string>();
 
-  type T = NonNullable<Parameters<typeof db.plantIntake.createMany>[0]>["data"];
-  type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
-  const toCreate: Item[] = [];
+  const toCreate: TenantPlantIntakeCreateManyInput[] = [];
 
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
@@ -518,7 +581,6 @@ async function importPlantIntake(
     const msrpCents = cMsrp ? parseCurrencyToCents(row.getCell(cMsrp).value) : 0;
 
     toCreate.push({
-      businessId,
       date: cDate ? parseDate(row.getCell(cDate).value) : null,
       source, genus, cultivar, sku,
       locationCode: cId ? toStringCell(row.getCell(cId).value) || null : null,
@@ -533,7 +595,7 @@ async function importPlantIntake(
   });
 
   for (const part of chunk(toCreate, 1000)) {
-    const res = await db.plantIntake.createMany({ data: part });
+    const res = await plantIntakes.createMany(part);
     inserted += res.count;
   }
 
@@ -542,8 +604,9 @@ async function importPlantIntake(
 
 async function importProductIntake(
   ws: Worksheet,
-  businessId: string
+  businessContext: BusinessContext
 ): Promise<SheetResult> {
+  const productIntakes = createProductIntakeRepository(businessContext);
   const headerRow = findHeaderRow(ws, ["Date", "Code / SKU"]) ??
     findHeaderRow(ws, ["Date", "SKU"]);
   if (!headerRow) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
@@ -575,10 +638,7 @@ async function importProductIntake(
 
   if (!cDate || !cSku) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
-  const existingRows = await db.productIntake.findMany({
-    where: { businessId },
-    select: { sku: true, date: true },
-  });
+  const existingRows = await productIntakes.listForImportDeduplication();
   const existingComposite = new Set(
     existingRows.map((row) => `${row.sku}|${dateKey(row.date)}`)
   );
@@ -586,14 +646,15 @@ async function importProductIntake(
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
   const seenComposite = new Set<string>();
 
-  type T = NonNullable<Parameters<typeof db.productIntake.createMany>[0]>["data"];
-  type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
-  const toCreate: Item[] = [];
-  const calculateProductIntake = await loadProductIntakeDerivedCalculator(
-    businessId
+  const toCreate: TenantProductIntakeCreateManyInput[] = [];
+  const calculateProductIntake = await loadAuditedDetailedAppLogicRowPipeline(
+    businessContext,
+    "productIntake",
+    "IMPORT"
   );
 
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+  try {
+    ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
     const date = cDate ? parseDate(row.getCell(cDate).value) : null;
     const sku = cSku ? toStringCell(row.getCell(cSku).value) : "";
@@ -610,13 +671,14 @@ async function importProductIntake(
     const totalCostCents = cTotalCost
       ? parseCurrencyToCents(row.getCell(cTotalCost).value)
       : importedUnitCostCents * qty;
-    const { unitCostCents } = calculateProductIntake({
+    const productLogic = calculateProductIntake.run({
       totalCostCents,
       qty,
-    });
+    }).scope;
+    const unitCostCents = Math.round(productLogic.unitCostCents);
 
     toCreate.push({
-      businessId, date, sku,
+      date, sku,
       vendor: cVendor ? toStringCell(row.getCell(cVendor).value) || null : null,
       source: cSource ? toStringCell(row.getCell(cSource).value) || null : null,
       category: cCategory ? toStringCell(row.getCell(cCategory).value) || null : null,
@@ -631,10 +693,17 @@ async function importProductIntake(
       invoiceNumber: cInvoice ? toStringCell(row.getCell(cInvoice).value) || null : null,
       notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
     });
-  });
+    });
+  } catch (error) {
+    await calculateProductIntake.flush();
+    throw error;
+  }
+  await calculateProductIntake.flush();
 
   for (const part of chunk(toCreate, 1000)) {
-    const res = await db.productIntake.createMany({ data: part, skipDuplicates: true });
+    const res = await productIntakes.createMany(part, {
+      skipDuplicates: true,
+    });
     inserted += res.count;
   }
 
@@ -645,8 +714,9 @@ type SalesResult = SheetResult & { salesChannelLookup: LookupResult };
 
 async function importSales(
   ws: Worksheet,
-  businessId: string
+  businessContext: BusinessContext
 ): Promise<SalesResult> {
+  const sales = createSalesRepository(businessContext);
   const emptyLookup: LookupResult = { added: 0, alreadyExisted: 0 };
   const headerRow = findHeaderRow(ws, ["Date", "SKU"]);
   if (!headerRow) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true, salesChannelLookup: emptyLookup };
@@ -673,10 +743,7 @@ async function importSales(
 
   if (!cDate || !cSku) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true, salesChannelLookup: emptyLookup };
 
-  const existingRows = await db.salesEntry.findMany({
-    where: { businessId },
-    select: { sku: true, date: true, qty: true, salePriceCents: true, channel: true },
-  });
+  const existingRows = await sales.listForImportDeduplication();
   const existingComposite = new Set(
     existingRows.map((row) =>
       `${row.sku}|${dateKey(row.date)}|${row.qty}|${row.salePriceCents}|${row.channel ?? ""}`
@@ -687,12 +754,15 @@ async function importSales(
   const seenComposite = new Set<string>();
   const channelNames = new Set<string>();
 
-  type T = NonNullable<Parameters<typeof db.salesEntry.createMany>[0]>["data"];
-  type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
-  const toCreate: Item[] = [];
-  const calculateSales = await loadSalesDerivedCalculator(businessId);
+  const toCreate: TenantSalesCreateManyInput[] = [];
+  const calculateSales = await loadAuditedDetailedAppLogicRowPipeline(
+    businessContext,
+    "sales",
+    "IMPORT"
+  );
 
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+  try {
+    ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
     const date = cDate ? parseDate(row.getCell(cDate).value) : null;
     const sku = cSku ? toStringCell(row.getCell(cSku).value) : "";
@@ -701,7 +771,7 @@ async function importSales(
     const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
     const salePriceCents = cSalePrice ? parseCurrencyToCents(row.getCell(cSalePrice).value) : 0;
     const costCents = cCost ? parseCurrencyToCents(row.getCell(cCost).value) : 0;
-    const derived = calculateSales({ qty, salePriceCents, costCents });
+    const derived = calculateSales.run({ qty, salePriceCents, costCents }).scope;
 
     const channelVal = cChannel ? toStringCell(row.getCell(cChannel).value).trim() : "";
     if (channelVal) channelNames.add(channelVal);
@@ -710,25 +780,32 @@ async function importSales(
     seenComposite.add(key);
 
     toCreate.push({
-      businessId, date, sku,
+      date, sku,
       itemName: cItemName ? toStringCell(row.getCell(cItemName).value) || null : null,
-      qty, salePriceCents,
-      totalSaleCents: derived.totalSaleCents,
+      qty: Math.round(derived.qty), salePriceCents,
+      totalSaleCents: Math.round(derived.totalSaleCents),
       paymentMethod: cPayment ? toStringCell(row.getCell(cPayment).value) || null : null,
       cardLast4: cCard ? last4FromCell(row.getCell(cCard).value) : null,
       channel: channelVal || null,
-      costCents, profitCents: derived.profitCents, marginPct: derived.marginPct,
+      costCents, profitCents: Math.round(derived.profitCents), marginPct: derived.marginPct,
       notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
     });
-  });
+    });
+  } catch (error) {
+    await calculateSales.flush();
+    throw error;
+  }
+  await calculateSales.flush();
 
   for (const part of chunk(toCreate, 1000)) {
-    const res = await db.salesEntry.createMany({ data: part, skipDuplicates: true });
+    const res = await sales.createMany(part, { skipDuplicates: true });
     inserted += res.count;
   }
 
   const salesChannelLookup = await seedLookup(
-    businessId, "salesChannel", namesToNameCode([...channelNames])
+    businessContext,
+    "salesChannel",
+    namesToNameCode([...channelNames])
   );
 
   return { inserted, skippedMissing, skippedDuplicates, salesChannelLookup };
@@ -736,8 +813,9 @@ async function importSales(
 
 async function importOverheadExpenses(
   ws: Worksheet,
-  businessId: string
+  businessContext: BusinessContext
 ): Promise<SheetResult> {
+  const overheadExpenses = createOverheadExpenseRepository(businessContext);
   const headerRow = findHeaderRow(ws, ["Date"]);
   if (!headerRow) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
@@ -767,10 +845,7 @@ async function importOverheadExpenses(
 
   if (!cDate) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
-  const existingRows = await db.overheadExpense.findMany({
-    where: { businessId },
-    select: { date: true, vendor: true, invoiceNumber: true, totalCents: true },
-  });
+  const existingRows = await overheadExpenses.listForImportDeduplication();
   const existingComposite = new Set(
     existingRows.map((row) =>
       `${row.invoiceNumber ?? ""}|${dateKey(row.date)}|${row.totalCents}|${row.vendor ?? ""}`
@@ -780,12 +855,15 @@ async function importOverheadExpenses(
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
   const seenComposite = new Set<string>();
 
-  type T = NonNullable<Parameters<typeof db.overheadExpense.createMany>[0]>["data"];
-  type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
-  const toCreate: Item[] = [];
-  const calculateOverhead = await loadOverheadDerivedCalculator(businessId);
+  const toCreate: TenantOverheadExpenseCreateManyInput[] = [];
+  const calculateOverhead = await loadAuditedDetailedAppLogicRowPipeline(
+    businessContext,
+    "overheadExpenses",
+    "IMPORT"
+  );
 
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+  try {
+    ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
     const date = cDate ? parseDate(row.getCell(cDate).value) : null;
     const vendor = cVendor ? toStringCell(row.getCell(cVendor).value) || null : null;
@@ -808,15 +886,17 @@ async function importOverheadExpenses(
     const discountCents = cDiscount
       ? parseCurrencyToCents(row.getCell(cDiscount).value)
       : 0;
-    const { unitCostCents, totalCents } = calculateOverhead({
+    const overheadLogic = calculateOverhead.run({
       subTotalCents,
       shippingCents,
       discountCents,
       qty,
-    });
+    }).scope;
+    const unitCostCents = Math.round(overheadLogic.unitCostCents);
+    const totalCents = Math.round(overheadLogic.totalCents);
 
     toCreate.push({
-      businessId, date, vendor,
+      date, vendor,
       brand: cBrand ? toStringCell(row.getCell(cBrand).value) || null : null,
       category: cCategory ? toStringCell(row.getCell(cCategory).value) || null : null,
       description: cDescription ? toStringCell(row.getCell(cDescription).value) || null : null,
@@ -831,10 +911,15 @@ async function importOverheadExpenses(
       invoiceNumber: cInvoice ? toStringCell(row.getCell(cInvoice).value) || null : null,
       notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
     });
-  });
+    });
+  } catch (error) {
+    await calculateOverhead.flush();
+    throw error;
+  }
+  await calculateOverhead.flush();
 
   for (const part of chunk(toCreate, 1000)) {
-    const res = await db.overheadExpense.createMany({ data: part, skipDuplicates: true });
+    const res = await overheadExpenses.createMany(part, { skipDuplicates: true });
     inserted += res.count;
   }
 
@@ -843,8 +928,9 @@ async function importOverheadExpenses(
 
 async function importTransplantLog(
   ws: Worksheet,
-  businessId: string
+  businessContext: BusinessContext
 ): Promise<SheetResult> {
+  const transplants = createTransplantLogRepository(businessContext);
   const headerRow = findHeaderRow(ws, ["Date", "Original SKU"]);
   if (!headerRow) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
@@ -872,10 +958,7 @@ async function importTransplantLog(
 
   if (!cDate || !cOriginalSku) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
-  const existingRows = await db.transplantLog.findMany({
-    where: { businessId },
-    select: { originalSku: true, date: true, action: true, divisionSku: true },
-  });
+  const existingRows = await transplants.listForImportDeduplication();
   const existingComposite = new Set(
     existingRows.map((row) =>
       `${row.originalSku ?? ""}|${dateKey(row.date)}|${row.action ?? ""}|${row.divisionSku ?? ""}`
@@ -885,9 +968,7 @@ async function importTransplantLog(
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
   const seenComposite = new Set<string>();
 
-  type T = NonNullable<Parameters<typeof db.transplantLog.createMany>[0]>["data"];
-  type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
-  const toCreate: Item[] = [];
+  const toCreate: TenantTransplantLogCreateManyInput[] = [];
 
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
@@ -902,7 +983,7 @@ async function importTransplantLog(
     seenComposite.add(key);
 
     toCreate.push({
-      businessId, date, originalSku,
+      date, originalSku,
       action,
       media: cMedia ? toStringCell(row.getCell(cMedia).value) || null : null,
       fromPot: cFromPot ? toStringCell(row.getCell(cFromPot).value) || null : null,
@@ -917,7 +998,7 @@ async function importTransplantLog(
   });
 
   for (const part of chunk(toCreate, 1000)) {
-    const res = await db.transplantLog.createMany({ data: part, skipDuplicates: true });
+    const res = await transplants.createMany(part, { skipDuplicates: true });
     inserted += res.count;
   }
 
@@ -926,8 +1007,9 @@ async function importTransplantLog(
 
 async function importFertilizerLog(
   ws: Worksheet,
-  businessId: string
+  businessContext: BusinessContext
 ): Promise<SheetResult> {
+  const fertilizerLogs = createFertilizerLogRepository(businessContext);
   const headerRow = findHeaderRow(ws, ["Date", "Plant SKU"]);
   if (!headerRow) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
@@ -953,10 +1035,7 @@ async function importFertilizerLog(
 
   if (!cDate || !cPlantSku) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
-  const existingRows = await db.fertilizerLog.findMany({
-    where: { businessId },
-    select: { plantSku: true, date: true, product: true, method: true },
-  });
+  const existingRows = await fertilizerLogs.listForImportDeduplication();
   const existingComposite = new Set(
     existingRows.map((row) =>
       `${row.plantSku ?? ""}|${dateKey(row.date)}|${row.product ?? ""}|${row.method ?? ""}`
@@ -966,9 +1045,7 @@ async function importFertilizerLog(
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
   const seenComposite = new Set<string>();
 
-  type T = NonNullable<Parameters<typeof db.fertilizerLog.createMany>[0]>["data"];
-  type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
-  const toCreate: Item[] = [];
+  const toCreate: TenantFertilizerLogCreateManyInput[] = [];
 
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
@@ -983,7 +1060,7 @@ async function importFertilizerLog(
     seenComposite.add(key);
 
     toCreate.push({
-      businessId, date, plantSku,
+      date, plantSku,
       potSku: cPotSku ? toStringCell(row.getCell(cPotSku).value) || null : null,
       product,
       method,
@@ -996,7 +1073,7 @@ async function importFertilizerLog(
   });
 
   for (const part of chunk(toCreate, 1000)) {
-    const res = await db.fertilizerLog.createMany({ data: part, skipDuplicates: true });
+    const res = await fertilizerLogs.createMany(part, { skipDuplicates: true });
     inserted += res.count;
   }
 
@@ -1005,8 +1082,9 @@ async function importFertilizerLog(
 
 async function importTreatmentTracking(
   ws: Worksheet,
-  businessId: string
+  businessContext: BusinessContext
 ): Promise<SheetResult> {
+  const treatments = createTreatmentTrackingRepository(businessContext);
   const headerRow = findHeaderRow(ws, ["Date", "SKU"]);
   if (!headerRow) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
@@ -1034,10 +1112,7 @@ async function importTreatmentTracking(
 
   if (!cDate || !cSku) return { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
 
-  const existingRows = await db.treatmentTracking.findMany({
-    where: { businessId },
-    select: { sku: true, date: true, target: true, product: true },
-  });
+  const existingRows = await treatments.listForImportDeduplication();
   const existingComposite = new Set(
     existingRows.map((row) =>
       `${row.sku}|${dateKey(row.date)}|${row.target ?? ""}|${row.product ?? ""}`
@@ -1047,9 +1122,7 @@ async function importTreatmentTracking(
   let inserted = 0, skippedMissing = 0, skippedDuplicates = 0;
   const seenComposite = new Set<string>();
 
-  type T = NonNullable<Parameters<typeof db.treatmentTracking.createMany>[0]>["data"];
-  type Item = Extract<T, unknown[]> extends (infer U)[] ? U : never;
-  const toCreate: Item[] = [];
+  const toCreate: TenantTreatmentTrackingCreateManyInput[] = [];
 
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber <= headerRow.number) return;
@@ -1064,7 +1137,7 @@ async function importTreatmentTracking(
     seenComposite.add(key);
 
     toCreate.push({
-      businessId, date, sku,
+      date, sku,
       target,
       product,
       activeIngredient: cActive ? toStringCell(row.getCell(cActive).value) || null : null,
@@ -1079,7 +1152,7 @@ async function importTreatmentTracking(
   });
 
   for (const part of chunk(toCreate, 1000)) {
-    const res = await db.treatmentTracking.createMany({ data: part, skipDuplicates: true });
+    const res = await treatments.createMany(part, { skipDuplicates: true });
     inserted += res.count;
   }
 
@@ -1090,8 +1163,10 @@ export async function importWorkbook(
   businessSlug: string,
   formData: FormData
 ): Promise<ImportReport> {
-  const { business } = await requireBusinessRole(businessSlug, ["OWNER", "MANAGER"]);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessRole(businessSlug, [
+    "OWNER",
+    "MANAGER",
+  ]);
 
   const file = formData.get("file") as File | null;
   if (!file) return { sheets: {}, lookups: {}, error: "No file uploaded." };
@@ -1105,39 +1180,41 @@ export async function importWorkbook(
 
   const report: ImportReport = { sheets: {}, lookups: {} };
 
+  try {
+
   const plantKeyWs = findSheetStrict(workbook, ["Plant KEY", "Plant Key", "PLANT KEY"]);
   if (plantKeyWs) {
-    await parsePlantKey(plantKeyWs, businessId, report.lookups);
+    await parsePlantKey(plantKeyWs, businessContext, report.lookups);
   }
 
   const productKeyWs = findSheetStrict(workbook, ["Product KEY", "Product Key", "PRODUCT KEY"]);
   if (productKeyWs) {
-    await parseProductKey(productKeyWs, businessId, report.lookups);
+    await parseProductKey(productKeyWs, businessContext, report.lookups);
   }
 
   const transplantKeyWs = findSheetStrict(workbook, ["Transplant KEY", "Transplant Key", "TRANSPLANT KEY"]);
   if (transplantKeyWs) {
-    await parseTransplantKey(transplantKeyWs, businessId, report.lookups);
+    await parseTransplantKey(transplantKeyWs, businessContext, report.lookups);
   }
 
   const treatmentKeyWs = findSheetStrict(workbook, ["Treatment KEY", "Treatment Key", "TREATMENT KEY"]);
   if (treatmentKeyWs) {
-    await parseTreatmentKey(treatmentKeyWs, businessId, report.lookups);
+    await parseTreatmentKey(treatmentKeyWs, businessContext, report.lookups);
   }
 
   const fertilizerKeyWs = findSheetStrict(workbook, ["Fertilizer KEY", "Fertilizer Key", "FERTILIZER KEY"]);
   if (fertilizerKeyWs) {
-    await parseFertilizerKey(fertilizerKeyWs, businessId, report.lookups);
+    await parseFertilizerKey(fertilizerKeyWs, businessContext, report.lookups);
   }
 
   const overheadKeyWs = findSheetStrict(workbook, ["Overhead KEY", "Overhead Key", "OVERHEAD KEY"]);
   if (overheadKeyWs) {
-    await parseOverheadKey(overheadKeyWs, businessId, report.lookups);
+    await parseOverheadKey(overheadKeyWs, businessContext, report.lookups);
   }
 
   const skuKeyWs = findSheetStrict(workbook, ["Sku KEY", "SKU KEY", "Sku Key"]);
   if (skuKeyWs) {
-    await parseSkuKey(skuKeyWs, businessId, report.lookups);
+    await parseSkuKey(skuKeyWs, businessContext, report.lookups);
   }
 
   const plantIntakeWs = findSheetStrict(workbook, [
@@ -1147,7 +1224,10 @@ export async function importWorkbook(
     "PLANT Intake",
   ]);
   if (plantIntakeWs) {
-    report.sheets["Plant Intake"] = await importPlantIntake(plantIntakeWs, businessId);
+    report.sheets["Plant Intake"] = await importPlantIntake(
+      plantIntakeWs,
+      businessContext
+    );
   } else {
     report.sheets["Plant Intake"] = { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
   }
@@ -1158,14 +1238,17 @@ export async function importWorkbook(
     "Product Intake",
   ]);
   if (productIntakeWs) {
-    report.sheets["Product Intake"] = await importProductIntake(productIntakeWs, businessId);
+    report.sheets["Product Intake"] = await importProductIntake(
+      productIntakeWs,
+      businessContext
+    );
   } else {
     report.sheets["Product Intake"] = { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
   }
 
   const salesWs = findSheetStrict(workbook, ["Sales"]);
   if (salesWs) {
-    const salesResult = await importSales(salesWs, businessId);
+    const salesResult = await importSales(salesWs, businessContext);
     const { salesChannelLookup, ...sheetResult } = salesResult;
     report.sheets["Sales"] = sheetResult;
     report.lookups["Sales Channels"] = salesChannelLookup;
@@ -1175,28 +1258,40 @@ export async function importWorkbook(
 
   const overheadWs = findSheetStrict(workbook, ["Overhead Expenses", "Overhead"]);
   if (overheadWs) {
-    report.sheets["Overhead Expenses"] = await importOverheadExpenses(overheadWs, businessId);
+    report.sheets["Overhead Expenses"] = await importOverheadExpenses(
+      overheadWs,
+      businessContext
+    );
   } else {
     report.sheets["Overhead Expenses"] = { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
   }
 
   const transplantWs = findSheetStrict(workbook, ["Transplant Log"]);
   if (transplantWs) {
-    report.sheets["Transplant Log"] = await importTransplantLog(transplantWs, businessId);
+    report.sheets["Transplant Log"] = await importTransplantLog(
+      transplantWs,
+      businessContext
+    );
   } else {
     report.sheets["Transplant Log"] = { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
   }
 
   const fertilizerWs = findSheetStrict(workbook, ["Fertilizer Log"]);
   if (fertilizerWs) {
-    report.sheets["Fertilizer Log"] = await importFertilizerLog(fertilizerWs, businessId);
+    report.sheets["Fertilizer Log"] = await importFertilizerLog(
+      fertilizerWs,
+      businessContext
+    );
   } else {
     report.sheets["Fertilizer Log"] = { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
   }
 
   const treatmentWs = findSheetStrict(workbook, ["Treatment Tracker", "Treatment Tracking"]);
   if (treatmentWs) {
-    report.sheets["Treatment Tracker"] = await importTreatmentTracking(treatmentWs, businessId);
+    report.sheets["Treatment Tracker"] = await importTreatmentTracking(
+      treatmentWs,
+      businessContext
+    );
   } else {
     report.sheets["Treatment Tracker"] = { inserted: 0, skippedMissing: 0, skippedDuplicates: 0, notFound: true };
   }
@@ -1204,6 +1299,9 @@ export async function importWorkbook(
   revalidateImportedDataPaths(businessSlug);
 
   return report;
+  } catch (error) {
+    return { ...report, error: appLogicFailureMessage(error) };
+  }
 }
 
 export type ClearResult = {
@@ -1213,27 +1311,37 @@ export type ClearResult = {
 };
 
 export async function clearBusinessData(businessSlug: string): Promise<ClearResult> {
-  const { business } = await requireBusinessRole(businessSlug, ["OWNER"]);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessRole(businessSlug, ["OWNER"]);
+  const sales = createSalesRepository(businessContext);
+  const plantIntakes = createPlantIntakeRepository(businessContext);
+  const productIntakes = createProductIntakeRepository(businessContext);
+  const fertilizerLogs = createFertilizerLogRepository(businessContext);
+  const overheadExpenses = createOverheadExpenseRepository(businessContext);
+  const pricingEntries = createPricingEntryRepository(businessContext);
+  const treatments = createTreatmentTrackingRepository(businessContext);
+  const transplants = createTransplantLogRepository(businessContext);
+  const lookupEntries = createLookupEntryRepository(businessContext);
 
   const [
     plantIntake,
     productIntake,
     salesEntry,
+    pricingEntry,
     overheadExpense,
     transplantLog,
     fertilizerLog,
     treatmentTracking,
     lookupEntry,
   ] = await Promise.all([
-    db.plantIntake.deleteMany({ where: { businessId } }),
-    db.productIntake.deleteMany({ where: { businessId } }),
-    db.salesEntry.deleteMany({ where: { businessId } }),
-    db.overheadExpense.deleteMany({ where: { businessId } }),
-    db.transplantLog.deleteMany({ where: { businessId } }),
-    db.fertilizerLog.deleteMany({ where: { businessId } }),
-    db.treatmentTracking.deleteMany({ where: { businessId } }),
-    db.lookupEntry.deleteMany({ where: { businessId } }),
+    plantIntakes.deleteAll(),
+    productIntakes.deleteAll(),
+    sales.deleteAll(),
+    pricingEntries.deleteAll(),
+    overheadExpenses.deleteAll(),
+    transplants.deleteAll(),
+    fertilizerLogs.deleteAll(),
+    treatments.deleteAll(),
+    lookupEntries.deleteAll(),
   ]);
 
   revalidateImportedDataPaths(businessSlug);
@@ -1244,11 +1352,12 @@ export async function clearBusinessData(businessSlug: string): Promise<ClearResu
       "Plant Intake": plantIntake.count,
       "Product Intake": productIntake.count,
       "Sales": salesEntry.count,
+      "Pricing": pricingEntry.count,
       "Overhead Expenses": overheadExpense.count,
       "Transplant Log": transplantLog.count,
       "Fertilizer Log": fertilizerLog.count,
       "Treatment Tracker": treatmentTracking.count,
-      "Lookup Entries": lookupEntry.count,
+      "Reference Data": lookupEntry.count,
     },
   };
 }

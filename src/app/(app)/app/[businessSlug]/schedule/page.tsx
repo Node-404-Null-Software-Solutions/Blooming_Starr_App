@@ -1,5 +1,6 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
+import { createEmployeeRepository } from "@/lib/repositories/employee";
+import { createScheduleEntryRepository } from "@/lib/repositories/schedule-entry";
 import ScheduleClient from "./ScheduleClient";
 
 function getMonday(dateStr?: string): Date {
@@ -21,7 +22,9 @@ export default async function SchedulePage({
 }) {
   const { businessSlug } = await params;
   const sp = await searchParams;
-  const { business } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const employeeRepository = createEmployeeRepository(businessContext);
+  const schedule = createScheduleEntryRepository(businessContext);
 
   const monday = getMonday(sp.week);
   const sunday = new Date(monday);
@@ -29,19 +32,8 @@ export default async function SchedulePage({
   sunday.setHours(23, 59, 59, 999);
 
   const [employees, entries] = await Promise.all([
-    db.employee.findMany({
-      where: { businessId: business.id, status: "ACTIVE" },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.scheduleEntry.findMany({
-      where: {
-        businessId: business.id,
-        date: { gte: monday, lte: sunday },
-      },
-      include: { employee: { select: { name: true } } },
-      orderBy: { startTime: "asc" },
-    }),
+    employeeRepository.listActiveForSchedule(),
+    schedule.listForWeek(monday, sunday),
   ]);
 
   const serializedEntries = entries.map((e) => ({

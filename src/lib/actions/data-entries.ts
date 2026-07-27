@@ -1,15 +1,36 @@
 "use server";
 
-import { db } from "@/lib/db";
+import { withTenantRlsTransaction } from "@/lib/db";
 import { requireBusinessMembership } from "@/lib/authz";
+import type { BusinessContext } from "@/lib/business-context";
 import {
   calculateDivisionCost,
-  calculateOverheadDerived,
-  calculateProductIntakeDerived,
-  calculateSalesDerived,
-  loadSalesDerivedCalculator,
 } from "@/lib/app-logic-engine";
+import {
+  loadAuditedDetailedAppLogicRowPipeline,
+  runDetailedAppLogicRowPipeline,
+  runAppLogicRowPipeline,
+} from "@/lib/app-logic-row-service";
+import { executeGovernedAppLogicActions } from "@/lib/app-logic-action-broker";
+import { appLogicFailureMessage } from "@/lib/app-logic-audit";
 import { generateSku } from "@/lib/plant-sku-service";
+import { createFertilizerLogRepository } from "@/lib/repositories/fertilizer-log";
+import {
+  createPlantIntakeRepository,
+  type TenantPlantIntakeUpdateInput,
+} from "@/lib/repositories/plant-intake";
+import { createOverheadExpenseRepository } from "@/lib/repositories/overhead-expense";
+import {
+  createProductIntakeRepository,
+  type TenantProductIntakeUpdateInput,
+} from "@/lib/repositories/product-intake";
+import {
+  createProductRepository,
+  type TenantProductUpdateInput,
+} from "@/lib/repositories/product";
+import { createSalesRepository } from "@/lib/repositories/sales";
+import { createTransplantLogRepository } from "@/lib/repositories/transplant-log";
+import { createTreatmentTrackingRepository } from "@/lib/repositories/treatment-tracking";
 import { revalidatePath } from "next/cache";
 
 type ProductMasterFields = {
@@ -18,69 +39,89 @@ type ProductMasterFields = {
   defaultSalePriceCents?: number;
 };
 
+async function runAppLogicSafely<T>(operation: () => Promise<T>) {
+  try {
+    return { ok: true as const, value: await operation() };
+  } catch (error) {
+    return { ok: false as const, error: appLogicFailureMessage(error) };
+  }
+}
+
 async function upsertProductFromRow(
-  businessId: string,
+  context: BusinessContext,
   sku: string,
   fields: ProductMasterFields
 ) {
-  const updatePayload: Record<string, unknown> = {};
+  const products = createProductRepository(context);
+  const updatePayload: TenantProductUpdateInput = {};
   if (fields.productName !== undefined) updatePayload.productName = fields.productName;
   if (fields.defaultCostCents !== undefined)
     updatePayload.defaultCostCents = fields.defaultCostCents;
   if (fields.defaultSalePriceCents !== undefined)
     updatePayload.defaultSalePriceCents = fields.defaultSalePriceCents;
 
-  await db.product.upsert({
-    where: { businessId_sku: { businessId, sku } },
-    create: {
-      businessId,
-      sku,
+  await products.upsertBySku(
+    sku,
+    {
       productName: fields.productName ?? null,
       defaultCostCents: fields.defaultCostCents ?? 0,
       defaultSalePriceCents: fields.defaultSalePriceCents ?? 0,
     },
-    update: updatePayload,
-  });
+    updatePayload
+  );
 }
 
 async function syncProductToSales(
-  businessId: string,
+  context: BusinessContext,
   sku: string,
   businessSlug: string
 ) {
-  const product = await db.product.findUnique({
-    where: { businessId_sku: { businessId, sku } },
-  });
+  const sales = createSalesRepository(context);
+  const products = createProductRepository(context);
+  const product = await products.findBySku(sku);
   if (!product) return;
 
   const productName = product.productName ?? null;
   const defaultCostCents = product.defaultCostCents;
   const defaultSalePriceCents = product.defaultSalePriceCents;
 
-  const salesRows = await db.salesEntry.findMany({
-    where: { businessId, sku },
-    select: { id: true, qty: true },
-  });
-  const calculateSales = await loadSalesDerivedCalculator(businessId);
+  const salesRows = await sales.listForSkuSync(sku);
+  const calculateSales = await loadAuditedDetailedAppLogicRowPipeline(
+    context,
+    "sales",
+    "INTERACTIVE"
+  );
 
   for (const row of salesRows) {
-    const derived = calculateSales({
+    const execution = calculateSales.run({
       qty: row.qty,
       salePriceCents: defaultSalePriceCents,
       costCents: defaultCostCents,
+    }, row.id);
+    const derived = execution.scope;
+    await sales.updateById(row.id, {
+      itemName: productName,
+      qty: Math.round(derived.qty),
+      costCents: defaultCostCents,
+      salePriceCents: defaultSalePriceCents,
+      totalSaleCents: derived.totalSaleCents,
+      profitCents: derived.profitCents,
+      marginPct: derived.marginPct,
     });
-    await db.salesEntry.update({
-      where: { id: row.id },
-      data: {
-        itemName: productName,
-        costCents: defaultCostCents,
-        salePriceCents: defaultSalePriceCents,
-        totalSaleCents: derived.totalSaleCents,
-        profitCents: derived.profitCents,
-        marginPct: derived.marginPct,
+    await executeGovernedAppLogicActions(
+      context,
+      {
+        module: "sales",
+        rowId: row.id,
+        sku,
+        productName,
+        defaultCostCents,
+        defaultSalePriceCents,
       },
-    });
+      execution.actions
+    );
   }
+  await calculateSales.flush();
 
   revalidateSalesPaths(businessSlug);
 }
@@ -103,23 +144,27 @@ export async function updateSalesEntry(
   businessSlug: string,
   data: SalesEntryUpdate
 ) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const sales = createSalesRepository(businessContext);
 
-  const existing = await db.salesEntry.findFirst({
-    where: { id, businessId },
-  });
+  const existing = await sales.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
 
   const qty = data.qty ?? existing.qty;
   const salePriceCents = data.salePriceCents ?? existing.salePriceCents;
   const costCents = data.costCents ?? existing.costCents;
-  const derived = await calculateSalesDerived(
-    businessId,
-    qty,
-    salePriceCents,
-    costCents
+  const logicResult = await runAppLogicSafely(() =>
+    runDetailedAppLogicRowPipeline(
+      businessContext,
+      "sales",
+      "INTERACTIVE",
+      { qty, salePriceCents, costCents },
+      { sourceRowId: id }
+    )
   );
+  if (!logicResult.ok) return logicResult;
+  const execution = logicResult.value;
+  const derived = execution.scope;
 
   const dateValue =
     data.date !== undefined
@@ -128,39 +173,49 @@ export async function updateSalesEntry(
         : new Date(data.date)
       : undefined;
 
-  await db.salesEntry.update({
-    where: { id },
-    data: {
-      ...(dateValue !== undefined && { date: dateValue }),
-      ...(data.sku !== undefined && { sku: data.sku }),
-      ...(data.itemName !== undefined && { itemName: data.itemName }),
-      ...(data.qty !== undefined && { qty: data.qty }),
-      ...(data.salePriceCents !== undefined && {
-        salePriceCents: data.salePriceCents,
-      }),
-      ...(data.paymentMethod !== undefined && {
-        paymentMethod: data.paymentMethod,
-      }),
-      ...(data.cardLast4 !== undefined && { cardLast4: data.cardLast4 }),
-      ...(data.channel !== undefined && { channel: data.channel }),
-      ...(data.costCents !== undefined && { costCents: data.costCents }),
-      ...(data.notes !== undefined && { notes: data.notes }),
-      totalSaleCents: derived.totalSaleCents,
-      profitCents: derived.profitCents,
-      marginPct: derived.marginPct,
-    },
+  const updated = await sales.updateById(id, {
+    ...(dateValue !== undefined && { date: dateValue }),
+    ...(data.sku !== undefined && { sku: data.sku }),
+    ...(data.itemName !== undefined && { itemName: data.itemName }),
+    qty: Math.round(derived.qty),
+    ...(data.salePriceCents !== undefined && {
+      salePriceCents: data.salePriceCents,
+    }),
+    ...(data.paymentMethod !== undefined && {
+      paymentMethod: data.paymentMethod,
+    }),
+    ...(data.cardLast4 !== undefined && { cardLast4: data.cardLast4 }),
+    ...(data.channel !== undefined && { channel: data.channel }),
+    ...(data.costCents !== undefined && { costCents: data.costCents }),
+    ...(data.notes !== undefined && { notes: data.notes }),
+    totalSaleCents: derived.totalSaleCents,
+    profitCents: derived.profitCents,
+    marginPct: derived.marginPct,
   });
+  if (!updated) return { ok: false, error: "Not found" };
 
   const skuAfter = data.sku ?? existing.sku;
   const itemNameAfter = data.itemName ?? existing.itemName;
   const costCentsAfter = data.costCents ?? existing.costCents;
   const salePriceCentsAfter = data.salePriceCents ?? existing.salePriceCents;
-  await upsertProductFromRow(businessId, skuAfter, {
+  await executeGovernedAppLogicActions(
+    businessContext,
+    {
+      module: "sales",
+      rowId: id,
+      sku: skuAfter,
+      productName: itemNameAfter,
+      defaultCostCents: costCentsAfter,
+      defaultSalePriceCents: salePriceCentsAfter,
+    },
+    execution.actions
+  );
+  await upsertProductFromRow(businessContext, skuAfter, {
     productName: itemNameAfter,
     defaultCostCents: costCentsAfter,
     defaultSalePriceCents: salePriceCentsAfter,
   });
-  await syncProductToSales(businessId, skuAfter, businessSlug);
+  await syncProductToSales(businessContext, skuAfter, businessSlug);
 
   revalidateSalesPaths(businessSlug);
   return { ok: true };
@@ -221,8 +276,8 @@ function revalidateTransplantPaths(businessSlug: string) {
 }
 
 export async function createSalesEntry(businessSlug: string, formData: FormData) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const sales = createSalesRepository(businessContext);
 
   const sku = formStr(formData, "sku");
   if (!sku) return { ok: false, error: "SKU is required" };
@@ -230,93 +285,102 @@ export async function createSalesEntry(businessSlug: string, formData: FormData)
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const salePriceCents = formCents(formData, "salePrice");
   const costCents = formCents(formData, "cost");
-  const derived = await calculateSalesDerived(
-    businessId,
-    qty,
-    salePriceCents,
-    costCents
+  const logicResult = await runAppLogicSafely(() =>
+    runDetailedAppLogicRowPipeline(
+      businessContext,
+      "sales",
+      "INTERACTIVE",
+      { qty, salePriceCents, costCents }
+    )
   );
+  if (!logicResult.ok) return logicResult;
+  const execution = logicResult.value;
+  const derived = execution.scope;
+  const itemName = formStr(formData, "itemName") || null;
 
-  const entry = await db.salesEntry.create({
-    data: {
-      businessId,
-      date: formDate(formData, "date"),
-      sku,
-      itemName: formStr(formData, "itemName") || null,
-      qty,
-      salePriceCents,
-      costCents,
-      totalSaleCents: derived.totalSaleCents,
-      profitCents: derived.profitCents,
-      marginPct: derived.marginPct,
-      channel: formStr(formData, "channel") || null,
-      paymentMethod: formStr(formData, "paymentMethod") || null,
-      cardLast4: formStr(formData, "cardLast4") || null,
-      notes: formStr(formData, "notes") || null,
-    },
+  const entry = await sales.create({
+    date: formDate(formData, "date"),
+    sku,
+    itemName,
+    qty: Math.round(derived.qty),
+    salePriceCents,
+    costCents,
+    totalSaleCents: derived.totalSaleCents,
+    profitCents: derived.profitCents,
+    marginPct: derived.marginPct,
+    channel: formStr(formData, "channel") || null,
+    paymentMethod: formStr(formData, "paymentMethod") || null,
+    cardLast4: formStr(formData, "cardLast4") || null,
+    notes: formStr(formData, "notes") || null,
   });
 
-  await upsertProductFromRow(businessId, sku, {
-    productName: formStr(formData, "itemName") || null,
+  await executeGovernedAppLogicActions(
+    businessContext,
+    {
+      module: "sales",
+      rowId: entry.id,
+      sku,
+      productName: itemName,
+      defaultCostCents: costCents,
+      defaultSalePriceCents: salePriceCents,
+    },
+    execution.actions
+  );
+
+  await upsertProductFromRow(businessContext, sku, {
+    productName: itemName,
     defaultCostCents: costCents,
     defaultSalePriceCents: salePriceCents,
   });
-  await syncProductToSales(businessId, sku, businessSlug);
+  await syncProductToSales(businessContext, sku, businessSlug);
 
   revalidatePath(`/app/${businessSlug}/sales`);
   return { ok: true, id: entry.id };
 }
 
 export async function createPlantIntake(businessSlug: string, formData: FormData) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
 
   const source = formStr(formData, "source");
   const genus = formStr(formData, "genus");
   const cultivar = formStr(formData, "cultivar");
   if (!genus) return { ok: false, error: "Plant name is required" };
 
-  let createdReference = false;
   try {
-    await db.$transaction(async (tx) => {
-      const generated = await generateSku(tx, businessId, {
+    await withTenantRlsTransaction(businessContext, async (tx) => {
+      const plantIntakes = createPlantIntakeRepository(businessContext, tx);
+      const products = createProductRepository(businessContext, tx);
+      const generated = await generateSku(tx, businessContext, {
         plantName: genus,
         categoryName: source || null,
         varietyName: cultivar || null,
         suffix: formStr(formData, "locationCode") || null,
       });
-      createdReference = generated.createdReference;
       const costCents = formCents(formData, "cost");
       const msrpCents = formCents(formData, "msrp");
 
-      await tx.product.create({
-        data: {
-          businessId,
-          sku: generated.sku,
-          productName: [genus, cultivar].filter(Boolean).join(" ") || genus,
-          defaultCostCents: costCents,
-          defaultSalePriceCents: msrpCents,
-        },
+      await products.create({
+        sku: generated.sku,
+        productName: [genus, cultivar].filter(Boolean).join(" ") || genus,
+        defaultCostCents: costCents,
+        defaultSalePriceCents: msrpCents,
       });
 
-      await tx.plantIntake.create({
-        data: {
-          businessId,
-          date: formDate(formData, "date"),
-          source,
-          genus,
-          cultivar,
-          sku: generated.sku,
-          locationCode: formStr(formData, "locationCode") || null,
-          qty: Math.max(1, Math.floor(Number(formData.get("qty")) || 1)),
-          costCents,
-          msrpCents,
-          potType: formStr(formData, "potType") || null,
-          paymentMethod: formStr(formData, "paymentMethod") || null,
-          cardLast4: formStr(formData, "cardLast4") || null,
-          location: formStr(formData, "location") || null,
-          status: formStr(formData, "status") || null,
-        },
+      await plantIntakes.create({
+        date: formDate(formData, "date"),
+        source,
+        genus,
+        cultivar,
+        sku: generated.sku,
+        locationCode: formStr(formData, "locationCode") || null,
+        qty: Math.max(1, Math.floor(Number(formData.get("qty")) || 1)),
+        costCents,
+        msrpCents,
+        potType: formStr(formData, "potType") || null,
+        paymentMethod: formStr(formData, "paymentMethod") || null,
+        cardLast4: formStr(formData, "cardLast4") || null,
+        location: formStr(formData, "location") || null,
+        status: formStr(formData, "status") || null,
       });
     });
   } catch (error) {
@@ -327,15 +391,11 @@ export async function createPlantIntake(businessSlug: string, formData: FormData
   }
 
   revalidatePlantIntakePaths(businessSlug);
-  if (createdReference) {
-    revalidatePath(`/app/${businessSlug}/settings/lookups`);
-  }
   return { ok: true };
 }
 
 export async function createProductIntake(businessSlug: string, formData: FormData) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
 
   const source = formStr(formData, "source");
   const category = formStr(formData, "category");
@@ -345,55 +405,68 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const totalCostCents = formCents(formData, "totalCost");
   const msrpCents = formCents(formData, "msrp");
-  const { unitCostCents } = await calculateProductIntakeDerived(
-    businessId,
-    totalCostCents,
-    qty
+  const logicResult = await runAppLogicSafely(() =>
+    runDetailedAppLogicRowPipeline(
+      businessContext,
+      "productIntake",
+      "INTERACTIVE",
+      { totalCostCents, qty }
+    )
   );
+  if (!logicResult.ok) return logicResult;
+  const productExecution = logicResult.value;
+  const productLogic = productExecution.scope;
+  const unitCostCents = Math.round(productLogic.unitCostCents);
 
-  let createdReference = false;
   try {
-    await db.$transaction(async (tx) => {
+    await withTenantRlsTransaction(businessContext, async (tx) => {
+      const products = createProductRepository(businessContext, tx);
+      const productIntakes = createProductIntakeRepository(businessContext, tx);
       const size = formStr(formData, "size");
       const style = formStr(formData, "style");
-      const generated = await generateSku(tx, businessId, {
+      const generated = await generateSku(tx, businessContext, {
         plantName: source,
         categoryName: category,
         varietyName: [size, style].filter(Boolean).join(" ") || null,
         suffix: formStr(formData, "purchaseNumber") || null,
       });
-      createdReference = generated.createdReference;
+      await products.create({
+        sku: generated.sku,
+        productName: category,
+        defaultCostCents: unitCostCents,
+        defaultSalePriceCents: msrpCents,
+      });
 
-      await tx.product.create({
-        data: {
-          businessId,
+      const intake = await productIntakes.create({
+        date: formDate(formData, "date"),
+        sku: generated.sku,
+        vendor: formStr(formData, "vendor") || null,
+        source,
+        category,
+        size: size || null,
+        style: style || null,
+        purchaseNumber: formStr(formData, "purchaseNumber") || null,
+        qty,
+        totalCostCents,
+        unitCostCents,
+        paymentMethod: formStr(formData, "paymentMethod") || null,
+        cardLast4: formStr(formData, "cardLast4") || null,
+        invoiceNumber: formStr(formData, "invoiceNumber") || null,
+        notes: formStr(formData, "notes") || null,
+      });
+      await executeGovernedAppLogicActions(
+        businessContext,
+        {
+          module: "productIntake",
+          rowId: intake.id,
           sku: generated.sku,
           productName: category,
           defaultCostCents: unitCostCents,
           defaultSalePriceCents: msrpCents,
         },
-      });
-
-      await tx.productIntake.create({
-        data: {
-          businessId,
-          date: formDate(formData, "date"),
-          sku: generated.sku,
-          vendor: formStr(formData, "vendor") || null,
-          source,
-          category,
-          size: size || null,
-          style: style || null,
-          purchaseNumber: formStr(formData, "purchaseNumber") || null,
-          qty,
-          totalCostCents,
-          unitCostCents,
-          paymentMethod: formStr(formData, "paymentMethod") || null,
-          cardLast4: formStr(formData, "cardLast4") || null,
-          invoiceNumber: formStr(formData, "invoiceNumber") || null,
-          notes: formStr(formData, "notes") || null,
-        },
-      });
+        productExecution.actions,
+        tx
+      );
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
@@ -403,47 +476,46 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
   }
 
   revalidateProductIntakePaths(businessSlug);
-  if (createdReference) {
-    revalidatePath(`/app/${businessSlug}/settings/lookups`);
-  }
   return { ok: true };
 }
 
 export async function createOverheadExpense(businessSlug: string, formData: FormData) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const overheadExpenses = createOverheadExpenseRepository(businessContext);
 
   const subTotalCents = formCents(formData, "subTotal");
   const shippingCents = formCents(formData, "shipping");
   const discountCents = formCents(formData, "discount");
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
-  const { unitCostCents, totalCents } = await calculateOverheadDerived(
-    businessId,
+  const logicResult = await runAppLogicSafely(() =>
+    runAppLogicRowPipeline(
+      businessContext,
+      "overheadExpenses",
+      "INTERACTIVE",
+      { subTotalCents, shippingCents, discountCents, qty }
+    )
+  );
+  if (!logicResult.ok) return logicResult;
+  const overheadLogic = logicResult.value;
+  const unitCostCents = Math.round(overheadLogic.unitCostCents);
+  const totalCents = Math.round(overheadLogic.totalCents);
+
+  await overheadExpenses.create({
+    date: formDate(formData, "date"),
+    vendor: formStr(formData, "vendor") || null,
+    brand: formStr(formData, "brand") || null,
+    category: formStr(formData, "category") || null,
+    description: formStr(formData, "description") || null,
+    qty,
     subTotalCents,
     shippingCents,
     discountCents,
-    qty
-  );
-
-  await db.overheadExpense.create({
-    data: {
-      businessId,
-      date: formDate(formData, "date"),
-      vendor: formStr(formData, "vendor") || null,
-      brand: formStr(formData, "brand") || null,
-      category: formStr(formData, "category") || null,
-      description: formStr(formData, "description") || null,
-      qty,
-      subTotalCents,
-      shippingCents,
-      discountCents,
-      unitCostCents,
-      totalCents,
-      paymentMethod: formStr(formData, "paymentMethod") || null,
-      cardLast4: formStr(formData, "cardLast4") || null,
-      invoiceNumber: formStr(formData, "invoiceNumber") || null,
-      notes: formStr(formData, "notes") || null,
-    },
+    unitCostCents,
+    totalCents,
+    paymentMethod: formStr(formData, "paymentMethod") || null,
+    cardLast4: formStr(formData, "cardLast4") || null,
+    invoiceNumber: formStr(formData, "invoiceNumber") || null,
+    notes: formStr(formData, "notes") || null,
   });
 
   revalidatePath(`/app/${businessSlug}/overhead-expenses`);
@@ -451,17 +523,14 @@ export async function createOverheadExpense(businessSlug: string, formData: Form
 }
 
 export async function createTransplantLog(businessSlug: string, formData: FormData) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const plantIntakes = createPlantIntakeRepository(businessContext);
+  const transplants = createTransplantLogRepository(businessContext);
 
   const originalSku = formStr(formData, "originalSku") || null;
   const action = formStr(formData, "action") || null;
   const latestForOriginalSku = originalSku
-    ? await db.transplantLog.findFirst({
-        where: { businessId, originalSku },
-        select: { fromPot: true, costCents: true },
-        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      })
+    ? await transplants.findLatestForOriginalSku(originalSku)
     : null;
   const fromPot = latestForOriginalSku?.fromPot ?? (formStr(formData, "fromPot") || null);
   let costCents = latestForOriginalSku?.costCents ?? formCents(formData, "cost");
@@ -473,38 +542,29 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
     action.toLowerCase().includes("division")
   ) {
     const [originalPlant, existingDivisions] = await Promise.all([
-      db.plantIntake.findFirst({
-        where: { businessId, sku: originalSku },
-        select: { costCents: true },
-        orderBy: { createdAt: "desc" },
-      }),
-      db.transplantLog.count({
-        where: { businessId, originalSku, action: { contains: "ivision" } },
-      }),
+      plantIntakes.findLatestBySku(originalSku),
+      transplants.countDivisionActions(originalSku),
     ]);
     if (originalPlant && originalPlant.costCents > 0) {
       const totalParts = existingDivisions + 2;
       costCents = (
-        await calculateDivisionCost(businessId, originalPlant.costCents, totalParts)
+        await calculateDivisionCost(businessContext, originalPlant.costCents, totalParts)
       ).costCents;
     }
   }
 
-  await db.transplantLog.create({
-    data: {
-      businessId,
-      date: formDate(formData, "date"),
-      originalSku,
-      action,
-      media: formStr(formData, "media") || null,
-      fromPot,
-      toPot: formStr(formData, "toPot") || null,
-      idCode: formStr(formData, "idCode") || null,
-      divisionSku: formStr(formData, "divisionSku") || null,
-      costCents,
-      potColor: formStr(formData, "potColor") || null,
-      notes: formStr(formData, "notes") || null,
-    },
+  await transplants.create({
+    date: formDate(formData, "date"),
+    originalSku,
+    action,
+    media: formStr(formData, "media") || null,
+    fromPot,
+    toPot: formStr(formData, "toPot") || null,
+    idCode: formStr(formData, "idCode") || null,
+    divisionSku: formStr(formData, "divisionSku") || null,
+    costCents,
+    potColor: formStr(formData, "potColor") || null,
+    notes: formStr(formData, "notes") || null,
   });
 
   revalidateTransplantPaths(businessSlug);
@@ -512,28 +572,25 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
 }
 
 export async function createTreatmentTracking(businessSlug: string, formData: FormData) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const treatments = createTreatmentTrackingRepository(businessContext);
 
   const sku = formStr(formData, "sku");
   if (!sku) return { ok: false, error: "SKU is required" };
 
-  await db.treatmentTracking.create({
-    data: {
-      businessId,
-      date: formDate(formData, "date"),
-      sku,
-      target: formStr(formData, "target") || null,
-      product: formStr(formData, "product") || null,
-      activeIngredient: formStr(formData, "activeIngredient") || null,
-      epaNumber: formStr(formData, "epaNumber") || null,
-      rate: formStr(formData, "rate") || null,
-      potSize: formStr(formData, "potSize") || null,
-      method: formStr(formData, "method") || null,
-      initials: formStr(formData, "initials") || null,
-      nextEarliest: formDate(formData, "nextEarliest"),
-      nextLatest: formDate(formData, "nextLatest"),
-    },
+  await treatments.create({
+    date: formDate(formData, "date"),
+    sku,
+    target: formStr(formData, "target") || null,
+    product: formStr(formData, "product") || null,
+    activeIngredient: formStr(formData, "activeIngredient") || null,
+    epaNumber: formStr(formData, "epaNumber") || null,
+    rate: formStr(formData, "rate") || null,
+    potSize: formStr(formData, "potSize") || null,
+    method: formStr(formData, "method") || null,
+    initials: formStr(formData, "initials") || null,
+    nextEarliest: formDate(formData, "nextEarliest"),
+    nextLatest: formDate(formData, "nextLatest"),
   });
 
   revalidatePath(`/app/${businessSlug}/treatment-tracking`);
@@ -541,8 +598,8 @@ export async function createTreatmentTracking(businessSlug: string, formData: Fo
 }
 
 export async function createFertilizerLog(businessSlug: string, formData: FormData) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const fertilizerLogs = createFertilizerLogRepository(businessContext);
 
   const date = formDate(formData, "date");
   const product = formStr(formData, "product") || null;
@@ -558,20 +615,17 @@ export async function createFertilizerLog(businessSlug: string, formData: FormDa
     }
   }
 
-  await db.fertilizerLog.create({
-    data: {
-      businessId,
-      date,
-      plantSku: formStr(formData, "plantSku") || null,
-      potSku: formStr(formData, "potSku") || null,
-      product,
-      method: formStr(formData, "method") || null,
-      rate: formStr(formData, "rate") || null,
-      unit: formStr(formData, "unit") || null,
-      nextEarliest,
-      nextLatest,
-      notes: formStr(formData, "notes") || null,
-    },
+  await fertilizerLogs.create({
+    date,
+    plantSku: formStr(formData, "plantSku") || null,
+    potSku: formStr(formData, "potSku") || null,
+    product,
+    method: formStr(formData, "method") || null,
+    rate: formStr(formData, "rate") || null,
+    unit: formStr(formData, "unit") || null,
+    nextEarliest,
+    nextLatest,
+    notes: formStr(formData, "notes") || null,
   });
 
   revalidatePath(`/app/${businessSlug}/fertilizer-log`);
@@ -599,9 +653,9 @@ export async function updatePlantIntake(
   businessSlug: string,
   data: PlantIntakeUpdate
 ) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.plantIntake.findFirst({ where: { id, businessId } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const plantIntakes = createPlantIntakeRepository(businessContext);
+  const existing = await plantIntakes.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
 
   const dateValue =
@@ -616,14 +670,13 @@ export async function updatePlantIntake(
     data.genus !== undefined ||
     data.cultivar !== undefined ||
     data.locationCode !== undefined;
-  let referenceCreated = false;
   let productUpsert: {
     sku: string;
     productName: string;
     defaultCostCents: number;
     defaultSalePriceCents: number;
   } | null = null;
-  const updateData: Record<string, string | number | Date | null> = {};
+  const updateData: TenantPlantIntakeUpdateInput = {};
   if (dateValue !== undefined) updateData.date = dateValue;
   if (skuLookupChanged) {
     const nextSource = data.source ?? existing.source;
@@ -633,15 +686,14 @@ export async function updatePlantIntake(
       data.locationCode !== undefined ? data.locationCode : existing.locationCode;
 
     if (nextGenus) {
-      const generated = await db.$transaction((tx) =>
-        generateSku(tx, businessId, {
+      const generated = await withTenantRlsTransaction(businessContext, (tx) =>
+        generateSku(tx, businessContext, {
           plantName: nextGenus,
           categoryName: nextSource || null,
           varietyName: nextCultivar || null,
           suffix: nextLocationCode || null,
         })
       );
-      referenceCreated = generated.createdReference;
       updateData.source = nextSource;
       updateData.genus = nextGenus;
       updateData.cultivar = nextCultivar;
@@ -670,26 +722,33 @@ export async function updatePlantIntake(
   if (data.status !== undefined) updateData.status = data.status;
 
   if (productUpsert) {
-    await db.$transaction(async (tx) => {
-      await tx.product.upsert({
-        where: { businessId_sku: { businessId, sku: productUpsert.sku } },
-        create: { businessId, ...productUpsert },
-        update: {
+    await withTenantRlsTransaction(businessContext, async (tx) => {
+      const transactionalIntakes = createPlantIntakeRepository(
+        businessContext,
+        tx
+      );
+      const products = createProductRepository(businessContext, tx);
+      await products.upsertBySku(
+        productUpsert.sku,
+        {
           productName: productUpsert.productName,
           defaultCostCents: productUpsert.defaultCostCents,
           defaultSalePriceCents: productUpsert.defaultSalePriceCents,
         },
-      });
-      await tx.plantIntake.update({ where: { id }, data: updateData });
+        {
+          productName: productUpsert.productName,
+          defaultCostCents: productUpsert.defaultCostCents,
+          defaultSalePriceCents: productUpsert.defaultSalePriceCents,
+        }
+      );
+      const updated = await transactionalIntakes.updateById(id, updateData);
+      if (!updated) throw new Error("Plant intake not found");
     });
   } else {
-    await db.plantIntake.update({
-      where: { id },
-      data: updateData,
-    });
+    const updated = await plantIntakes.updateById(id, updateData);
+    if (!updated) return { ok: false, error: "Not found" };
   }
   revalidatePath(`/app/${businessSlug}/plant-intake`);
-  if (referenceCreated) revalidatePath(`/app/${businessSlug}/settings/lookups`);
   return { ok: true };
 }
 
@@ -715,18 +774,26 @@ export async function updateProductIntake(
   businessSlug: string,
   data: ProductIntakeUpdate
 ) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.productIntake.findFirst({ where: { id, businessId } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const productIntakes = createProductIntakeRepository(businessContext);
+  const existing = await productIntakes.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
 
   const qty = data.qty ?? existing.qty;
   const totalCents = data.totalCostCents ?? existing.totalCostCents;
-  const { unitCostCents } = await calculateProductIntakeDerived(
-    businessId,
-    totalCents,
-    qty
+  const logicResult = await runAppLogicSafely(() =>
+    runDetailedAppLogicRowPipeline(
+      businessContext,
+      "productIntake",
+      "INTERACTIVE",
+      { totalCostCents: totalCents, qty },
+      { sourceRowId: id }
+    )
   );
+  if (!logicResult.ok) return logicResult;
+  const productExecution = logicResult.value;
+  const productLogic = productExecution.scope;
+  const unitCostCents = Math.round(productLogic.unitCostCents);
 
   const dateValue =
     data.date !== undefined
@@ -741,14 +808,13 @@ export async function updateProductIntake(
     data.size !== undefined ||
     data.style !== undefined ||
     data.purchaseNumber !== undefined;
-  let referenceCreated = false;
   let productUpsert: {
     sku: string;
     productName: string;
     defaultCostCents: number;
     defaultSalePriceCents: number;
   } | null = null;
-  const updateData: Record<string, string | number | Date | null> = {
+  const updateData: TenantProductIntakeUpdateInput = {
     unitCostCents,
   };
   if (dateValue !== undefined) updateData.date = dateValue;
@@ -764,15 +830,14 @@ export async function updateProductIntake(
         : existing.purchaseNumber;
 
     if (nextSource && nextCategory) {
-      const generated = await db.$transaction((tx) =>
-        generateSku(tx, businessId, {
+      const generated = await withTenantRlsTransaction(businessContext, (tx) =>
+        generateSku(tx, businessContext, {
           plantName: nextSource,
           categoryName: nextCategory,
           varietyName: [nextSize, nextStyle].filter(Boolean).join(" ") || null,
           suffix: nextPurchaseNumber || null,
         })
       );
-      referenceCreated = generated.createdReference;
       updateData.source = nextSource;
       updateData.category = nextCategory;
       updateData.size = nextSize;
@@ -804,25 +869,44 @@ export async function updateProductIntake(
   if (data.notes !== undefined) updateData.notes = data.notes;
 
   if (productUpsert) {
-    await db.$transaction(async (tx) => {
-      await tx.product.upsert({
-        where: { businessId_sku: { businessId, sku: productUpsert.sku } },
-        create: { businessId, ...productUpsert },
-        update: {
+    await withTenantRlsTransaction(businessContext, async (tx) => {
+      const products = createProductRepository(businessContext, tx);
+      const transactionalIntakes = createProductIntakeRepository(
+        businessContext,
+        tx
+      );
+      await products.upsertBySku(
+        productUpsert.sku,
+        {
           productName: productUpsert.productName,
           defaultCostCents: productUpsert.defaultCostCents,
+          defaultSalePriceCents: productUpsert.defaultSalePriceCents,
         },
-      });
-      await tx.productIntake.update({ where: { id }, data: updateData });
+        {
+          productName: productUpsert.productName,
+          defaultCostCents: productUpsert.defaultCostCents,
+        }
+      );
+      const updated = await transactionalIntakes.updateById(id, updateData);
+      if (!updated) throw new Error("Product intake not found");
     });
   } else {
-    await db.productIntake.update({
-      where: { id },
-      data: updateData,
-    });
+    const updated = await productIntakes.updateById(id, updateData);
+    if (!updated) return { ok: false, error: "Not found" };
   }
+  await executeGovernedAppLogicActions(
+    businessContext,
+    {
+      module: "productIntake",
+      rowId: id,
+      sku: String(updateData.sku ?? existing.sku),
+      productName:
+        data.category !== undefined ? data.category : existing.category,
+      defaultCostCents: unitCostCents,
+    },
+    productExecution.actions
+  );
   revalidatePath(`/app/${businessSlug}/product-intake`);
-  if (referenceCreated) revalidatePath(`/app/${businessSlug}/settings/lookups`);
   return { ok: true };
 }
 
@@ -845,10 +929,8 @@ export async function updateTransplantLog(
   businessSlug: string,
   data: TransplantLogUpdate
 ) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.transplantLog.findFirst({ where: { id, businessId } });
-  if (!existing) return { ok: false, error: "Not found" };
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const transplants = createTransplantLogRepository(businessContext);
 
   const dateValue =
     data.date !== undefined
@@ -857,22 +939,20 @@ export async function updateTransplantLog(
         : new Date(data.date)
       : undefined;
 
-  await db.transplantLog.update({
-    where: { id },
-    data: {
-      ...(dateValue !== undefined && { date: dateValue }),
-      ...(data.originalSku !== undefined && { originalSku: data.originalSku }),
-      ...(data.action !== undefined && { action: data.action }),
-      ...(data.media !== undefined && { media: data.media }),
-      ...(data.fromPot !== undefined && { fromPot: data.fromPot }),
-      ...(data.toPot !== undefined && { toPot: data.toPot }),
-      ...(data.idCode !== undefined && { idCode: data.idCode }),
-      ...(data.divisionSku !== undefined && { divisionSku: data.divisionSku }),
-      ...(data.costCents !== undefined && { costCents: data.costCents }),
-      ...(data.potColor !== undefined && { potColor: data.potColor }),
-      ...(data.notes !== undefined && { notes: data.notes }),
-    },
+  const updated = await transplants.updateById(id, {
+    ...(dateValue !== undefined && { date: dateValue }),
+    ...(data.originalSku !== undefined && { originalSku: data.originalSku }),
+    ...(data.action !== undefined && { action: data.action }),
+    ...(data.media !== undefined && { media: data.media }),
+    ...(data.fromPot !== undefined && { fromPot: data.fromPot }),
+    ...(data.toPot !== undefined && { toPot: data.toPot }),
+    ...(data.idCode !== undefined && { idCode: data.idCode }),
+    ...(data.divisionSku !== undefined && { divisionSku: data.divisionSku }),
+    ...(data.costCents !== undefined && { costCents: data.costCents }),
+    ...(data.potColor !== undefined && { potColor: data.potColor }),
+    ...(data.notes !== undefined && { notes: data.notes }),
   });
+  if (!updated) return { ok: false, error: "Not found" };
   revalidatePath(`/app/${businessSlug}/transplant-log`);
   return { ok: true };
 }
@@ -897,9 +977,9 @@ export async function updateTreatmentTracking(
   businessSlug: string,
   data: TreatmentTrackingUpdate
 ) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.treatmentTracking.findFirst({ where: { id, businessId } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const treatments = createTreatmentTrackingRepository(businessContext);
+  const existing = await treatments.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
 
   const dateValue =
@@ -922,23 +1002,21 @@ export async function updateTreatmentTracking(
         : new Date(data.nextLatest)
       : undefined;
 
-  await db.treatmentTracking.update({
-    where: { id },
-    data: {
-      ...(dateValue !== undefined && { date: dateValue }),
-      ...(data.sku !== undefined && { sku: data.sku }),
-      ...(data.target !== undefined && { target: data.target }),
-      ...(data.product !== undefined && { product: data.product }),
-      ...(data.activeIngredient !== undefined && { activeIngredient: data.activeIngredient }),
-      ...(data.epaNumber !== undefined && { epaNumber: data.epaNumber }),
-      ...(data.rate !== undefined && { rate: data.rate }),
-      ...(data.potSize !== undefined && { potSize: data.potSize }),
-      ...(data.method !== undefined && { method: data.method }),
-      ...(data.initials !== undefined && { initials: data.initials }),
-      ...(nextEarliestValue !== undefined && { nextEarliest: nextEarliestValue }),
-      ...(nextLatestValue !== undefined && { nextLatest: nextLatestValue }),
-    },
+  const updated = await treatments.updateById(id, {
+    ...(dateValue !== undefined && { date: dateValue }),
+    ...(data.sku !== undefined && { sku: data.sku }),
+    ...(data.target !== undefined && { target: data.target }),
+    ...(data.product !== undefined && { product: data.product }),
+    ...(data.activeIngredient !== undefined && { activeIngredient: data.activeIngredient }),
+    ...(data.epaNumber !== undefined && { epaNumber: data.epaNumber }),
+    ...(data.rate !== undefined && { rate: data.rate }),
+    ...(data.potSize !== undefined && { potSize: data.potSize }),
+    ...(data.method !== undefined && { method: data.method }),
+    ...(data.initials !== undefined && { initials: data.initials }),
+    ...(nextEarliestValue !== undefined && { nextEarliest: nextEarliestValue }),
+    ...(nextLatestValue !== undefined && { nextLatest: nextLatestValue }),
   });
+  if (!updated) return { ok: false, error: "Not found" };
   revalidatePath(`/app/${businessSlug}/treatment-tracking`);
   return { ok: true };
 }
@@ -963,22 +1041,28 @@ export async function updateOverheadExpense(
   businessSlug: string,
   data: OverheadExpenseUpdate
 ) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.overheadExpense.findFirst({ where: { id, businessId } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const overheadExpenses = createOverheadExpenseRepository(businessContext);
+  const existing = await overheadExpenses.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
 
   const subTotalCents = data.subTotalCents ?? existing.subTotalCents;
   const shippingCents = data.shippingCents ?? existing.shippingCents;
   const discountCents = data.discountCents ?? existing.discountCents;
   const qty = data.qty ?? existing.qty;
-  const { unitCostCents, totalCents } = await calculateOverheadDerived(
-    businessId,
-    subTotalCents,
-    shippingCents,
-    discountCents,
-    qty
+  const logicResult = await runAppLogicSafely(() =>
+    runDetailedAppLogicRowPipeline(
+      businessContext,
+      "overheadExpenses",
+      "INTERACTIVE",
+      { subTotalCents, shippingCents, discountCents, qty },
+      { sourceRowId: id }
+    )
   );
+  if (!logicResult.ok) return logicResult;
+  const overheadLogic = logicResult.value.scope;
+  const unitCostCents = Math.round(overheadLogic.unitCostCents);
+  const totalCents = Math.round(overheadLogic.totalCents);
 
   const dateValue =
     data.date !== undefined
@@ -987,25 +1071,23 @@ export async function updateOverheadExpense(
         : new Date(data.date)
       : undefined;
 
-  await db.overheadExpense.update({
-    where: { id },
-    data: {
-      ...(dateValue !== undefined && { date: dateValue }),
-      ...(data.vendor !== undefined && { vendor: data.vendor }),
-      ...(data.brand !== undefined && { brand: data.brand }),
-      ...(data.category !== undefined && { category: data.category }),
-      ...(data.description !== undefined && { description: data.description }),
-      ...(data.qty !== undefined && { qty: data.qty }),
-      ...(data.subTotalCents !== undefined && { subTotalCents: data.subTotalCents }),
-      ...(data.shippingCents !== undefined && { shippingCents: data.shippingCents }),
-      ...(data.discountCents !== undefined && { discountCents: data.discountCents }),
-      totalCents,
-      unitCostCents,
-      ...(data.paymentMethod !== undefined && { paymentMethod: data.paymentMethod }),
-      ...(data.invoiceNumber !== undefined && { invoiceNumber: data.invoiceNumber }),
-      ...(data.notes !== undefined && { notes: data.notes }),
-    },
+  const updated = await overheadExpenses.updateById(id, {
+    ...(dateValue !== undefined && { date: dateValue }),
+    ...(data.vendor !== undefined && { vendor: data.vendor }),
+    ...(data.brand !== undefined && { brand: data.brand }),
+    ...(data.category !== undefined && { category: data.category }),
+    ...(data.description !== undefined && { description: data.description }),
+    ...(data.qty !== undefined && { qty: data.qty }),
+    ...(data.subTotalCents !== undefined && { subTotalCents: data.subTotalCents }),
+    ...(data.shippingCents !== undefined && { shippingCents: data.shippingCents }),
+    ...(data.discountCents !== undefined && { discountCents: data.discountCents }),
+    totalCents,
+    unitCostCents,
+    ...(data.paymentMethod !== undefined && { paymentMethod: data.paymentMethod }),
+    ...(data.invoiceNumber !== undefined && { invoiceNumber: data.invoiceNumber }),
+    ...(data.notes !== undefined && { notes: data.notes }),
   });
+  if (!updated) return { ok: false, error: "Not found" };
   revalidatePath(`/app/${businessSlug}/overhead-expenses`);
   return { ok: true };
 }
@@ -1028,9 +1110,9 @@ export async function updateFertilizerLog(
   businessSlug: string,
   data: FertilizerLogUpdate
 ) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.fertilizerLog.findFirst({ where: { id, businessId } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const fertilizerLogs = createFertilizerLogRepository(businessContext);
+  const existing = await fertilizerLogs.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
 
   const dateValue =
@@ -1052,91 +1134,82 @@ export async function updateFertilizerLog(
         : new Date(data.nextLatest)
       : undefined;
 
-  await db.fertilizerLog.update({
-    where: { id },
-    data: {
-      ...(dateValue !== undefined && { date: dateValue }),
-      ...(data.plantSku !== undefined && { plantSku: data.plantSku }),
-      ...(data.potSku !== undefined && { potSku: data.potSku }),
-      ...(data.product !== undefined && { product: data.product }),
-      ...(data.method !== undefined && { method: data.method }),
-      ...(data.rate !== undefined && { rate: data.rate }),
-      ...(data.unit !== undefined && { unit: data.unit }),
-      ...(nextEarliestValue !== undefined && { nextEarliest: nextEarliestValue }),
-      ...(nextLatestValue !== undefined && { nextLatest: nextLatestValue }),
-      ...(data.notes !== undefined && { notes: data.notes }),
-    },
+  const updated = await fertilizerLogs.updateById(id, {
+    ...(dateValue !== undefined && { date: dateValue }),
+    ...(data.plantSku !== undefined && { plantSku: data.plantSku }),
+    ...(data.potSku !== undefined && { potSku: data.potSku }),
+    ...(data.product !== undefined && { product: data.product }),
+    ...(data.method !== undefined && { method: data.method }),
+    ...(data.rate !== undefined && { rate: data.rate }),
+    ...(data.unit !== undefined && { unit: data.unit }),
+    ...(nextEarliestValue !== undefined && { nextEarliest: nextEarliestValue }),
+    ...(nextLatestValue !== undefined && { nextLatest: nextLatestValue }),
+    ...(data.notes !== undefined && { notes: data.notes }),
   });
+  if (!updated) return { ok: false, error: "Not found" };
   revalidatePath(`/app/${businessSlug}/fertilizer-log`);
   return { ok: true };
 }
 
 export async function deleteSalesEntry(id: string, businessSlug: string) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.salesEntry.findFirst({ where: { id, businessId } });
-  if (!existing) return { ok: false, error: "Not found" };
-  await db.salesEntry.delete({ where: { id } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const sales = createSalesRepository(businessContext);
+  const deleted = await sales.deleteById(id);
+  if (!deleted) return { ok: false, error: "Not found" };
   revalidateSalesPaths(businessSlug);
   return { ok: true };
 }
 
 export async function deletePlantIntake(id: string, businessSlug: string) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.plantIntake.findFirst({ where: { id, businessId } });
-  if (!existing) return { ok: false, error: "Not found" };
-  await db.plantIntake.delete({ where: { id } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const plantIntakes = createPlantIntakeRepository(businessContext);
+  const deleted = await plantIntakes.deleteById(id);
+  if (!deleted) return { ok: false, error: "Not found" };
   revalidatePlantIntakePaths(businessSlug);
   return { ok: true };
 }
 
 export async function deleteProductIntake(id: string, businessSlug: string) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.productIntake.findFirst({ where: { id, businessId } });
-  if (!existing) return { ok: false, error: "Not found" };
-  await db.productIntake.delete({ where: { id } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const productIntakes = createProductIntakeRepository(businessContext);
+  const deleted = await productIntakes.deleteById(id);
+  if (!deleted) return { ok: false, error: "Not found" };
   revalidateProductIntakePaths(businessSlug);
   return { ok: true };
 }
 
 export async function deleteOverheadExpense(id: string, businessSlug: string) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.overheadExpense.findFirst({ where: { id, businessId } });
-  if (!existing) return { ok: false, error: "Not found" };
-  await db.overheadExpense.delete({ where: { id } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const overheadExpenses = createOverheadExpenseRepository(businessContext);
+  const deleted = await overheadExpenses.deleteById(id);
+  if (!deleted) return { ok: false, error: "Not found" };
   revalidatePath(`/app/${businessSlug}/overhead-expenses`);
   return { ok: true };
 }
 
 export async function deleteTransplantLog(id: string, businessSlug: string) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.transplantLog.findFirst({ where: { id, businessId } });
-  if (!existing) return { ok: false, error: "Not found" };
-  await db.transplantLog.delete({ where: { id } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const transplants = createTransplantLogRepository(businessContext);
+  const deleted = await transplants.deleteById(id);
+  if (!deleted) return { ok: false, error: "Not found" };
   revalidateTransplantPaths(businessSlug);
   return { ok: true };
 }
 
 export async function deleteFertilizerLog(id: string, businessSlug: string) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.fertilizerLog.findFirst({ where: { id, businessId } });
-  if (!existing) return { ok: false, error: "Not found" };
-  await db.fertilizerLog.delete({ where: { id } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const fertilizerLogs = createFertilizerLogRepository(businessContext);
+  const deleted = await fertilizerLogs.deleteById(id);
+  if (!deleted) return { ok: false, error: "Not found" };
   revalidatePath(`/app/${businessSlug}/fertilizer-log`);
   return { ok: true };
 }
 
 export async function deleteTreatmentTracking(id: string, businessSlug: string) {
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
-  const existing = await db.treatmentTracking.findFirst({ where: { id, businessId } });
-  if (!existing) return { ok: false, error: "Not found" };
-  await db.treatmentTracking.delete({ where: { id } });
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const treatments = createTreatmentTrackingRepository(businessContext);
+  const deleted = await treatments.deleteById(id);
+  if (!deleted) return { ok: false, error: "Not found" };
   revalidatePath(`/app/${businessSlug}/treatment-tracking`);
   return { ok: true };
 }

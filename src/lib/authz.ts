@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
+import { createBusinessContext } from "@/lib/business-context";
 import type { Role } from "@prisma/client";
 
 async function requireUserId() {
@@ -41,7 +43,22 @@ export async function requireActiveMembership() {
     });
   }
 
-  return { userId, profile: profile!, membership, business: membership.business };
+  const businessContext = createBusinessContext({
+    requestId: randomUUID(),
+    userId,
+    membershipId: membership.id,
+    businessId: membership.businessId,
+    businessSlug: membership.business.slug,
+    role: membership.role,
+  });
+
+  return {
+    userId,
+    profile: profile!,
+    membership,
+    business: membership.business,
+    businessContext,
+  };
 }
 
 export async function requireBusinessMembership(businessSlug: string) {
@@ -66,7 +83,22 @@ export async function requireBusinessMembership(businessSlug: string) {
     });
   }
 
-  return { userId, profile: profile!, membership, business: membership.business };
+  const businessContext = createBusinessContext({
+    requestId: randomUUID(),
+    userId,
+    membershipId: membership.id,
+    businessId: membership.businessId,
+    businessSlug: membership.business.slug,
+    role: membership.role,
+  });
+
+  return {
+    userId,
+    profile: profile!,
+    membership,
+    business: membership.business,
+    businessContext,
+  };
 }
 
 export async function requireRole(allowedRoles: Role[]) {

@@ -1,5 +1,5 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
+import { createTransplantLogRepository } from "@/lib/repositories/transplant-log";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import TransplantLogClient from "./TransplantLogClient";
@@ -12,8 +12,8 @@ export default async function TransplantLogPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const transplants = createTransplantLogRepository(businessContext);
   const sp = (await searchParams) ?? {};
 
   const fromRaw = typeof sp.from === "string" ? sp.from : "";
@@ -47,17 +47,26 @@ export default async function TransplantLogPage({
 
   const [lookups, rows] = await Promise.all([
     getLookupEntriesMulti(businessSlug, ["transplantAction", "transplantMedia", "potSize", "potColor"]),
-    db.transplantLog.findMany({
-    where: {
-      businessId,
+    transplants.list({
       ...(searchFilter ? searchFilter : {}),
       ...(dateFilter ? { date: dateFilter } : {}),
-      ...(originalSkuRaw ? { originalSku: { contains: originalSkuRaw, mode: "insensitive" as const } } : {}),
-      ...(actionRaw ? { action: { contains: actionRaw, mode: "insensitive" as const } } : {}),
-      ...(fromPotRaw ? { fromPot: { contains: fromPotRaw, mode: "insensitive" as const } } : {}),
-      ...(toPotRaw ? { toPot: { contains: toPotRaw, mode: "insensitive" as const } } : {}),
-    },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      ...(originalSkuRaw
+        ? {
+            originalSku: {
+              contains: originalSkuRaw,
+              mode: "insensitive" as const,
+            },
+          }
+        : {}),
+      ...(actionRaw
+        ? { action: { contains: actionRaw, mode: "insensitive" as const } }
+        : {}),
+      ...(fromPotRaw
+        ? { fromPot: { contains: fromPotRaw, mode: "insensitive" as const } }
+        : {}),
+      ...(toPotRaw
+        ? { toPot: { contains: toPotRaw, mode: "insensitive" as const } }
+        : {}),
     }),
   ]);
   const sortedRows = sortByDateDescNullsLast(rows);

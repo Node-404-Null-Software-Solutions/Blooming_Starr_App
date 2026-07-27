@@ -14,7 +14,10 @@
     "start:standalone": "node .next/standalone/server.js",
     "check": "npm run lint && npm run build",
     "lint": "eslint",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:app-logic": "node --test tests/app-logic-*.test.mjs",
+    "test:isolation": "node --test tests/architecture-boundaries.test.mjs tests/authz-isolation.test.mjs tests/cross-business-isolation.test.mjs tests/isolation-verifier-contract.test.mjs tests/tenant-rls.test.mjs tests/tenant-rls-migration.test.mjs",
+    "test:isolation:db": "node scripts/verify-tenant-isolation.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.2",

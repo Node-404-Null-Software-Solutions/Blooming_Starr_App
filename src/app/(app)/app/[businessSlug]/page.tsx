@@ -25,7 +25,8 @@ export default async function BusinessDashboardPage({
   searchParams?: SearchParams;
 }) {
   const { businessSlug } = await params;
-  const { business: authorizedBusiness } = await requireBusinessMembership(businessSlug);
+  const { business: authorizedBusiness, businessContext } =
+    await requireBusinessMembership(businessSlug);
   const businessId = authorizedBusiness.id;
 
   const sp = (await searchParams) ?? {};
@@ -36,7 +37,7 @@ export default async function BusinessDashboardPage({
       where: { id: businessId },
       select: { name: true },
     }),
-    getTaxSummary(businessId, taxYear),
+    getTaxSummary(businessContext, taxYear),
   ]);
 
   return (

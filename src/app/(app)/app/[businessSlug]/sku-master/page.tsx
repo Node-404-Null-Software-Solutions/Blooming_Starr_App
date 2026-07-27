@@ -1,5 +1,7 @@
 import { requireBusinessMembership } from "@/lib/authz";
-import { db } from "@/lib/db";
+import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
+import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
+import { createTransplantLogRepository } from "@/lib/repositories/transplant-log";
 
 type SkuRow = {
   sku: string;
@@ -12,25 +14,15 @@ export default async function SkuMasterPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const plantIntakes = createPlantIntakeRepository(businessContext);
+  const productIntakes = createProductIntakeRepository(businessContext);
+  const transplants = createTransplantLogRepository(businessContext);
 
   const [plantSkus, productSkus, transplantSkus] = await Promise.all([
-    db.plantIntake.findMany({
-      where: { businessId },
-      select: { sku: true },
-      distinct: ["sku"],
-    }),
-    db.productIntake.findMany({
-      where: { businessId },
-      select: { sku: true },
-      distinct: ["sku"],
-    }),
-    db.transplantLog.findMany({
-      where: { businessId, divisionSku: { not: null } },
-      select: { divisionSku: true },
-      distinct: ["divisionSku"],
-    }),
+    plantIntakes.listDistinctSkus(),
+    productIntakes.listDistinctSkus(),
+    transplants.listDistinctDivisionSkus(),
   ]);
 
   const skuMap = new Map<string, SkuRow["source"]>();

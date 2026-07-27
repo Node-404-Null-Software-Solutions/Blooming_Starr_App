@@ -1,6 +1,6 @@
 import { requireBusinessMembership } from "@/lib/authz";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
-import { db } from "@/lib/db";
+import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import ProductIntakeClient from "./ProductIntakeClient";
 
@@ -25,8 +25,8 @@ export default async function ProductsPage({
   const { businessSlug } = await params;
   const sp = (await searchParams) ?? {};
 
-  const { business } = await requireBusinessMembership(businessSlug);
-  const businessId = business.id;
+  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const productIntakes = createProductIntakeRepository(businessContext);
 
   const fromRaw = typeof sp.from === "string" ? sp.from : "";
   const toRaw = typeof sp.to === "string" ? sp.to : "";
@@ -40,15 +40,17 @@ export default async function ProductsPage({
   const dateFilter =
     validFrom || validTo ? { gte: validFrom ?? undefined, lte: validTo ?? undefined } : undefined;
 
-  const rows = await db.productIntake.findMany({
-    where: {
-      businessId,
-      ...(dateFilter ? { date: dateFilter } : {}),
-      ...(vendorRaw ? { vendor: { contains: vendorRaw, mode: "insensitive" as const } } : {}),
-      ...(categoryRaw ? { category: { contains: categoryRaw, mode: "insensitive" as const } } : {}),
-      ...(skuRaw ? { sku: { contains: skuRaw, mode: "insensitive" as const } } : {}),
-    },
-    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+  const rows = await productIntakes.list({
+    ...(dateFilter ? { date: dateFilter } : {}),
+    ...(vendorRaw
+      ? { vendor: { contains: vendorRaw, mode: "insensitive" as const } }
+      : {}),
+    ...(categoryRaw
+      ? { category: { contains: categoryRaw, mode: "insensitive" as const } }
+      : {}),
+    ...(skuRaw
+      ? { sku: { contains: skuRaw, mode: "insensitive" as const } }
+      : {}),
   });
   const sortedRows = sortByDateDescNullsLast(rows);
 

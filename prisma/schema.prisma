@@ -70,6 +70,7 @@ model Business {
   employees      Employee[]
   schedules      ScheduleEntry[]
   appLogicRules  AppLogicRule[]
+  appLogicExecutionLogs AppLogicExecutionLog[]
   plantSkuReferences PlantSkuReference[]
   logo           BusinessLogo?
 }
@@ -494,4 +495,32 @@ model AppLogicRule {
 
   @@index([businessId, module])
   @@index([businessId, enabled])
+}
+
+model AppLogicExecutionLog {
+  id             String   @id @default(cuid())
+  businessId     String
+  ruleId         String
+  ruleName       String
+  module         String
+  trigger        String
+  mode           String
+  source         String
+  sourceRowId    String?
+  requestId      String
+  actorUserId    String
+  status         String
+  durationMs     Int      @default(0)
+  statementCount Int      @default(0)
+  actionCount    Int      @default(0)
+  errorCode      String?
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@index([businessId, status, createdAt])
+  @@index([businessId, ruleId, createdAt])
 }
