@@ -1,5 +1,6 @@
 "use client";
 
+import { SignOutButton } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,6 +11,7 @@ import {
   FlaskConical,
   Home,
   Leaf,
+  LogOut,
   Package,
   PackageCheck,
   Receipt,
@@ -159,6 +161,20 @@ export default function AppSidebar({
           </div>
         ))}
       </nav>
+
+      <div className="border-t border-gray-200 py-1">
+        <SignOutButton redirectUrl="/sign-in">
+          <button
+            type="button"
+            onClick={onNavClick}
+            title="Sign out"
+            className="group flex w-full items-center gap-3 border-l-2 border-transparent px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 md:h-10 md:justify-center md:px-0"
+          >
+            <LogOut className="h-4 w-4 shrink-0 text-gray-500 group-hover:text-gray-800" />
+            <span className="flex-1 text-left md:sr-only">Sign out</span>
+          </button>
+        </SignOutButton>
+      </div>
     </aside>
   );
 }
