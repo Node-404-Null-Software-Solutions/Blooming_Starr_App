@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { requireBusinessMembership } from "@/lib/authz";
+import { requireBusinessOperationManager } from "@/lib/authz";
 import { createSalesEntry } from "@/lib/actions/data-entries";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
+import InlineSaveForm from "@/components/forms/InlineSaveForm";
 import ModuleHeader from "../../_components/ModuleHeader";
 
 export default async function NewSalesEntryPage({
@@ -11,16 +11,15 @@ export default async function NewSalesEntryPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  await requireBusinessMembership(businessSlug);
+  await requireBusinessOperationManager(businessSlug);
 
   const lookups = await getLookupEntriesMulti(businessSlug, ["salesChannel", "paymentMethod"]);
   const salesChannels = lookups.salesChannel ?? [];
   const paymentMethods = lookups.paymentMethod ?? [];
 
-  async function submit(formData: FormData): Promise<void> {
+  async function submit(formData: FormData) {
     "use server";
-    const res = await createSalesEntry(businessSlug, formData);
-    if (res.ok) redirect(`/app/${businessSlug}/sales`);
+    return createSalesEntry(businessSlug, formData);
   }
 
   const selectClass =
@@ -34,7 +33,11 @@ export default async function NewSalesEntryPage({
         addHref={`/app/${businessSlug}/sales/new`}
       />
       <div className="rounded-md border border-gray-200 bg-white p-6">
-        <form action={submit as (fd: FormData) => Promise<void>} className="mx-auto flex max-w-xl flex-col gap-4">
+        <InlineSaveForm
+          action={submit}
+          successHref={`/app/${businessSlug}/sales`}
+          className="mx-auto flex max-w-xl flex-col gap-4"
+        >
           <div className="grid gap-2">
             <label className="text-center text-sm font-medium text-gray-700">Date *</label>
             <input
@@ -42,6 +45,15 @@ export default async function NewSalesEntryPage({
               name="date"
               required
               className={inputClass}
+            />
+          </div>
+          <div className="grid gap-2">
+            <label className="text-center text-sm font-medium text-gray-700">Customer name</label>
+            <input
+              type="text"
+              name="customerName"
+              className={inputClass}
+              placeholder="Optional customer name"
             />
           </div>
           <div className="grid gap-2">
@@ -62,6 +74,15 @@ export default async function NewSalesEntryPage({
               className={inputClass}
               placeholder="e.g. Begonia Angel Wing 4&quot;"
             />
+          </div>
+          <div className="grid gap-2">
+            <label className="text-center text-sm font-medium text-gray-700">Status *</label>
+            <select name="status" defaultValue="Sold" required className={selectClass}>
+              <option value="Sold">Sold</option>
+              <option value="Pending">Pending</option>
+              <option value="Refunded">Refunded</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
@@ -157,7 +178,7 @@ export default async function NewSalesEntryPage({
               Cancel
             </Link>
           </div>
-        </form>
+        </InlineSaveForm>
       </div>
     </div>
   );

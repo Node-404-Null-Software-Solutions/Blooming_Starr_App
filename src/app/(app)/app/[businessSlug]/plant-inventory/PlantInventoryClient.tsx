@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, ChevronRight, Filter, ImageIcon } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Filter } from "lucide-react";
 import ModuleHeader from "../_components/ModuleHeader";
 import { centsToUsdFixed as money } from "@/lib/formulas";
+import PhotoThumbnail from "@/components/record-photo/PhotoThumbnail";
+import { CanManageOperations } from "@/components/permissions/BusinessPermissions";
 
 export type PlantInventoryRow = {
   sku: string;
@@ -27,6 +29,7 @@ export type PlantInventoryRow = {
   qtyUsed: number;
   qtyRemaining: number;
   notes: string | null;
+  photoUrl: string | null;
 };
 
 type Filters = {
@@ -68,7 +71,7 @@ export default function PlantInventoryClient({
   initialQ?: string;
 }) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [selectMode, setSelectMode] = useState(false);
+  const selectMode = false;
   const [showCalculatedNotice, setShowCalculatedNotice] = useState(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
   const [draftFilters, setDraftFilters] = useState<Filters>({
@@ -103,12 +106,6 @@ export default function PlantInventoryClient({
   }, [activeFilters, rows]);
 
   const hasActiveFilters = Object.values(activeFilters).some(Boolean);
-
-  function toggleSelectMode() {
-    setSelectMode((value) => !value);
-    setShowCalculatedNotice(false);
-    setSelectedRows(new Set());
-  }
 
   function toggleSelectedRow(sku: string) {
     setSelectedRows((current) => {
@@ -149,12 +146,9 @@ export default function PlantInventoryClient({
           title="Plant Inventory"
           onFilterClick={() => setIsFilterOpen((value) => !value)}
           filterActive={hasActiveFilters}
-          selectMode={selectMode}
           editMode={showCalculatedNotice}
-          onSelectClick={toggleSelectMode}
           onEditClick={() => {
             setShowCalculatedNotice((value) => !value);
-            setSelectMode(false);
           }}
           rightSlot={
             isFilterOpen ? (
@@ -251,14 +245,17 @@ export default function PlantInventoryClient({
 
       {filteredRows.length === 0 ? (
         <div className="m-4 rounded-md border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
-          No plant inventory data.{" "}
-          <Link
-            href={`/app/${businessSlug}/settings/import`}
-            className="text-(--primary) hover:underline"
-          >
-            Import plant intake data
-          </Link>{" "}
-          to populate this view.
+          No plant inventory data.
+          <CanManageOperations>
+            {" "}
+            <Link
+              href={`/app/${businessSlug}/settings/import`}
+              className="text-(--primary) hover:underline"
+            >
+              Import plant intake data
+            </Link>{" "}
+            to populate this view.
+          </CanManageOperations>
         </div>
       ) : (
         <>
@@ -398,9 +395,11 @@ export default function PlantInventoryClient({
                   <td className={`${bodyCell} text-center`}>{row.qtyUsed}</td>
                   <td className={`${bodyCell} text-center`}>{row.qtyRemaining}</td>
                   <td className={`${bodyCell} text-center`}>
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-sm bg-gray-100 text-gray-400">
-                      <ImageIcon className="h-3.5 w-3.5" />
-                    </span>
+                    <PhotoThumbnail
+                      photoUrl={row.photoUrl}
+                      alt={row.plantName}
+                      size={28}
+                    />
                   </td>
                   <td className={`${bodyCell} max-w-44 truncate`} title={row.notes ?? ""}>{row.notes ?? ""}</td>
                   <td className="border-b border-gray-200 px-2 py-1.5 text-gray-900">

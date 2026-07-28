@@ -1,4 +1,4 @@
-import { requireBusinessMembership } from "@/lib/authz";
+import { requireBusinessOperationManager } from "@/lib/authz";
 import EmployeeForm from "./EmployeeForm";
 
 export default async function NewEmployeePage({
@@ -7,7 +7,7 @@ export default async function NewEmployeePage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  await requireBusinessMembership(businessSlug);
+  await requireBusinessOperationManager(businessSlug);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

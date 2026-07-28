@@ -6,23 +6,32 @@ import type {
 } from "react";
 import Link from "next/link";
 import { ChevronDown, X } from "lucide-react";
+import InlineSaveForm, {
+  type InlineSaveAction,
+} from "@/components/forms/InlineSaveForm";
 
 export const plantStyleFieldClass =
   "h-12 w-full min-w-0 rounded-sm border border-gray-300 bg-white px-3 text-center text-lg text-gray-900 outline-none focus:border-[#08bd12] focus:ring-1 focus:ring-[#08bd12]";
 
 type PlantStyleAddFormShellProps = {
-  action: (fd: FormData) => Promise<void>;
+  action: InlineSaveAction;
+  successHref: string;
   children: ReactNode;
 };
 
 export function PlantStyleAddFormShell({
   action,
+  successHref,
   children,
 }: PlantStyleAddFormShellProps) {
   return (
-    <form action={action} className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white">
+    <InlineSaveForm
+      action={action}
+      successHref={successHref}
+      className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white"
+    >
       {children}
-    </form>
+    </InlineSaveForm>
   );
 }
 

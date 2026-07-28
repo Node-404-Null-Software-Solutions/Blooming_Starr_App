@@ -128,3 +128,29 @@ test("Sales bulk create injects the context business into every row", async () =
     skipDuplicates: true,
   });
 });
+
+test("Sales bulk delete is tenant scoped", async () => {
+  const mock = createMockClient();
+  const sales = createSalesRepository(context, mock.client);
+
+  assert.equal(await sales.deleteByIds(["sale-1", "sale-2"]), 1);
+  assert.deepEqual(mock.calls[0].args.where, {
+    businessId: "business-a",
+    id: { in: ["sale-1", "sale-2"] },
+  });
+});
+
+test("Sales raw export is tenant scoped and selects transaction fields", async () => {
+  const mock = createMockClient();
+  const sales = createSalesRepository(context, mock.client);
+  const where = { date: { gte: new Date("2026-01-01") } };
+
+  await sales.listForRawExport(where);
+
+  assert.deepEqual(mock.calls[0].args.where, {
+    AND: [{ businessId: "business-a" }, where],
+  });
+  assert.equal(mock.calls[0].args.select.customerName, true);
+  assert.equal(mock.calls[0].args.select.totalSaleCents, true);
+  assert.equal(mock.calls[0].args.select.externalUid, true);
+});

@@ -3,6 +3,10 @@ import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
 import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
 import { createSalesRepository } from "@/lib/repositories/sales";
 import { createTransplantLogRepository } from "@/lib/repositories/transplant-log";
+import {
+  plantIntakeTotalCostCents,
+  plantIntakeUnitCostCents,
+} from "@/lib/plant-intake-cost";
 import SkuScannerClient, { type InventoryLookupItem } from "./SkuScannerClient";
 
 export default async function SkuScannerPage({
@@ -79,8 +83,8 @@ export default async function SkuScannerPage({
       name: string;
       qtyPurchased: number;
       qtyUsed: number;
-      costCents: number;
-      salePriceCents: number;
+      totalCostCents: number;
+      totalSalePriceCents: number;
       statuses: string[];
     }
   >();
@@ -93,8 +97,14 @@ export default async function SkuScannerPage({
     const existing = plantMap.get(row.sku);
     if (existing) {
       existing.qtyPurchased += row.qty;
-      existing.costCents += row.costCents;
-      existing.salePriceCents += row.msrpCents;
+      existing.totalCostCents += plantIntakeTotalCostCents(
+        row.costCents,
+        row.qty,
+      );
+      existing.totalSalePriceCents += plantIntakeTotalCostCents(
+        row.msrpCents,
+        row.qty,
+      );
       if (isUsed) existing.qtyUsed += row.qty;
       existing.statuses.push(status);
     } else {
@@ -102,8 +112,11 @@ export default async function SkuScannerPage({
         name: name || row.sku,
         qtyPurchased: row.qty,
         qtyUsed: isUsed ? row.qty : 0,
-        costCents: row.costCents,
-        salePriceCents: row.msrpCents,
+        totalCostCents: plantIntakeTotalCostCents(row.costCents, row.qty),
+        totalSalePriceCents: plantIntakeTotalCostCents(
+          row.msrpCents,
+          row.qty,
+        ),
         statuses: [status],
       });
     }
@@ -116,8 +129,8 @@ export default async function SkuScannerPage({
       name: parent?.name ?? row.divisionSku,
       qtyPurchased: 1,
       qtyUsed: 0,
-      costCents: 0,
-      salePriceCents: 0,
+      totalCostCents: 0,
+      totalSalePriceCents: 0,
       statuses: ["available"],
     });
   }
@@ -140,8 +153,14 @@ export default async function SkuScannerPage({
       qtySold,
       qtyUsed: data.qtyUsed,
       qtyRemaining,
-      costCents: data.costCents,
-      salePriceCents: data.salePriceCents,
+      costCents: plantIntakeUnitCostCents(
+        data.totalCostCents,
+        data.qtyPurchased,
+      ),
+      salePriceCents: plantIntakeUnitCostCents(
+        data.totalSalePriceCents,
+        data.qtyPurchased,
+      ),
       status,
       href: `/app/${businessSlug}/plant-inventory`,
     });

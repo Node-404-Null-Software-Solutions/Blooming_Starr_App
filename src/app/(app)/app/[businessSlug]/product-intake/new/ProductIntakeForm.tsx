@@ -3,12 +3,16 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 import Link from "next/link";
-import { Camera, ChevronDown, Minus, Plus, X } from "lucide-react";
+import { ChevronDown, Minus, Plus, X } from "lucide-react";
 import type { LookupRow } from "@/lib/actions/lookups";
+import PhotoPicker from "@/components/record-photo/PhotoPicker";
+import InlineSaveForm, {
+  type InlineSaveAction,
+} from "@/components/forms/InlineSaveForm";
 
 type Props = {
   businessSlug: string;
-  action: (fd: FormData) => Promise<void>;
+  action: InlineSaveAction;
   lookups: Record<string, LookupRow[]>;
 };
 
@@ -21,7 +25,6 @@ export default function ProductIntakeForm({ businessSlug, action, lookups }: Pro
   const [qty, setQty] = useState("0.00");
   const [totalCost, setTotalCost] = useState("$ 0.00");
   const [msrp, setMsrp] = useState("$ 0.00");
-  const [photoName, setPhotoName] = useState("");
 
   function todayInputValue() {
     const now = new Date();
@@ -51,7 +54,11 @@ export default function ProductIntakeForm({ businessSlug, action, lookups }: Pro
   }
 
   return (
-    <form action={action} className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white">
+    <InlineSaveForm
+      action={action}
+      successHref={`/app/${businessSlug}/product-intake`}
+      className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white"
+    >
       <div className="px-4 py-3 sm:flex sm:h-[60px] sm:items-center sm:justify-between sm:py-0">
         <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] items-center sm:flex sm:gap-4">
           <Link
@@ -186,17 +193,7 @@ export default function ProductIntakeForm({ businessSlug, action, lookups }: Pro
         </FormRow>
 
         <FormRow label="Photo">
-          <label className="flex h-[66px] w-full cursor-pointer items-center justify-center rounded-sm border border-gray-300 bg-white text-gray-600 hover:bg-gray-50">
-            <input
-              type="file"
-              name="photo"
-              accept="image/*"
-              className="sr-only"
-              onChange={(event) => setPhotoName(event.currentTarget.files?.[0]?.name ?? "")}
-            />
-            <span className="sr-only">{photoName || "Choose photo"}</span>
-            <Camera className="h-6 w-6" />
-          </label>
+          <PhotoPicker />
         </FormRow>
 
         <datalist id="product-source-options">
@@ -228,7 +225,7 @@ export default function ProductIntakeForm({ businessSlug, action, lookups }: Pro
           ))}
         </datalist>
       </div>
-    </form>
+    </InlineSaveForm>
   );
 }
 

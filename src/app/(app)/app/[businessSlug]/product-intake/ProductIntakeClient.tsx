@@ -9,6 +9,7 @@ import { useProductIntakeFilter, ProductIntakeFilterPanel } from "./ProductIntak
 import {
   updateProductIntake,
   deleteProductIntake,
+  deleteProductIntakes,
   type ProductIntakeUpdate,
 } from "@/lib/actions/data-entries";
 import type { LookupRow } from "@/lib/actions/lookups";
@@ -17,6 +18,9 @@ import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
 import ProductIntakeDetailEditForm from "./ProductIntakeDetailEditForm";
+import RecordPhotoManager from "@/components/record-photo/RecordPhotoManager";
+import BulkSelectionBar from "@/components/data-table/BulkSelectionBar";
+import { CanManageOperations } from "@/components/permissions/BusinessPermissions";
 
 export type ProductRow = {
   id: string;
@@ -36,9 +40,13 @@ export type ProductRow = {
   cardLast4: string | null;
   invoiceNumber: string;
   notes: string;
+  photoUrl: string | null;
 };
 
-type EditableProductField = keyof Omit<ProductRow, "id" | "dateSort" | "unitCost" | "sku">;
+type EditableProductField = keyof Omit<
+  ProductRow,
+  "id" | "dateSort" | "unitCost" | "sku" | "photoUrl"
+>;
 
 const dash = "-";
 
@@ -88,6 +96,7 @@ export default function ProductIntakeClient({
   const [editMode, setEditMode] = useState(false);
   const [detailEditMode, setDetailEditMode] = useState(false);
   const [detailSaving, setDetailSaving] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
   const { isOpen, setIsOpen, hasActiveFilters, filters, setFilters, apply, clear, cancel } =
     useProductIntakeFilter();
@@ -253,6 +262,33 @@ export default function ProductIntakeClient({
     }
   }
 
+  async function deleteSelectedRows() {
+    const ids = Array.from(selectedRows);
+    if (
+      ids.length === 0 ||
+      !window.confirm(
+        `Delete ${ids.length} selected row${ids.length === 1 ? "" : "s"}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    try {
+      const result = await deleteProductIntakes(ids, businessSlug);
+      if (!result.ok) {
+        window.alert(result.error);
+        return;
+      }
+      setSelectedRows(new Set());
+      setSelectedId(null);
+      setSelectMode(false);
+      startTransition(() => router.refresh());
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }
+
   function renderCell(
     row: ProductRow,
     field: EditableProductField,
@@ -347,6 +383,22 @@ export default function ProductIntakeClient({
                   { label: "Card #", node: renderDetailEditable(selectedRow, "cardLast4") },
                   { label: "Invoice #", node: renderDetailEditable(selectedRow, "invoiceNumber") },
                   { label: "Notes", node: renderDetailEditable(selectedRow, "notes") },
+                  {
+                    label: "Photo",
+                    node: (
+                      <RecordPhotoManager
+                        businessSlug={businessSlug}
+                        recordId={selectedRow.id}
+                        recordType="product-intake"
+                        photoUrl={selectedRow.photoUrl}
+                        alt={
+                          cleanDisplay(selectedRow.category) ||
+                          cleanDisplay(selectedRow.vendor) ||
+                          selectedRow.sku
+                        }
+                      />
+                    ),
+                  },
                 ]
               : []
           }
@@ -386,20 +438,25 @@ export default function ProductIntakeClient({
             Import your Inventory Trackers workbook to populate this list.
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
-            <Link
-              href={`/app/${businessSlug}/settings/import`}
-              className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              Import
-            </Link>
+            <CanManageOperations>
+              <Link
+                href={`/app/${businessSlug}/settings/import`}
+                className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                Import
+              </Link>
+            </CanManageOperations>
           </div>
         </div>
       ) : (
         <>
           {selectMode ? (
-            <div className="flex h-10 items-center justify-center border-b border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-700 sm:justify-start sm:text-left">
-              {selectedRows.size} row{selectedRows.size === 1 ? "" : "s"} selected
-            </div>
+            <BulkSelectionBar
+              count={selectedRows.size}
+              isDeleting={isBulkDeleting}
+              onClear={() => setSelectedRows(new Set())}
+              onDelete={deleteSelectedRows}
+            />
           ) : null}
 
           {editMode ? (

@@ -3,6 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, X } from "lucide-react";
+import InlineSaveForm, {
+  type InlineSaveAction,
+} from "@/components/forms/InlineSaveForm";
 import {
   FormRow,
   ScannableDatalistRow,
@@ -12,7 +15,7 @@ import {
 
 type FertilizerLogFormProps = {
   businessSlug: string;
-  action: (fd: FormData) => Promise<void>;
+  action: InlineSaveAction;
   skuList: string[];
   potSizeOptions: string[];
   productOptions: string[];
@@ -30,7 +33,11 @@ export default function FertilizerLogForm({
   const backHref = `/app/${businessSlug}/fertilizer-log`;
 
   return (
-    <form action={action} className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white">
+    <InlineSaveForm
+      action={action}
+      successHref={backHref}
+      className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white"
+    >
       <div className="border-b border-transparent px-4 py-3 sm:flex sm:h-[60px] sm:items-center sm:justify-between sm:py-0">
         <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] items-center sm:flex sm:gap-4">
           <Link
@@ -158,7 +165,7 @@ export default function FertilizerLogForm({
           </datalist>
         ) : null}
       </div>
-    </form>
+    </InlineSaveForm>
   );
 }
 

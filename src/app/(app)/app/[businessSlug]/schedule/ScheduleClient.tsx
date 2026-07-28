@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { deleteScheduleEntry } from "@/lib/actions/schedule";
 import { formatAppDate } from "@/lib/date-format";
+import { useBusinessPermissions } from "@/components/permissions/BusinessPermissions";
 import ShiftForm from "./ShiftForm";
 
 type Employee = { id: string; name: string };
@@ -42,9 +43,14 @@ export default function ScheduleClient({
   entries: Entry[];
   weekStart: string;
 }) {
+  const { canManageOperations } = useBusinessPermissions();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [showForm, setShowForm] = useState<{ date: string; employeeId?: string } | null>(null);
+  const [showForm, setShowForm] = useState<{
+    date: string;
+    employeeId?: string;
+    entry?: Entry;
+  } | null>(null);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const prevWeek = addDays(weekStart, -7);
@@ -138,16 +144,37 @@ export default function ScheduleClient({
                               {entry.title && (
                                 <div className="text-gray-600 truncate">{entry.title}</div>
                               )}
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(entry.id)}
-                                className="absolute -top-1 -right-1 hidden rounded-full bg-red-500 p-0.5 text-white group-hover:block"
-                                title="Delete shift"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
+                              {canManageOperations ? (
+                              <div className="absolute -right-1 -top-1 flex gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setShowForm({
+                                      date: entry.date,
+                                      employeeId: entry.employeeId,
+                                      entry,
+                                    })
+                                  }
+                                  className="rounded-full bg-[#0E4D3A] p-0.5 text-white"
+                                  title="Edit shift"
+                                  aria-label={`Edit ${entry.employeeName}'s shift on ${entry.date}`}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(entry.id)}
+                                  className="rounded-full bg-red-500 p-0.5 text-white"
+                                  title="Delete shift"
+                                  aria-label={`Delete ${entry.employeeName}'s shift on ${entry.date}`}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                              ) : null}
                             </div>
                           ))}
+                          {canManageOperations ? (
                           <button
                             type="button"
                             onClick={() => setShowForm({ date: day, employeeId: emp.id })}
@@ -155,6 +182,7 @@ export default function ScheduleClient({
                           >
                             <Plus className="h-3 w-3" />
                           </button>
+                          ) : null}
                         </div>
                       </td>
                     );
@@ -169,13 +197,16 @@ export default function ScheduleClient({
       {isPending && <p className="text-xs text-gray-500">Saving…</p>}
 
 
-      {showForm && (
+      {canManageOperations && showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Add Shift</h2>
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">
+              {showForm.entry ? "Edit Shift" : "Add Shift"}
+            </h2>
             <ShiftForm
               businessSlug={businessSlug}
               employees={employees}
+              entry={showForm.entry}
               defaultDate={showForm.date}
               defaultEmployeeId={showForm.employeeId}
               onSuccess={handleFormSuccess}

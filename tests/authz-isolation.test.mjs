@@ -23,6 +23,9 @@ function loadTypeScriptModule(relativeUrl, requireModule = () => ({})) {
 const businessContextModule = loadTypeScriptModule(
   "../src/lib/business-context.ts"
 );
+const permissionsModule = loadTypeScriptModule(
+  "../src/lib/permissions.ts"
+);
 
 class RedirectError extends Error {
   constructor(path) {
@@ -84,6 +87,7 @@ function createAuthzHarness({ userId = "user-a", memberships = [] } = {}) {
     if (moduleName === "@/lib/business-context") {
       return businessContextModule;
     }
+    if (moduleName === "@/lib/permissions") return permissionsModule;
     throw new Error(`Unexpected test import: ${moduleName}`);
   });
 
@@ -150,4 +154,22 @@ test("business role enforcement redirects before returning a privileged context"
     (error) =>
       error instanceof RedirectError && error.path === "/app/business-a"
   );
+});
+
+test("operational mutation access allows Managers and rejects Employees", async () => {
+  const employeeHarness = createAuthzHarness({
+    memberships: [membership({ role: "EMPLOYEE" })],
+  });
+  await assert.rejects(
+    employeeHarness.authz.requireBusinessOperationManager("business-a"),
+    (error) =>
+      error instanceof RedirectError && error.path === "/app/business-a"
+  );
+
+  const managerHarness = createAuthzHarness({
+    memberships: [membership({ role: "MANAGER" })],
+  });
+  const result =
+    await managerHarness.authz.requireBusinessOperationManager("business-a");
+  assert.equal(result.businessContext.role, "MANAGER");
 });

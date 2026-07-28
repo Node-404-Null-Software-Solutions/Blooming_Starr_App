@@ -10,10 +10,10 @@ This README is both:
 2. the technical handoff guide for whoever maintains or deploys it next.
 
 The instructions describe the application as it exists in this repository.
-The [Current limitations](#current-limitations) section identifies controls or
-features that are present in the interface but are not fully implemented.
+The [Current limitations](#current-limitations) section records the status of
+the implementation-gap audit used for this handoff.
 
-> Important: The dashboard and CSV export are organizational tools, not tax,
+> Important: The dashboard and CSV exports are organizational tools, not tax,
 > accounting, payroll, pesticide, or legal advice. Verify financial and
 > regulatory records with the appropriate professional.
 
@@ -124,8 +124,8 @@ The current permission behavior is:
 | Capability | Owner | Manager | Employee |
 | --- | --- | --- | --- |
 | View dashboard and operational modules | Yes | Yes | Yes |
-| Add, edit, and delete operational records | Yes | Yes | Yes |
-| Manage the employee list and schedule | Yes | Yes | Yes |
+| Add, edit, and delete operational records | Yes | Yes | No |
+| Manage the employee list and schedule | Yes | Yes | No |
 | Change business colors and logo | Yes | Yes | No |
 | Import a workbook | Yes | Yes | No |
 | Change the business name | Yes | No | No |
@@ -133,9 +133,10 @@ The current permission behavior is:
 | Create, preview, activate, or run App Logic | Yes | No | No |
 | Permanently clear imported/operational data | Yes | No | No |
 
-An important current behavior is that all active business members, including
-Employees, can modify operational records, the employee list, and the schedule.
-The Employee role is not read-only.
+The Employee role is read-only. Employees can view the dashboard, operational
+records, inventory, employees, and schedule, but cannot add, edit, delete,
+import, replace photos, or use bulk deletion. Mutation actions enforce the same
+Owner/Manager requirement on the server even if called outside the interface.
 
 ## How to navigate and edit records
 
@@ -159,10 +160,18 @@ Most modules use the same controls:
 - **Add:** opens a new-record form.
 - **Filter:** opens module-specific filters. Select **Apply** to use them and
   **Clear** to remove them.
-- **Select:** marks one or more rows. In the current version this only tracks
-  selection; it does not perform a bulk update or bulk delete.
+- **Select:** marks one or more source records in Plant Intake, Product Intake,
+  Sales, or Transplant Log. The selection bar can clear the selection or
+  permanently delete all selected records after confirmation.
 - **Edit:** switches supported tables into inline edit mode.
 - **Chevron or row click:** opens the row detail panel.
+
+The **Reload page** button in the desktop top bar performs a full browser reload,
+including current URL filters and search parameters.
+
+The top-bar search searches the visible module’s primary text fields and works
+alongside its module-specific filters. Submitting a blank search clears only the
+search term and leaves those filters in place.
 
 ### Editing a table cell
 
@@ -176,6 +185,10 @@ When a value supports inline editing:
 Calculated fields such as total sale, profit, margin, unit cost, total cost, and
 remaining quantity are intentionally read-only. Edit their source fields and
 the app recalculates them.
+
+Plant Inventory and Product Inventory are calculated projections, so they do
+not expose record selection or bulk deletion. Make changes in their source
+intake, sales, transplant, or pricing records.
 
 ### Deleting a row
 
@@ -244,7 +257,7 @@ SKU must be consistent across intake and sales records.
 Overhead expenses are grouped by category. A blank category appears as
 **Uncategorized**.
 
-### Accountant CSV
+### CSV exports
 
 Select **Export for accountant (CSV)** to download:
 
@@ -253,7 +266,18 @@ tax-summary-YYYY.csv
 ```
 
 The CSV contains the selected year, revenue, COGS, gross profit, expense totals
-by category, and net profit. It is a summary, not a full transaction export.
+by category, and net profit.
+
+Select **Export transactions (CSV)** to download:
+
+```text
+raw-transactions-YYYY.csv
+```
+
+The raw transaction CSV contains every Sales and Overhead Expense record in the
+selected year, including record IDs, timestamps, customer or vendor details,
+quantities, payment fields, financial values, notes, and external IDs. Text
+cells are protected against spreadsheet formula execution.
 
 ## Plant workflows
 
@@ -265,12 +289,16 @@ To add a record:
 
 1. open **Plant Intake**;
 2. select **Add**;
-3. enter Date, Source, Genus, Cultivar, ID, Quantity, cost, MSRP, pot type,
-   payment information, and any supported optional values;
+3. enter Date, Source, Genus, Cultivar, ID, Quantity, unit cost, MSRP, pot type,
+   payment information, and an optional photo;
 4. select **Save**.
 
-Source, Genus, Cultivar, ID, Quantity, cost, MSRP, and Pot Type are required by
-the current form.
+Source, Genus, Cultivar, ID, Quantity, Unit Cost, MSRP, and Pot Type are
+required by the current form.
+
+Plant photos may be JPEG, PNG, or WebP files up to 5 MB. Saved photos appear in
+the Plant Intake list and detail view and follow the matching SKU into Plant
+Inventory. Open a Plant Intake record to replace or remove its photo.
 
 #### Automatic plant SKU
 
@@ -290,12 +318,27 @@ SKU. A regenerated SKU is a new identifier. Verify linked sales, treatments,
 fertilizer entries, and transplants afterward because those records match by
 exact SKU text.
 
-#### Plant cost meaning
+#### Unit cost and purchase total
 
-The current Plant Intake screen labels the input **Total Cost**, while parts of
-the inventory view multiply the stored cost by quantity. Until that field is
-made unambiguous in code, use one consistent business convention and verify the
-result in Plant Inventory after saving.
+Plant Intake stores the **Unit Cost** for one plant. The form shows the
+calculated purchase total beside that input:
+
+```text
+purchaseTotalCents = qty * costCents
+```
+
+The Plant Intake list and detail views show both values. Dashboard investment,
+inventory loss, Plant Inventory, product defaults, SKU scanning, and App Logic
+all treat `costCents` as a per-plant amount.
+
+For workbook imports, **Unit Cost** or **Cost** is stored directly. A legacy
+**Total Cost** column is divided by quantity and rounded to the nearest cent.
+When both unit and total columns are present, Unit Cost takes precedence.
+
+Existing records are not rewritten automatically because the app cannot
+determine which convention was used before this was made explicit. Verify older
+records once in Plant Intake; all new entries and imports use the unit-cost
+convention.
 
 ### Plant Inventory
 
@@ -311,7 +354,8 @@ It shows:
 - plant, other, and total MSRP;
 - estimated and actual sale price;
 - profit and margin; and
-- purchased, sold, used, and remaining quantities.
+- purchased, sold, used, and remaining quantities; and
+- the saved photo from the matching Plant Intake record, when present.
 
 Quantity sold comes from Sales rows with the exact same SKU. Quantity used
 includes Plant Intake records marked Dead, Damaged, Giveaway, Donation, or Not
@@ -385,6 +429,10 @@ The form includes:
 Date, Vendor, Source, Category, Style, Quantity, Total Cost, Payment Method, and
 Card number are required by the current form.
 
+Product photos may be JPEG, PNG, or WebP files up to 5 MB. The selected photo is
+saved with the intake record and appears in its detail drawer and in Product
+Inventory. Open the record detail to replace or remove it.
+
 #### Automatic product SKU
 
 The app generates the SKU from:
@@ -419,6 +467,9 @@ quantity remaining = quantity purchased - quantity sold
 The status is **In Stock** while quantity remains and **Sold Out** when all
 quantity has been sold. Sales must use the exact Product Intake SKU.
 
+When a Product Intake record has a saved photo, Product Inventory displays it
+for that SKU.
+
 ## Operations workflows
 
 ### Sales
@@ -433,8 +484,10 @@ Required inputs are:
 - Sale price
 - Cost
 
-Optional inputs include item name, sale channel, payment method, card last four,
-and notes.
+Every sale stores a status, which defaults to **Sold**. Optional inputs include
+customer name, item name, sale channel, payment method, card last four, and
+notes. Customer Name and Status can also be edited from the Sales table or
+detail drawer.
 
 The sale price is treated as the per-unit price by the default rule:
 
@@ -486,7 +539,8 @@ unitCostCents = qty > 0 ? round((subTotalCents - discountCents) / qty) : 0
 
 The default unit cost excludes shipping, while Actual Total includes shipping.
 See [Overhead: include shipping in unit cost](#overhead-include-shipping-in-unit-cost)
-to change that convention.
+to change that convention. Subtotal, Shipping, and Discount can be edited from
+the Overhead list or detail view; each edit recalculates the derived amounts.
 
 ### Treatment Tracking
 
@@ -499,11 +553,14 @@ Use Treatment Tracking to record:
 - rate;
 - pot size;
 - application method;
-- applicator initials; and
+- applicator initials;
+- notes; and
 - next earliest and latest application dates.
 
 SKU is required. Treatment dates are entered manually. App Logic can validate
-or calculate the treatment date window using UTC epoch-day fields.
+or calculate the treatment date window using UTC epoch-day fields. Notes are
+saved with the treatment and can be edited from the list or detail view. The
+next earliest and latest dates can also be changed from either view.
 
 ### Fertilizer Log
 
@@ -524,7 +581,8 @@ If both next-application dates are blank, the app automatically calculates a
 Other fertilizer products do not receive automatic dates.
 
 App Logic can validate or replace the application date window after the
-built-in product-name calculation runs.
+built-in product-name calculation runs. The next earliest and latest dates can
+be changed later from the list or detail view.
 
 ## Employees and schedule
 
@@ -543,9 +601,8 @@ Use **Employees > Add** to create an employee with:
 Name is required. Employees can be deactivated and later reactivated instead of
 being deleted.
 
-Enter compensation carefully on the Add Employee form and verify the saved
-amount. See the compensation warning in [Current limitations](#current-limitations)
-before changing a wage through an inline table cell.
+Compensation fields accept dollar amounts with cents on both the Add Employee
+form and the inline table editors. Values are stored as whole cents.
 
 ### Schedule
 
@@ -560,9 +617,9 @@ To add a shift:
 5. enter start time, end time, optional title, and optional notes;
 6. select **Add Shift**.
 
-Hover over a shift and use the trash icon to delete it. The current Schedule
-does not provide an edit dialog; delete and recreate a shift to change it.
-App Logic can validate or adjust a new shift's date and minute-of-day values.
+Use the pencil button on a shift to change its employee, date, times, title, or
+notes. Use the trash button to delete it. App Logic can validate or adjust date
+and minute-of-day values when a shift is created or edited.
 
 ## Search and QR scanning
 
@@ -663,8 +720,8 @@ accepted exactly as shown.
 #### Plant Intake
 
 `Date`, `Source`, `Genus`, `Cultivar`, `ID #`/`ID#`/`ID`, `SKU`,
-`Total Cost`/`Cost`, `Location`, `Status`, `MSRP`, `QTY`/`Qty`/`Quantity`,
-`Pot Type`/`PotType`
+`Unit Cost`/`Cost`, `Total Cost` (legacy purchase total), `Location`, `Status`,
+`MSRP`, `QTY`/`Qty`/`Quantity`, `Pot Type`/`PotType`
 
 #### Product Intake
 
@@ -675,8 +732,9 @@ accepted exactly as shown.
 
 #### Sales
 
-`Date`, `SKU`, `Item Name`, `Qty`, `Sale Price`, `Cost`, `Payment Method`,
-`Card #`, `Sale Channel`, `Notes`
+`Date`, `SKU`, `Customer Name`/`Customer`, `Item Name`,
+`Status`/`Sale Status`, `Qty`, `Sale Price`, `Cost`, `Payment Method`, `Card #`,
+`Sale Channel`, `Notes`
 
 #### Overhead Expenses
 
@@ -698,7 +756,7 @@ accepted exactly as shown.
 
 `Date`, `SKU`, `Target`, `Product`, `Act Ing`/`Active Ingredient`, `EPA #`,
 `Rate`, `Pot Sz`/`Pot Size`, `Method`, `Init.`/`Initials`, `Next Earliest`,
-`Next Latest`
+`Next Latest`, `Notes`
 
 ### How duplicates are identified
 
@@ -1460,19 +1518,20 @@ For implementation-level runtime details, see
 1. Wait a few seconds and select Save only once.
 2. Confirm all required fields are filled.
 3. Confirm numeric fields are valid and nonnegative where required.
-4. As an Owner, open Settings > App Logic > Execution History.
-5. Look for a failed rule at the time of the save.
+4. Read the inline error shown at the top of the form.
+5. As an Owner, open Settings > App Logic > Execution History for rule details.
 6. Preview the failing rule with the same values.
 7. Deactivate the rule if normal operations must resume while it is corrected.
 
-Some new-record forms do not currently display the returned App Logic error
-inline, so the form may simply remain open.
+New-record forms keep the entered values and display returned server or App
+Logic errors inline.
 
 ### Calculated amount is wrong
 
 Check:
 
 - whether the business uses dollars in the normal form and cents in App Logic;
+- whether Plant Intake `costCents` contains one plant's unit cost;
 - whether Sales Cost means total transaction cost or unit cost;
 - whether more than one active rule writes the same field;
 - rule order;
@@ -1559,42 +1618,9 @@ isolated. Switch to the intended business before making corrections.
 
 ## Current limitations
 
-The following behavior is present in this repository and should be understood
-before relying on the app:
-
-1. **Photo support is incomplete.** Plant photo buttons and Product Intake photo
-   selection do not currently persist and display record photos. Inventory photo
-   cells are placeholders.
-2. **Top-bar Refresh is visual only.** Use the browser reload command when a
-   manual refresh is required.
-3. **Selection mode has no bulk operation.** It marks rows but does not currently
-   update or delete them in bulk.
-4. **Top-bar search is not universal.** Use module filters on Product Intake,
-   Overhead Expenses, Treatment Tracking, and Fertilizer Log.
-5. **Sales has placeholder columns.** Customer Name is not stored by the current
-   Sales model and the table displays Status as Sold.
-6. **Treatment Notes are not persisted.** The new Treatment form displays a
-   Notes field, but the current create/update data contract does not save it.
-7. **Treatment and Fertilizer next dates are read-only after creation** in the
-   current tables.
-8. **Overhead Shipping cannot be edited from the list/detail view.** It can be
-   entered during creation or import and is used in recalculation.
-9. **Employee compensation inline editing has inconsistent dollars/cents
-    conversion.** Enter the initial amount through Add Employee and verify any
-    later inline wage edit immediately.
-10. **The Schedule does not edit existing shifts.** Delete and recreate a shift.
-11. **Raw transaction export is not provided.** The Dashboard exports a tax
-    summary CSV only.
-12. **Some new-record forms do not show server-side rule errors inline.** Check
-    App Logic Execution History when Save leaves the form open.
-13. **Plant Intake cost labeling is ambiguous.** The form says Total Cost while
-    parts of the inventory calculation treat the stored amount as a cost that is
-    multiplied by quantity.
-14. **Operational permissions are broad.** All active members, including the
-    Employee role, can currently edit and delete operational data, employees,
-    and schedule entries.
-
-These items require application code changes if different behavior is needed.
+The implementation gaps tracked for this handoff have been addressed. No known
+limitation from that audit remains; continue to perform the release checks below
+before production changes.
 
 ## Data-safety and handoff checklist
 

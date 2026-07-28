@@ -102,6 +102,34 @@ export function createOverheadExpenseRepository(
       });
     },
 
+    listForRawExport(where?: TenantOverheadExpenseWhereInput) {
+      return client.overheadExpense.findMany({
+        where: withBusinessScope(businessId, where),
+        select: {
+          id: true,
+          date: true,
+          vendor: true,
+          brand: true,
+          category: true,
+          description: true,
+          qty: true,
+          subTotalCents: true,
+          shippingCents: true,
+          discountCents: true,
+          unitCostCents: true,
+          totalCents: true,
+          paymentMethod: true,
+          cardLast4: true,
+          invoiceNumber: true,
+          notes: true,
+          externalUid: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+      });
+    },
+
     create(data: TenantOverheadExpenseCreateInput) {
       return client.overheadExpense.create({
         data: withBusinessData(businessId, data),

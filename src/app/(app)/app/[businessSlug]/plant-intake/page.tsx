@@ -2,8 +2,11 @@ import Link from "next/link";
 import { requireBusinessMembership } from "@/lib/authz";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
+import { plantIntakeTotalCostCents } from "@/lib/plant-intake-cost";
+import { recordPhotoUrl } from "@/lib/record-photo";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import PlantIntakeClient from "./PlantIntakeClient";
+import { CanManageOperations } from "@/components/permissions/BusinessPermissions";
 
 export default async function PlantIntakePage({
   params,
@@ -120,11 +123,15 @@ export default async function PlantIntakePage({
     sku: r.sku,
     qty: r.qty,
     costCents: r.costCents,
-    totalCostCents: r.costCents * r.qty,
+    totalCostCents: plantIntakeTotalCostCents(r.costCents, r.qty),
     msrpCents: r.msrpCents,
     potType: r.potType ?? null,
     paymentMethod: r.paymentMethod ?? null,
     cardLast4: r.cardLast4 ?? null,
+    photoUrl:
+      r.photoContentType && r.photoUpdatedAt
+        ? recordPhotoUrl(businessSlug, "plant-intake", r.id, r.photoUpdatedAt)
+        : null,
   }));
 
   return (
@@ -145,12 +152,14 @@ export default async function PlantIntakePage({
               Import your Inventory Trackers workbook to populate this list.
             </p>
             <div className="mt-4 flex items-center justify-center gap-2">
-              <Link
-                href={`/app/${businessSlug}/settings/import`}
-                className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-              >
-                Import
-              </Link>
+              <CanManageOperations>
+                <Link
+                  href={`/app/${businessSlug}/settings/import`}
+                  className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                >
+                  Import
+                </Link>
+              </CanManageOperations>
             </div>
           </div>
         </>

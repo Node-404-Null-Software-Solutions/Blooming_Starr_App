@@ -20,6 +20,7 @@ export default async function TreatmentTrackingPage({
   const skuRaw = typeof sp.sku === "string" ? sp.sku.trim() : "";
   const targetRaw = typeof sp.target === "string" ? sp.target.trim() : "";
   const productRaw = typeof sp.product === "string" ? sp.product.trim() : "";
+  const qRaw = typeof sp.q === "string" ? sp.q.trim() : "";
   const fromDate = fromRaw ? new Date(fromRaw) : null;
   const toDate = toRaw ? new Date(toRaw) : null;
   const validFrom = fromDate && !Number.isNaN(fromDate.getTime()) ? fromDate : null;
@@ -32,6 +33,26 @@ export default async function TreatmentTrackingPage({
     ...(skuRaw ? { sku: { contains: skuRaw, mode: "insensitive" as const } } : {}),
     ...(targetRaw ? { target: { contains: targetRaw, mode: "insensitive" as const } } : {}),
     ...(productRaw ? { product: { contains: productRaw, mode: "insensitive" as const } } : {}),
+    ...(qRaw
+      ? {
+          OR: [
+            { sku: { contains: qRaw, mode: "insensitive" as const } },
+            { target: { contains: qRaw, mode: "insensitive" as const } },
+            { product: { contains: qRaw, mode: "insensitive" as const } },
+            {
+              activeIngredient: {
+                contains: qRaw,
+                mode: "insensitive" as const,
+              },
+            },
+            { epaNumber: { contains: qRaw, mode: "insensitive" as const } },
+            { potSize: { contains: qRaw, mode: "insensitive" as const } },
+            { method: { contains: qRaw, mode: "insensitive" as const } },
+            { initials: { contains: qRaw, mode: "insensitive" as const } },
+            { notes: { contains: qRaw, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
   });
   const sortedRows = sortByDateDescNullsLast(rows);
 
@@ -49,6 +70,7 @@ export default async function TreatmentTrackingPage({
     potSize: row.potSize,
     method: row.method,
     initials: row.initials,
+    notes: row.notes,
     nextEarliest: row.nextEarliest ? row.nextEarliest.toISOString() : null,
     nextLatest: row.nextLatest ? row.nextLatest.toISOString() : null,
   }));

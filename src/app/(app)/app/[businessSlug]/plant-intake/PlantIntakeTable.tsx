@@ -2,9 +2,14 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ChevronRight, ImageIcon, Save, X } from "lucide-react";
-import { updatePlantIntake } from "@/lib/actions/data-entries";
+import { Check, ChevronDown, ChevronRight, Save, X } from "lucide-react";
+import {
+  deletePlantIntakes,
+  updatePlantIntake,
+} from "@/lib/actions/data-entries";
 import { formatAppDate } from "@/lib/date-format";
+import PhotoThumbnail from "@/components/record-photo/PhotoThumbnail";
+import BulkSelectionBar from "@/components/data-table/BulkSelectionBar";
 
 export type PlantIntakeRow = {
   id: string;
@@ -21,6 +26,7 @@ export type PlantIntakeRow = {
   potType: string | null;
   paymentMethod: string | null;
   cardLast4: string | null;
+  photoUrl: string | null;
 };
 
 type EditablePlantField =
@@ -71,6 +77,7 @@ export default function PlantIntakeTable({
   selectMode = false,
   editMode = false,
   onEditModeChange,
+  onSelectModeChange,
 }: {
   rows: PlantIntakeRow[];
   businessSlug: string;
@@ -79,10 +86,12 @@ export default function PlantIntakeTable({
   selectMode?: boolean;
   editMode?: boolean;
   onEditModeChange?: (value: boolean) => void;
+  onSelectModeChange?: (value: boolean) => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
   const [draftRows, setDraftRows] = useState<DraftRows>({});
   const dirtyCount = Object.keys(draftRows).length;
@@ -140,6 +149,33 @@ export default function PlantIntakeTable({
   function cancelEdits() {
     setDraftRows({});
     onEditModeChange?.(false);
+  }
+
+  async function deleteSelectedRows() {
+    const ids = Array.from(selectedRows);
+    if (
+      ids.length === 0 ||
+      !window.confirm(
+        `Delete ${ids.length} selected row${ids.length === 1 ? "" : "s"}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const result = await deletePlantIntakes(ids, businessSlug);
+      if (!result.ok) {
+        window.alert(result.error);
+        return;
+      }
+      setSelectedRows(new Set());
+      onSelectedIdChange(null);
+      onSelectModeChange?.(false);
+      startTransition(() => router.refresh());
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   async function saveEdits() {
@@ -237,9 +273,12 @@ export default function PlantIntakeTable({
       ) : null}
 
       {selectMode ? (
-        <div className="flex h-10 items-center justify-center border-b border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-700 sm:justify-start sm:text-left">
-          {selectedRows.size} row{selectedRows.size === 1 ? "" : "s"} selected
-        </div>
+        <BulkSelectionBar
+          count={selectedRows.size}
+          isDeleting={isDeleting}
+          onClear={() => setSelectedRows(new Set())}
+          onDelete={deleteSelectedRows}
+        />
       ) : null}
 
       {rows.length === 0 ? (
@@ -319,7 +358,7 @@ export default function PlantIntakeTable({
               <th className={`${headCell} w-20`}>ID #</th>
               <th className={`${headCell} w-36`}>SKU</th>
               <th className={`${headCell} w-16`}>QTY</th>
-              <th className={`${headCell} w-24`}>Total Cost</th>
+              <th className={`${headCell} w-24`}>Purchase Total</th>
               <th className={`${headCell} w-24`}>Unit Cost</th>
               <th className={`${headCell} w-24`}>MSRP</th>
               <th className={`${headCell} w-32`}>Pot Type</th>
@@ -399,9 +438,11 @@ export default function PlantIntakeTable({
                     <td className={`${bodyCell} whitespace-nowrap`}>{renderEditable(row, "msrpCents", "number")}</td>
                     <td className={`${bodyCell} whitespace-nowrap`}>{renderEditable(row, "potType")}</td>
                     <td className={`${bodyCell} whitespace-nowrap text-center`}>
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-sm bg-gray-100 text-gray-400">
-                        <ImageIcon className="h-3.5 w-3.5" />
-                      </span>
+                      <PhotoThumbnail
+                        photoUrl={row.photoUrl}
+                        alt={`${row.genus} ${row.cultivar}`}
+                        size={28}
+                      />
                     </td>
                     <td className={`${bodyCell} whitespace-nowrap`}>{renderEditable(row, "paymentMethod")}</td>
                     <td className={`${bodyCell} whitespace-nowrap`}>{renderEditable(row, "cardLast4")}</td>

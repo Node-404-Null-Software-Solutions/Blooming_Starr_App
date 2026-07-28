@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { createBusinessContext } from "@/lib/business-context";
+import { OPERATION_MANAGER_ROLES } from "@/lib/permissions";
 import type { Role } from "@prisma/client";
 
 async function requireUserId() {
@@ -101,7 +102,7 @@ export async function requireBusinessMembership(businessSlug: string) {
   };
 }
 
-export async function requireRole(allowedRoles: Role[]) {
+export async function requireRole(allowedRoles: readonly Role[]) {
   const ctx = await requireActiveMembership();
   if (!allowedRoles.includes(ctx.membership.role)) {
     redirect(`/app/${ctx.business.slug}`);
@@ -109,13 +110,21 @@ export async function requireRole(allowedRoles: Role[]) {
   return ctx;
 }
 
-export async function requireBusinessRole(businessSlug: string, allowedRoles: Role[]) {
+export async function requireBusinessRole(
+  businessSlug: string,
+  allowedRoles: readonly Role[],
+) {
   const ctx = await requireBusinessMembership(businessSlug);
   if (!allowedRoles.includes(ctx.membership.role)) {
     redirect(`/app/${ctx.business.slug}`);
   }
   return ctx;
 }
+
+export async function requireBusinessOperationManager(businessSlug: string) {
+  return requireBusinessRole(businessSlug, OPERATION_MANAGER_ROLES);
+}
+
 export async function getOptionalAuth() {
   const { userId } = await auth();
   return userId ?? null;

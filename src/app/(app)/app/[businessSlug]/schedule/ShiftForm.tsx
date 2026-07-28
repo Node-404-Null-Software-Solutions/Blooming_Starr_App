@@ -1,13 +1,26 @@
 "use client";
 
 import { useTransition, useState } from "react";
-import { createScheduleEntry } from "@/lib/actions/schedule";
+import {
+  createScheduleEntry,
+  updateScheduleEntry,
+} from "@/lib/actions/schedule";
 
 type Employee = { id: string; name: string };
+type EditableShift = {
+  id: string;
+  employeeId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  title: string;
+  notes: string;
+};
 
 export default function ShiftForm({
   businessSlug,
   employees,
+  entry,
   defaultDate,
   defaultEmployeeId,
   onSuccess,
@@ -15,6 +28,7 @@ export default function ShiftForm({
 }: {
   businessSlug: string;
   employees: Employee[];
+  entry?: EditableShift;
   defaultDate?: string;
   defaultEmployeeId?: string;
   onSuccess: () => void;
@@ -28,9 +42,18 @@ export default function ShiftForm({
     setError(null);
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
-      const res = await createScheduleEntry(businessSlug, formData);
+      const res = entry
+        ? await updateScheduleEntry(entry.id, businessSlug, {
+            employeeId: String(formData.get("employeeId") ?? "").trim(),
+            date: String(formData.get("date") ?? "").trim(),
+            startTime: String(formData.get("startTime") ?? "").trim(),
+            endTime: String(formData.get("endTime") ?? "").trim(),
+            title: String(formData.get("title") ?? "").trim() || null,
+            notes: String(formData.get("notes") ?? "").trim() || null,
+          })
+        : await createScheduleEntry(businessSlug, formData);
       if (!res.ok) {
-        setError(res.error);
+        setError(res.error ?? "Unable to save shift.");
         return;
       }
       onSuccess();
@@ -47,7 +70,7 @@ export default function ShiftForm({
           id="employeeId"
           name="employeeId"
           required
-          defaultValue={defaultEmployeeId ?? ""}
+          defaultValue={entry?.employeeId ?? defaultEmployeeId ?? ""}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
         >
           <option value="" disabled>Select employee…</option>
@@ -64,7 +87,7 @@ export default function ShiftForm({
           name="date"
           type="date"
           required
-          defaultValue={defaultDate ?? ""}
+          defaultValue={entry?.date ?? defaultDate ?? ""}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
         />
       </div>
@@ -77,7 +100,7 @@ export default function ShiftForm({
             name="startTime"
             type="time"
             required
-            defaultValue="09:00"
+            defaultValue={entry?.startTime ?? "09:00"}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           />
         </div>
@@ -88,7 +111,7 @@ export default function ShiftForm({
             name="endTime"
             type="time"
             required
-            defaultValue="17:00"
+            defaultValue={entry?.endTime ?? "17:00"}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           />
         </div>
@@ -100,6 +123,7 @@ export default function ShiftForm({
           id="title"
           name="title"
           type="text"
+          defaultValue={entry?.title ?? ""}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
           placeholder="e.g. Morning shift"
         />
@@ -111,6 +135,7 @@ export default function ShiftForm({
           id="notes"
           name="notes"
           rows={2}
+          defaultValue={entry?.notes ?? ""}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-center text-sm focus:border-[#16BE1B] focus:outline-none focus:ring-1 focus:ring-[#16BE1B]"
         />
       </div>
@@ -130,7 +155,7 @@ export default function ShiftForm({
           disabled={isPending}
           className="rounded-md bg-[#0E4D3A] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
-          {isPending ? "Saving…" : "Add Shift"}
+          {isPending ? "Saving…" : entry ? "Update Shift" : "Add Shift"}
         </button>
       </div>
     </form>

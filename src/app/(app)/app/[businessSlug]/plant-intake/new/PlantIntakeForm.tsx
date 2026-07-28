@@ -3,12 +3,17 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 import Link from "next/link";
-import { Camera, ChevronDown, Minus, Plus, X } from "lucide-react";
+import { ChevronDown, Minus, Plus, X } from "lucide-react";
 import type { LookupRow } from "@/lib/actions/lookups";
+import PhotoPicker from "@/components/record-photo/PhotoPicker";
+import InlineSaveForm, {
+  type InlineSaveAction,
+} from "@/components/forms/InlineSaveForm";
+import { plantIntakeTotalCostCents } from "@/lib/plant-intake-cost";
 
 type Props = {
   businessSlug: string;
-  action: (fd: FormData) => Promise<void>;
+  action: InlineSaveAction;
   lookups: Record<string, LookupRow[]>;
 };
 
@@ -19,8 +24,8 @@ export default function PlantIntakeForm({ businessSlug, action, lookups }: Props
   const plantIds = lookups.plantId ?? [];
   const paymentMethods = lookups.paymentMethod ?? [];
 
-  const [qty, setQty] = useState("0");
-  const [totalCost, setTotalCost] = useState("$ 0.00");
+  const [qty, setQty] = useState("1");
+  const [unitCost, setUnitCost] = useState("$ 0.00");
   const [msrp, setMsrp] = useState("$ 0.00");
 
   function todayInputValue() {
@@ -40,7 +45,7 @@ export default function PlantIntakeForm({ businessSlug, action, lookups }: Props
 
   function adjustQty(delta: number) {
     const parsed = Number.parseInt(qty, 10);
-    const next = Math.max(0, (Number.isFinite(parsed) ? parsed : 0) + delta);
+    const next = Math.max(1, (Number.isFinite(parsed) ? parsed : 1) + delta);
     setQty(String(next));
   }
 
@@ -52,8 +57,18 @@ export default function PlantIntakeForm({ businessSlug, action, lookups }: Props
     setValue(formatCurrency(currencyValue(value) + delta));
   }
 
+  const parsedQty = Math.max(1, Number.parseInt(qty, 10) || 1);
+  const purchaseTotalCents = plantIntakeTotalCostCents(
+    Math.round(currencyValue(unitCost) * 100),
+    parsedQty,
+  );
+
   return (
-    <form action={action} className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white">
+    <InlineSaveForm
+      action={action}
+      successHref={`/app/${businessSlug}/plant-intake`}
+      className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white"
+    >
       <div className="border-b border-transparent px-4 py-3 sm:flex sm:h-[60px] sm:items-center sm:justify-between sm:py-0">
         <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem] items-center sm:flex sm:gap-4">
           <Link
@@ -124,10 +139,13 @@ export default function PlantIntakeForm({ businessSlug, action, lookups }: Props
         <FormRow label="QTY" required>
           <StepperShell>
             <input
+              type="number"
               name="qty"
               value={qty}
               onChange={(event) => setQty(event.target.value)}
               inputMode="numeric"
+              min={1}
+              step={1}
               required
               className={stepperInputClass}
             />
@@ -138,22 +156,37 @@ export default function PlantIntakeForm({ businessSlug, action, lookups }: Props
           </StepperShell>
         </FormRow>
 
-        <FormRow label="Total Cost" required>
-          <StepperShell>
-            <input
-              name="cost"
-              value={totalCost}
-              onChange={(event) => setTotalCost(event.target.value)}
-              onBlur={() => setTotalCost(formatCurrency(currencyValue(totalCost)))}
-              inputMode="decimal"
-              required
-              className={stepperInputClass}
-            />
-            <StepperButtons
-              onDecrement={() => adjustCurrency(totalCost, setTotalCost, -1)}
-              onIncrement={() => adjustCurrency(totalCost, setTotalCost, 1)}
-            />
-          </StepperShell>
+        <FormRow label="Unit Cost" required>
+          <div className="space-y-2">
+            <StepperShell>
+              <input
+                name="cost"
+                value={unitCost}
+                onChange={(event) => setUnitCost(event.target.value)}
+                onBlur={() =>
+                  setUnitCost(formatCurrency(currencyValue(unitCost)))
+                }
+                inputMode="decimal"
+                required
+                className={stepperInputClass}
+                aria-describedby="plant-purchase-total"
+              />
+              <StepperButtons
+                onDecrement={() => adjustCurrency(unitCost, setUnitCost, -1)}
+                onIncrement={() => adjustCurrency(unitCost, setUnitCost, 1)}
+              />
+            </StepperShell>
+            <p
+              id="plant-purchase-total"
+              className="text-center text-xs text-gray-500"
+            >
+              Purchase total for {parsedQty}{" "}
+              {parsedQty === 1 ? "plant" : "plants"}:{" "}
+              <strong className="font-medium text-gray-700">
+                {formatCurrency(purchaseTotalCents / 100)}
+              </strong>
+            </p>
+          </div>
         </FormRow>
 
         <FormRow label="MSRP" required>
@@ -185,13 +218,7 @@ export default function PlantIntakeForm({ businessSlug, action, lookups }: Props
         <TextChevronRow label="Card Number" name="cardLast4" maxLength={4} />
 
         <FormRow label="Photo">
-          <button
-            type="button"
-            className="flex h-[68px] w-full items-center justify-center rounded-sm border border-gray-300 bg-white text-gray-600"
-            aria-label="Add photo"
-          >
-            <Camera className="h-6 w-6" />
-          </button>
+          <PhotoPicker />
         </FormRow>
 
         <datalist id="plant-source-options">
@@ -223,7 +250,7 @@ export default function PlantIntakeForm({ businessSlug, action, lookups }: Props
           ))}
         </datalist>
       </div>
-    </form>
+    </InlineSaveForm>
   );
 }
 

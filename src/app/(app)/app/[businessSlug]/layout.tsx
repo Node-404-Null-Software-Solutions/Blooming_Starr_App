@@ -1,5 +1,6 @@
 import type * as React from "react";
 import AppShell from "@/components/app/AppShell";
+import { BusinessPermissionsProvider } from "@/components/permissions/BusinessPermissions";
 import { requireBusinessMembership } from "@/lib/authz";
 import { db } from "@/lib/db";
 
@@ -11,7 +12,8 @@ export default async function BusinessAppLayout({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { business, userId } = await requireBusinessMembership(businessSlug);
+  const { business, userId, membership } =
+    await requireBusinessMembership(businessSlug);
   const memberships = await db.membership.findMany({
     where: { userId, status: "ACTIVE" },
     select: {
@@ -31,14 +33,19 @@ export default async function BusinessAppLayout({
         } as React.CSSProperties
       }
     >
-      <AppShell
-        logoUrl={business.logoUrl}
-        businessName={business.name}
-        businessSlug={business.slug}
-        businesses={memberships.map(({ business: item, role }) => ({ ...item, role }))}
-      >
-        {children}
-      </AppShell>
+      <BusinessPermissionsProvider role={membership.role}>
+        <AppShell
+          logoUrl={business.logoUrl}
+          businessName={business.name}
+          businessSlug={business.slug}
+          businesses={memberships.map(({ business: item, role }) => ({
+            ...item,
+            role,
+          }))}
+        >
+          {children}
+        </AppShell>
+      </BusinessPermissionsProvider>
     </div>
   );
 }

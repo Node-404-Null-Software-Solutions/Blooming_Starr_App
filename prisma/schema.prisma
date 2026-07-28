@@ -123,6 +123,10 @@ model PlantIntake {
   location     String?
   status       String?
   externalUid  String?
+  photoContentType String?
+  photoData        Bytes?
+  photoOriginalName String?
+  photoUpdatedAt   DateTime?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -198,6 +202,10 @@ model ProductIntake {
   invoiceNumber String?
   notes         String?
   externalUid   String?
+  photoContentType String?
+  photoData        Bytes?
+  photoOriginalName String?
+  photoUpdatedAt   DateTime?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -249,6 +257,7 @@ model TreatmentTracking {
   potSize      String?
   method       String?
   initials     String?
+  notes        String?
   nextEarliest DateTime?
   nextLatest   DateTime?
   externalUid  String?
@@ -332,7 +341,9 @@ model SalesEntry {
   businessId   String
   date         DateTime?
   sku          String
+  customerName String?
   itemName     String?
+  status       String   @default("Sold")
   qty          Int      @default(1)
   salePriceCents Int    @default(0)
   totalSaleCents Int    @default(0)

@@ -12,6 +12,7 @@ import { EditableCell } from "@/components/data-table/EditableCell";
 import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
+import { CanManageOperations } from "@/components/permissions/BusinessPermissions";
 
 export type OverheadRow = {
   id: string;
@@ -22,6 +23,7 @@ export type OverheadRow = {
   description: string | null;
   qty: number;
   subTotalCents: number | null;
+  shippingCents: number | null;
   discountCents: number | null;
   unitCostCents: number | null;
   totalCents: number | null;
@@ -59,6 +61,7 @@ export default function OverheadExpensesClient({
     else if (field === "description") payload.description = value || null;
     else if (field === "qty" && numVal !== undefined) payload.qty = numVal;
     else if (field === "subTotalCents" && numVal !== undefined) payload.subTotalCents = numVal;
+    else if (field === "shippingCents" && numVal !== undefined) payload.shippingCents = numVal;
     else if (field === "discountCents" && numVal !== undefined) payload.discountCents = numVal;
     else if (field === "paymentMethod") payload.paymentMethod = value || null;
     else if (field === "invoiceNumber") payload.invoiceNumber = value || null;
@@ -102,6 +105,7 @@ export default function OverheadExpensesClient({
                   { label: "Description", node: <EditableCell value={selectedRow.description ?? ""} onSave={(v) => handleSave(selectedRow.id, "description", v)} /> },
                   { label: "Qty", node: <EditableCell value={String(selectedRow.qty)} onSave={(v) => handleSave(selectedRow.id, "qty", v)} type="number" /> },
                   { label: "Subtotal", node: <EditableCell value={selectedRow.subTotalCents != null ? String(selectedRow.subTotalCents) : ""} onSave={(v) => handleSave(selectedRow.id, "subTotalCents", v)} type="currency" /> },
+                  { label: "Shipping", node: <EditableCell value={selectedRow.shippingCents != null ? String(selectedRow.shippingCents) : ""} onSave={(v) => handleSave(selectedRow.id, "shippingCents", v)} type="currency" /> },
                   { label: "Discount", node: <EditableCell value={selectedRow.discountCents != null ? String(selectedRow.discountCents) : ""} onSave={(v) => handleSave(selectedRow.id, "discountCents", v)} type="currency" /> },
                   { label: "Unit Cost", node: <span className="text-gray-700">{centsToUsdFixed(selectedRow.unitCostCents ?? 0)}</span> },
                   { label: "Actual Total", node: <span className="text-gray-700">{centsToUsdFixed(selectedRow.totalCents ?? 0)}</span> },
@@ -143,12 +147,14 @@ export default function OverheadExpensesClient({
             Import your Inventory Trackers workbook to populate this list.
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
-            <Link
-              href={`/app/${businessSlug}/settings/import`}
-              className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              Import
-            </Link>
+            <CanManageOperations>
+              <Link
+                href={`/app/${businessSlug}/settings/import`}
+                className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                Import
+              </Link>
+            </CanManageOperations>
           </div>
         </div>
       ) : (
@@ -186,7 +192,7 @@ export default function OverheadExpensesClient({
 
 
           <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[1700px] border-collapse bg-white">
+              <table className="w-full min-w-[1800px] border-collapse bg-white">
                 <thead>
                   <tr>
                     <th className={headCell}>Date</th>
@@ -196,6 +202,7 @@ export default function OverheadExpensesClient({
                     <th className={headCell}>Description</th>
                     <th className={headCell}>Qty</th>
                     <th className={headCell}>Subtotal</th>
+                    <th className={headCell}>Shipping</th>
                     <th className={headCell}>Discount</th>
                     <th className={headCell}>Unit Cost</th>
                     <th className={headCell}>Actual Total</th>
@@ -247,6 +254,13 @@ export default function OverheadExpensesClient({
                           <EditableCell
                             value={row.subTotalCents != null ? String(row.subTotalCents) : ""}
                             onSave={(v) => handleSave(row.id, "subTotalCents", v)}
+                            type="currency"
+                          />
+                        </td>
+                        <td className={`${bodyCell} whitespace-nowrap`}>
+                          <EditableCell
+                            value={row.shippingCents != null ? String(row.shippingCents) : ""}
+                            onSave={(v) => handleSave(row.id, "shippingCents", v)}
                             type="currency"
                           />
                         </td>

@@ -5,6 +5,7 @@ import {
   withBusinessData,
   withBusinessScope,
 } from "@/lib/repositories/tenant-scope";
+import type { ValidatedRecordPhoto } from "@/lib/record-photo";
 
 type PlantIntakeRepositoryClient = {
   plantIntake: PrismaClient["plantIntake"];
@@ -49,12 +50,26 @@ export function createPlantIntakeRepository(
       return client.plantIntake.findMany({
         where: withBusinessScope(businessId, where),
         orderBy,
+        omit: { photoData: true },
       });
     },
 
     findById(id: string) {
       return client.plantIntake.findFirst({
         where: withBusinessScope(businessId, { id }),
+        omit: { photoData: true },
+      });
+    },
+
+    findPhotoById(id: string) {
+      return client.plantIntake.findFirst({
+        where: withBusinessScope(businessId, { id }),
+        select: {
+          photoContentType: true,
+          photoData: true,
+          photoOriginalName: true,
+          photoUpdatedAt: true,
+        },
       });
     },
 
@@ -119,6 +134,9 @@ export function createPlantIntakeRepository(
           qty: true,
           status: true,
           createdAt: true,
+          id: true,
+          photoContentType: true,
+          photoUpdatedAt: true,
         },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       });
@@ -166,11 +184,45 @@ export function createPlantIntakeRepository(
       return result.count === 1;
     },
 
+    async setPhotoById(id: string, photo: ValidatedRecordPhoto) {
+      const result = await client.plantIntake.updateMany({
+        where: { businessId, id },
+        data: {
+          photoContentType: photo.contentType,
+          photoData: photo.data,
+          photoOriginalName: photo.originalName,
+          photoUpdatedAt: new Date(),
+        },
+      });
+      return result.count === 1;
+    },
+
+    async clearPhotoById(id: string) {
+      const result = await client.plantIntake.updateMany({
+        where: { businessId, id },
+        data: {
+          photoContentType: null,
+          photoData: null,
+          photoOriginalName: null,
+          photoUpdatedAt: null,
+        },
+      });
+      return result.count === 1;
+    },
+
     async deleteById(id: string) {
       const result = await client.plantIntake.deleteMany({
         where: { businessId, id },
       });
       return result.count === 1;
+    },
+
+    async deleteByIds(ids: string[]) {
+      if (ids.length === 0) return 0;
+      const result = await client.plantIntake.deleteMany({
+        where: { businessId, id: { in: ids } },
+      });
+      return result.count;
     },
 
     createMany(data: TenantPlantIntakeCreateManyInput[]) {

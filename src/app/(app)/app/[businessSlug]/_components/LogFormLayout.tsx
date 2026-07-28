@@ -11,19 +11,6 @@ export const logFormFieldClass =
 export const logFormScanButtonClass =
   "inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-gray-300 bg-white text-gray-700 hover:bg-gray-50";
 
-type LogFormShellProps = {
-  action: (fd: FormData) => Promise<void>;
-  children: ReactNode;
-};
-
-export function LogFormShell({ action, children }: LogFormShellProps) {
-  return (
-    <form action={action} className="min-h-[calc(100vh-3.5rem)] overflow-x-hidden bg-white pb-24">
-      {children}
-    </form>
-  );
-}
-
 type LogFormHeaderProps = {
   backHref: string;
   backLabel: string;

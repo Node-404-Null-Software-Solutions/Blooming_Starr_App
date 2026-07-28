@@ -6,11 +6,17 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import ModuleHeader from "../_components/ModuleHeader";
 import { useTransplantFilter, TransplantFilterPanel } from "./TransplantFilterPopover";
-import { updateTransplantLog, deleteTransplantLog } from "@/lib/actions/data-entries";
+import {
+  updateTransplantLog,
+  deleteTransplantLog,
+  deleteTransplantLogs,
+} from "@/lib/actions/data-entries";
 import { EditableCell } from "@/components/data-table/EditableCell";
 import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
+import { CanManageOperations } from "@/components/permissions/BusinessPermissions";
+import BulkSelectionBar from "@/components/data-table/BulkSelectionBar";
 
 export type TransplantRow = {
   id: string;
@@ -61,6 +67,7 @@ export default function TransplantLogClient({
   const [selectMode, setSelectMode] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const { isOpen, setIsOpen, hasActiveFilters, filters, setFilters, apply, clear, cancel } =
     useTransplantFilter();
 
@@ -131,6 +138,33 @@ export default function TransplantLogClient({
     if (res.ok) {
       setSelectedId(null);
       startTransition(() => router.refresh());
+    }
+  }
+
+  async function deleteSelectedRows() {
+    const ids = Array.from(selectedRows);
+    if (
+      ids.length === 0 ||
+      !window.confirm(
+        `Delete ${ids.length} selected row${ids.length === 1 ? "" : "s"}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    try {
+      const result = await deleteTransplantLogs(ids, businessSlug);
+      if (!result.ok) {
+        window.alert(result.error);
+        return;
+      }
+      setSelectedRows(new Set());
+      setSelectedId(null);
+      setSelectMode(false);
+      startTransition(() => router.refresh());
+    } finally {
+      setIsBulkDeleting(false);
     }
   }
 
@@ -221,12 +255,14 @@ export default function TransplantLogClient({
             Import your Inventory Trackers workbook to populate this list.
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
-            <Link
-              href={`/app/${businessSlug}/settings/import`}
-              className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              Import
-            </Link>
+            <CanManageOperations>
+              <Link
+                href={`/app/${businessSlug}/settings/import`}
+                className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                Import
+              </Link>
+            </CanManageOperations>
           </div>
         </div>
       ) : (
@@ -370,9 +406,12 @@ export default function TransplantLogClient({
       )}
 
       {selectMode ? (
-        <p className="text-xs text-gray-500">
-          {selectedRows.size} row{selectedRows.size === 1 ? "" : "s"} selected
-        </p>
+        <BulkSelectionBar
+          count={selectedRows.size}
+          isDeleting={isBulkDeleting}
+          onClear={() => setSelectedRows(new Set())}
+          onDelete={deleteSelectedRows}
+        />
       ) : null}
 
       {hasRows && isPending && <p className="text-center text-xs text-gray-500 sm:text-left">Saving...</p>}

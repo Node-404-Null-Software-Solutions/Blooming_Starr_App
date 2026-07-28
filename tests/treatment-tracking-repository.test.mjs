@@ -121,6 +121,23 @@ test("Treatment Tracking update and delete include the context business", async 
   });
 });
 
+test("Treatment Tracking update carries notes inside the tenant scope", async () => {
+  const mock = createMockClient();
+  const treatments = createTreatmentTrackingRepository(context, mock.client);
+
+  await treatments.updateById("treatment-1", {
+    notes: "Recheck the lower leaves.",
+  });
+
+  assert.deepEqual(mock.calls[0].args.where, {
+    businessId: "business-a",
+    id: "treatment-1",
+  });
+  assert.deepEqual(mock.calls[0].args.data, {
+    notes: "Recheck the lower leaves.",
+  });
+});
+
 test("Treatment Tracking import deduplication is tenant scoped", async () => {
   const mock = createMockClient();
   const treatments = createTreatmentTrackingRepository(context, mock.client);

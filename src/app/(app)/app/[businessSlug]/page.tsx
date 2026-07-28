@@ -12,8 +12,10 @@ import {
   type GenusCounts,
 } from "@/lib/dashboard";
 import DashboardFilter from "./DashboardFilter";
+import ExportRawTransactionsButton from "./ExportRawTransactionsButton";
 import ExportTaxSummaryButton from "./ExportTaxSummaryButton";
 import { centsToUsd, formatPct } from "@/lib/formulas";
+import { canManageOperations } from "@/lib/permissions";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -28,6 +30,7 @@ export default async function BusinessDashboardPage({
   const { business: authorizedBusiness, businessContext } =
     await requireBusinessMembership(businessSlug);
   const businessId = authorizedBusiness.id;
+  const canManage = canManageOperations(businessContext.role);
 
   const sp = (await searchParams) ?? {};
   const taxYear = parseTaxYear(sp.taxYear);
@@ -56,7 +59,13 @@ export default async function BusinessDashboardPage({
       <section className="rounded-lg border-2 border-amber-200 bg-amber-50/50 p-4 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900">Profit &amp; Loss — {taxYear}</h2>
-          <ExportTaxSummaryButton summary={taxSummary} businessName={business?.name} />
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportRawTransactionsButton
+              businessSlug={businessSlug}
+              year={taxYear}
+            />
+            <ExportTaxSummaryButton summary={taxSummary} businessName={business?.name} />
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-md border border-amber-200 bg-white p-3">
@@ -256,10 +265,18 @@ export default async function BusinessDashboardPage({
 
         {taxSummary.expenseSections.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-600">
-            No expenses recorded for {taxYear}.{" "}
-            <Link href={`/app/${businessSlug}/overhead-expenses/new`} className="text-(--primary) hover:underline">
-              Add an expense
-            </Link>
+            No expenses recorded for {taxYear}.
+            {canManage ? (
+              <>
+                {" "}
+                <Link
+                  href={`/app/${businessSlug}/overhead-expenses/new`}
+                  className="text-(--primary) hover:underline"
+                >
+                  Add an expense
+                </Link>
+              </>
+            ) : null}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

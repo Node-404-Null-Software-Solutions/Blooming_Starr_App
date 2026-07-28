@@ -1,6 +1,7 @@
 import { requireBusinessMembership } from "@/lib/authz";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
+import { recordPhotoUrl } from "@/lib/record-photo";
 import { sortByDateDescNullsLast } from "@/lib/sort";
 import ProductIntakeClient from "./ProductIntakeClient";
 
@@ -33,6 +34,7 @@ export default async function ProductsPage({
   const vendorRaw = typeof sp.vendor === "string" ? sp.vendor.trim() : "";
   const categoryRaw = typeof sp.category === "string" ? sp.category.trim() : "";
   const skuRaw = typeof sp.sku === "string" ? sp.sku.trim() : "";
+  const qRaw = typeof sp.q === "string" ? sp.q.trim() : "";
   const fromDate = fromRaw ? new Date(fromRaw) : null;
   const toDate = toRaw ? new Date(toRaw) : null;
   const validFrom = fromDate && !Number.isNaN(fromDate.getTime()) ? fromDate : null;
@@ -50,6 +52,38 @@ export default async function ProductsPage({
       : {}),
     ...(skuRaw
       ? { sku: { contains: skuRaw, mode: "insensitive" as const } }
+      : {}),
+    ...(qRaw
+      ? {
+          OR: [
+            { sku: { contains: qRaw, mode: "insensitive" as const } },
+            { vendor: { contains: qRaw, mode: "insensitive" as const } },
+            { source: { contains: qRaw, mode: "insensitive" as const } },
+            { category: { contains: qRaw, mode: "insensitive" as const } },
+            { size: { contains: qRaw, mode: "insensitive" as const } },
+            { style: { contains: qRaw, mode: "insensitive" as const } },
+            {
+              purchaseNumber: {
+                contains: qRaw,
+                mode: "insensitive" as const,
+              },
+            },
+            {
+              paymentMethod: {
+                contains: qRaw,
+                mode: "insensitive" as const,
+              },
+            },
+            { cardLast4: { contains: qRaw, mode: "insensitive" as const } },
+            {
+              invoiceNumber: {
+                contains: qRaw,
+                mode: "insensitive" as const,
+              },
+            },
+            { notes: { contains: qRaw, mode: "insensitive" as const } },
+          ],
+        }
       : {}),
   });
   const sortedRows = sortByDateDescNullsLast(rows);
@@ -71,6 +105,15 @@ export default async function ProductsPage({
     totalCostCents: row.totalCostCents ?? 0,
     paymentMethod: row.paymentMethod ?? "—",
     cardLast4: row.cardLast4 ?? null,
+    photoUrl:
+      row.photoContentType && row.photoUpdatedAt
+        ? recordPhotoUrl(
+            businessSlug,
+            "product-intake",
+            row.id,
+            row.photoUpdatedAt,
+          )
+        : null,
     invoiceNumber: row.invoiceNumber ?? "—",
     notes: row.notes ?? "—",
   }));

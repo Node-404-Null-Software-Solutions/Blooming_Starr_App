@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { requireBusinessMembership } from "@/lib/authz";
+import { requireBusinessOperationManager } from "@/lib/authz";
 import { createPlantIntake } from "@/lib/actions/data-entries";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import PlantIntakeForm from "./PlantIntakeForm";
@@ -10,7 +9,7 @@ export default async function NewPlantIntakePage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  await requireBusinessMembership(businessSlug);
+  await requireBusinessOperationManager(businessSlug);
 
   const lookups = await getLookupEntriesMulti(businessSlug, [
     "plantSource",
@@ -21,16 +20,15 @@ export default async function NewPlantIntakePage({
     "status",
   ]);
 
-  async function submit(formData: FormData): Promise<void> {
+  async function submit(formData: FormData) {
     "use server";
-    const res = await createPlantIntake(businessSlug, formData);
-    if (res.ok) redirect(`/app/${businessSlug}/plant-intake`);
+    return createPlantIntake(businessSlug, formData);
   }
 
   return (
     <PlantIntakeForm
       businessSlug={businessSlug}
-      action={submit as (fd: FormData) => Promise<void>}
+      action={submit}
       lookups={lookups}
     />
   );

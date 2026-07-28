@@ -1,7 +1,7 @@
 "use server";
 
 import { withTenantRlsTransaction } from "@/lib/db";
-import { requireBusinessMembership } from "@/lib/authz";
+import { requireBusinessOperationManager } from "@/lib/authz";
 import type { BusinessContext } from "@/lib/business-context";
 import {
   calculateDivisionCost,
@@ -18,6 +18,7 @@ import {
 import type { DateAppLogicFields } from "@/lib/app-logic-row-mapping";
 import { executeGovernedAppLogicActions } from "@/lib/app-logic-action-broker";
 import { appLogicFailureMessage } from "@/lib/app-logic-audit";
+import { readRecordPhoto } from "@/lib/record-photo";
 import { generateSku } from "@/lib/plant-sku-service";
 import { createFertilizerLogRepository } from "@/lib/repositories/fertilizer-log";
 import {
@@ -152,7 +153,9 @@ async function syncProductToSales(
 export type SalesEntryUpdate = {
   date?: string | null;
   sku?: string;
+  customerName?: string | null;
   itemName?: string | null;
+  status?: string;
   qty?: number;
   salePriceCents?: number;
   paymentMethod?: string | null;
@@ -167,7 +170,7 @@ export async function updateSalesEntry(
   businessSlug: string,
   data: SalesEntryUpdate
 ) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const sales = createSalesRepository(businessContext);
 
   const existing = await sales.findById(id);
@@ -199,7 +202,11 @@ export async function updateSalesEntry(
   const updated = await sales.updateById(id, {
     ...(dateValue !== undefined && { date: dateValue }),
     ...(data.sku !== undefined && { sku: data.sku }),
+    ...(data.customerName !== undefined && {
+      customerName: data.customerName,
+    }),
     ...(data.itemName !== undefined && { itemName: data.itemName }),
+    ...(data.status !== undefined && { status: data.status || "Sold" }),
     qty: Math.round(derived.qty),
     ...(data.salePriceCents !== undefined && {
       salePriceCents: data.salePriceCents,
@@ -299,7 +306,7 @@ function revalidateTransplantPaths(businessSlug: string) {
 }
 
 export async function createSalesEntry(businessSlug: string, formData: FormData) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const sales = createSalesRepository(businessContext);
 
   const sku = formStr(formData, "sku");
@@ -324,7 +331,9 @@ export async function createSalesEntry(businessSlug: string, formData: FormData)
   const entry = await sales.create({
     date: formDate(formData, "date"),
     sku,
+    customerName: formStr(formData, "customerName") || null,
     itemName,
+    status: formStr(formData, "status") || "Sold",
     qty: Math.round(derived.qty),
     salePriceCents,
     costCents,
@@ -362,12 +371,14 @@ export async function createSalesEntry(businessSlug: string, formData: FormData)
 }
 
 export async function createPlantIntake(businessSlug: string, formData: FormData) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
 
   const source = formStr(formData, "source");
   const genus = formStr(formData, "genus");
   const cultivar = formStr(formData, "cultivar");
   if (!genus) return { ok: false, error: "Plant name is required" };
+  const photoResult = await readRecordPhoto(formData);
+  if (!photoResult.ok) return photoResult;
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const costCents = formCents(formData, "cost");
   const msrpCents = formCents(formData, "msrp");
@@ -419,6 +430,10 @@ export async function createPlantIntake(businessSlug: string, formData: FormData
         location: formStr(formData, "location") || null,
         status: formStr(formData, "status") || null,
       });
+      if (photoResult.photo) {
+        const saved = await plantIntakes.setPhotoById(intake.id, photoResult.photo);
+        if (!saved) throw new Error("Plant intake photo target was not found.");
+      }
       await executeGovernedAppLogicActions(
         businessContext,
         {
@@ -445,7 +460,7 @@ export async function createPlantIntake(businessSlug: string, formData: FormData
 }
 
 export async function createProductIntake(businessSlug: string, formData: FormData) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
 
   const source = formStr(formData, "source");
   const category = formStr(formData, "category");
@@ -455,6 +470,8 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
   const qty = Math.max(1, Math.floor(Number(formData.get("qty")) || 1));
   const totalCostCents = formCents(formData, "totalCost");
   const msrpCents = formCents(formData, "msrp");
+  const photoResult = await readRecordPhoto(formData);
+  if (!photoResult.ok) return photoResult;
   const logicResult = await runAppLogicSafely(() =>
     runDetailedAppLogicRowPipeline(
       businessContext,
@@ -504,6 +521,13 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
         invoiceNumber: formStr(formData, "invoiceNumber") || null,
         notes: formStr(formData, "notes") || null,
       });
+      if (photoResult.photo) {
+        const saved = await productIntakes.setPhotoById(
+          intake.id,
+          photoResult.photo
+        );
+        if (!saved) throw new Error("Product intake photo target was not found.");
+      }
       await executeGovernedAppLogicActions(
         businessContext,
         {
@@ -530,7 +554,7 @@ export async function createProductIntake(businessSlug: string, formData: FormDa
 }
 
 export async function createOverheadExpense(businessSlug: string, formData: FormData) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const overheadExpenses = createOverheadExpenseRepository(businessContext);
 
   const subTotalCents = formCents(formData, "subTotal");
@@ -573,7 +597,7 @@ export async function createOverheadExpense(businessSlug: string, formData: Form
 }
 
 export async function createTransplantLog(businessSlug: string, formData: FormData) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const plantIntakes = createPlantIntakeRepository(businessContext);
   const transplants = createTransplantLogRepository(businessContext);
 
@@ -622,7 +646,7 @@ export async function createTransplantLog(businessSlug: string, formData: FormDa
 }
 
 export async function createTreatmentTracking(businessSlug: string, formData: FormData) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const treatments = createTreatmentTrackingRepository(businessContext);
 
   const sku = formStr(formData, "sku");
@@ -650,6 +674,7 @@ export async function createTreatmentTracking(businessSlug: string, formData: Fo
     potSize: formStr(formData, "potSize") || null,
     method: formStr(formData, "method") || null,
     initials: formStr(formData, "initials") || null,
+    notes: formStr(formData, "notes") || null,
     nextEarliest: calculatedDates.nextEarliest,
     nextLatest: calculatedDates.nextLatest,
   });
@@ -659,7 +684,7 @@ export async function createTreatmentTracking(businessSlug: string, formData: Fo
 }
 
 export async function createFertilizerLog(businessSlug: string, formData: FormData) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const fertilizerLogs = createFertilizerLogRepository(businessContext);
 
   const date = formDate(formData, "date");
@@ -721,7 +746,7 @@ export async function updatePlantIntake(
   businessSlug: string,
   data: PlantIntakeUpdate
 ) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const plantIntakes = createPlantIntakeRepository(businessContext);
   const existing = await plantIntakes.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
@@ -876,7 +901,7 @@ export async function updateProductIntake(
   businessSlug: string,
   data: ProductIntakeUpdate
 ) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const productIntakes = createProductIntakeRepository(businessContext);
   const existing = await productIntakes.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
@@ -1031,7 +1056,7 @@ export async function updateTransplantLog(
   businessSlug: string,
   data: TransplantLogUpdate
 ) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const transplants = createTransplantLogRepository(businessContext);
 
   const dateValue =
@@ -1070,6 +1095,7 @@ export type TreatmentTrackingUpdate = {
   potSize?: string | null;
   method?: string | null;
   initials?: string | null;
+  notes?: string | null;
   nextEarliest?: string | null;
   nextLatest?: string | null;
 };
@@ -1079,7 +1105,7 @@ export async function updateTreatmentTracking(
   businessSlug: string,
   data: TreatmentTrackingUpdate
 ) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const treatments = createTreatmentTrackingRepository(businessContext);
   const existing = await treatments.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
@@ -1131,6 +1157,7 @@ export async function updateTreatmentTracking(
     ...(data.potSize !== undefined && { potSize: data.potSize }),
     ...(data.method !== undefined && { method: data.method }),
     ...(data.initials !== undefined && { initials: data.initials }),
+    ...(data.notes !== undefined && { notes: data.notes }),
     nextEarliest: calculatedDates.nextEarliest,
     nextLatest: calculatedDates.nextLatest,
   });
@@ -1159,7 +1186,7 @@ export async function updateOverheadExpense(
   businessSlug: string,
   data: OverheadExpenseUpdate
 ) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const overheadExpenses = createOverheadExpenseRepository(businessContext);
   const existing = await overheadExpenses.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
@@ -1228,7 +1255,7 @@ export async function updateFertilizerLog(
   businessSlug: string,
   data: FertilizerLogUpdate
 ) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const fertilizerLogs = createFertilizerLogRepository(businessContext);
   const existing = await fertilizerLogs.findById(id);
   if (!existing) return { ok: false, error: "Not found" };
@@ -1286,7 +1313,7 @@ export async function updateFertilizerLog(
 }
 
 export async function deleteSalesEntry(id: string, businessSlug: string) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const sales = createSalesRepository(businessContext);
   const deleted = await sales.deleteById(id);
   if (!deleted) return { ok: false, error: "Not found" };
@@ -1294,8 +1321,154 @@ export async function deleteSalesEntry(id: string, businessSlug: string) {
   return { ok: true };
 }
 
+export async function updatePlantIntakePhoto(
+  id: string,
+  businessSlug: string,
+  formData: FormData
+) {
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
+  const photoResult = await readRecordPhoto(formData);
+  if (!photoResult.ok) return photoResult;
+  if (!photoResult.photo) {
+    return { ok: false as const, error: "Choose a photo to upload." };
+  }
+
+  const updated = await createPlantIntakeRepository(
+    businessContext
+  ).setPhotoById(id, photoResult.photo);
+  if (!updated) return { ok: false as const, error: "Not found" };
+
+  revalidatePlantIntakePaths(businessSlug);
+  revalidatePath(`/app/${businessSlug}/plant-intake/${id}`);
+  return { ok: true as const };
+}
+
+export async function clearPlantIntakePhoto(
+  id: string,
+  businessSlug: string
+) {
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
+  const updated = await createPlantIntakeRepository(
+    businessContext
+  ).clearPhotoById(id);
+  if (!updated) return { ok: false as const, error: "Not found" };
+
+  revalidatePlantIntakePaths(businessSlug);
+  revalidatePath(`/app/${businessSlug}/plant-intake/${id}`);
+  return { ok: true as const };
+}
+
+export async function updateProductIntakePhoto(
+  id: string,
+  businessSlug: string,
+  formData: FormData
+) {
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
+  const photoResult = await readRecordPhoto(formData);
+  if (!photoResult.ok) return photoResult;
+  if (!photoResult.photo) {
+    return { ok: false as const, error: "Choose a photo to upload." };
+  }
+
+  const updated = await createProductIntakeRepository(
+    businessContext
+  ).setPhotoById(id, photoResult.photo);
+  if (!updated) return { ok: false as const, error: "Not found" };
+
+  revalidateProductIntakePaths(businessSlug);
+  return { ok: true as const };
+}
+
+export async function clearProductIntakePhoto(
+  id: string,
+  businessSlug: string
+) {
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
+  const updated = await createProductIntakeRepository(
+    businessContext
+  ).clearPhotoById(id);
+  if (!updated) return { ok: false as const, error: "Not found" };
+
+  revalidateProductIntakePaths(businessSlug);
+  return { ok: true as const };
+}
+
+const MAX_BULK_SELECTION = 500;
+
+function validateBulkSelection(ids: string[]) {
+  const normalized = Array.from(
+    new Set(ids.map((id) => id.trim()).filter(Boolean))
+  );
+  if (normalized.length === 0) {
+    return { ok: false as const, error: "Select at least one row." };
+  }
+  if (normalized.length > MAX_BULK_SELECTION) {
+    return {
+      ok: false as const,
+      error: `Select no more than ${MAX_BULK_SELECTION} rows at a time.`,
+    };
+  }
+  return { ok: true as const, ids: normalized };
+}
+
+export async function deletePlantIntakes(
+  ids: string[],
+  businessSlug: string
+) {
+  const selection = validateBulkSelection(ids);
+  if (!selection.ok) return selection;
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
+  const count = await createPlantIntakeRepository(
+    businessContext
+  ).deleteByIds(selection.ids);
+  revalidatePlantIntakePaths(businessSlug);
+  return { ok: true as const, count };
+}
+
+export async function deleteProductIntakes(
+  ids: string[],
+  businessSlug: string
+) {
+  const selection = validateBulkSelection(ids);
+  if (!selection.ok) return selection;
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
+  const count = await createProductIntakeRepository(
+    businessContext
+  ).deleteByIds(selection.ids);
+  revalidateProductIntakePaths(businessSlug);
+  return { ok: true as const, count };
+}
+
+export async function deleteSalesEntries(
+  ids: string[],
+  businessSlug: string
+) {
+  const selection = validateBulkSelection(ids);
+  if (!selection.ok) return selection;
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
+  const count = await createSalesRepository(businessContext).deleteByIds(
+    selection.ids
+  );
+  revalidateSalesPaths(businessSlug);
+  return { ok: true as const, count };
+}
+
+export async function deleteTransplantLogs(
+  ids: string[],
+  businessSlug: string
+) {
+  const selection = validateBulkSelection(ids);
+  if (!selection.ok) return selection;
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
+  const count = await createTransplantLogRepository(
+    businessContext
+  ).deleteByIds(selection.ids);
+  revalidateTransplantPaths(businessSlug);
+  return { ok: true as const, count };
+}
+
 export async function deletePlantIntake(id: string, businessSlug: string) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const plantIntakes = createPlantIntakeRepository(businessContext);
   const deleted = await plantIntakes.deleteById(id);
   if (!deleted) return { ok: false, error: "Not found" };
@@ -1304,7 +1477,7 @@ export async function deletePlantIntake(id: string, businessSlug: string) {
 }
 
 export async function deleteProductIntake(id: string, businessSlug: string) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const productIntakes = createProductIntakeRepository(businessContext);
   const deleted = await productIntakes.deleteById(id);
   if (!deleted) return { ok: false, error: "Not found" };
@@ -1313,7 +1486,7 @@ export async function deleteProductIntake(id: string, businessSlug: string) {
 }
 
 export async function deleteOverheadExpense(id: string, businessSlug: string) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const overheadExpenses = createOverheadExpenseRepository(businessContext);
   const deleted = await overheadExpenses.deleteById(id);
   if (!deleted) return { ok: false, error: "Not found" };
@@ -1322,7 +1495,7 @@ export async function deleteOverheadExpense(id: string, businessSlug: string) {
 }
 
 export async function deleteTransplantLog(id: string, businessSlug: string) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const transplants = createTransplantLogRepository(businessContext);
   const deleted = await transplants.deleteById(id);
   if (!deleted) return { ok: false, error: "Not found" };
@@ -1331,7 +1504,7 @@ export async function deleteTransplantLog(id: string, businessSlug: string) {
 }
 
 export async function deleteFertilizerLog(id: string, businessSlug: string) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const fertilizerLogs = createFertilizerLogRepository(businessContext);
   const deleted = await fertilizerLogs.deleteById(id);
   if (!deleted) return { ok: false, error: "Not found" };
@@ -1340,7 +1513,7 @@ export async function deleteFertilizerLog(id: string, businessSlug: string) {
 }
 
 export async function deleteTreatmentTracking(id: string, businessSlug: string) {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const treatments = createTreatmentTrackingRepository(businessContext);
   const deleted = await treatments.deleteById(id);
   if (!deleted) return { ok: false, error: "Not found" };

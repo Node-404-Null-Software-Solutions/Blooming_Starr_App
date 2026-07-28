@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { CheckSquare, ListFilter, Pencil, Plus } from "lucide-react";
+import { useBusinessPermissions } from "@/components/permissions/BusinessPermissions";
 
 type ModuleHeaderProps = {
   title: string;
@@ -29,6 +30,7 @@ export default function ModuleHeader({
   onSelectClick,
   onEditClick,
 }: ModuleHeaderProps) {
+  const { canManageOperations } = useBusinessPermissions();
   const iconButtonClass =
     "inline-flex h-8 w-8 items-center justify-center rounded-sm text-gray-600 hover:bg-gray-100";
   const activeIconButtonClass = "bg-green-50 text-[#08bd12]";
@@ -40,7 +42,7 @@ export default function ModuleHeader({
           {title}
         </h1>
         <div className="relative flex w-full items-center justify-center gap-3 sm:w-auto sm:justify-end sm:gap-2">
-          {addHref ? (
+          {addHref && canManageOperations ? (
             <Link
               href={addHref}
               className="inline-flex h-8 items-center gap-1 rounded-sm bg-[#08bd12] px-3 text-sm font-medium text-white hover:bg-[#08aa12]"
@@ -61,7 +63,7 @@ export default function ModuleHeader({
               <ListFilter className="h-4 w-4" />
             </button>
           ) : null}
-          {onSelectClick ? (
+          {onSelectClick && canManageOperations ? (
             <button
               type="button"
               onClick={onSelectClick}
@@ -73,7 +75,7 @@ export default function ModuleHeader({
               <CheckSquare className="h-4 w-4" />
             </button>
           ) : null}
-          {onEditClick ? (
+          {onEditClick && canManageOperations ? (
             <button
               type="button"
               onClick={onEditClick}

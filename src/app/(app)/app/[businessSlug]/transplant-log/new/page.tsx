@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { requireBusinessMembership } from "@/lib/authz";
+import { requireBusinessOperationManager } from "@/lib/authz";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import { createTransplantLog } from "@/lib/actions/data-entries";
 import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
@@ -11,7 +10,8 @@ export default async function NewTransplantLogPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } =
+    await requireBusinessOperationManager(businessSlug);
   const plantIntakes = createPlantIntakeRepository(businessContext);
 
   const [lookups, plantSkus] = await Promise.all([
@@ -30,16 +30,15 @@ export default async function NewTransplantLogPage({
   const potColorOptions = lookups.potColor?.map((entry) => entry.name) ?? [];
   const skuList = plantSkus.map((plant) => plant.sku);
 
-  async function submit(formData: FormData): Promise<void> {
+  async function submit(formData: FormData) {
     "use server";
-    const res = await createTransplantLog(businessSlug, formData);
-    if (res.ok) redirect(`/app/${businessSlug}/transplant-log`);
+    return createTransplantLog(businessSlug, formData);
   }
 
   return (
     <TransplantLogForm
       businessSlug={businessSlug}
-      action={submit as (fd: FormData) => Promise<void>}
+      action={submit}
       skuList={skuList}
       actionOptions={actionOptions}
       mediaOptions={mediaOptions}

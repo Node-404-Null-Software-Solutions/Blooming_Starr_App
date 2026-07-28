@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CheckSquare, Filter, ListFilter, Pencil, Plus } from "lucide-react";
+import { useBusinessPermissions } from "@/components/permissions/BusinessPermissions";
 
 type Filters = {
   priceType: "msrp" | "cost" | "";
@@ -16,7 +17,6 @@ type Filters = {
 
 type PlantIntakeToolbarProps = {
   businessSlug: string;
-  isOwner: boolean;
   genusOptions?: string[];
   selectMode?: boolean;
   editMode?: boolean;
@@ -53,6 +53,7 @@ export default function PlantIntakeToolbar({
   onToggleSelectMode,
   onToggleEditMode,
 }: PlantIntakeToolbarProps) {
+  const { canManageOperations } = useBusinessPermissions();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -125,13 +126,16 @@ export default function PlantIntakeToolbar({
           Plant Intake
         </h1>
         <div className="relative flex w-full items-center justify-center gap-3 sm:w-auto sm:justify-end sm:gap-2">
-          <Link
-            href={`/app/${businessSlug}/plant-intake/new`}
-            className="inline-flex h-8 items-center gap-1 rounded-sm bg-[#08bd12] px-3 text-sm font-medium text-white hover:bg-[#08aa12]"
-          >
-            <Plus className="h-4 w-4" />
-            Add
-          </Link>
+          {canManageOperations ? (
+            <Link
+              href={`/app/${businessSlug}/plant-intake/new`}
+              className="inline-flex h-8 items-center gap-1 rounded-sm bg-[#08bd12] px-3 text-sm font-medium text-white hover:bg-[#08aa12]"
+            >
+              <Plus className="h-4 w-4" />
+              Add
+            </Link>
+          ) : null}
+          {canManageOperations ? (
           <button
             type="button"
             onClick={() => setOpen((prev) => !prev)}
@@ -143,6 +147,8 @@ export default function PlantIntakeToolbar({
           >
             <ListFilter className="h-4 w-4" />
           </button>
+          ) : null}
+          {canManageOperations ? (
           <button
             type="button"
             onClick={onToggleSelectMode}
@@ -155,6 +161,7 @@ export default function PlantIntakeToolbar({
           >
             <CheckSquare className="h-4 w-4" />
           </button>
+          ) : null}
           <button
             type="button"
             onClick={onToggleEditMode}

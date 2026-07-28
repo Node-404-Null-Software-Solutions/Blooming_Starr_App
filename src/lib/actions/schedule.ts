@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireBusinessMembership } from "@/lib/authz";
+import { requireBusinessOperationManager } from "@/lib/authz";
 import { appLogicFailureMessage } from "@/lib/app-logic-audit";
 import {
   scheduleFromAppLogicScope,
@@ -18,7 +18,7 @@ export async function createScheduleEntry(
   businessSlug: string,
   formData: FormData
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const employees = createEmployeeRepository(businessContext);
   const schedule = createScheduleEntryRepository(businessContext);
 
@@ -79,7 +79,7 @@ export async function updateScheduleEntry(
     notes?: string | null;
   }
 ): Promise<{ ok: boolean; error?: string }> {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const employees = createEmployeeRepository(businessContext);
   const schedule = createScheduleEntryRepository(businessContext);
 
@@ -97,6 +97,9 @@ export async function updateScheduleEntry(
   }
   const startTime = data.startTime ?? existing.startTime;
   const endTime = data.endTime ?? existing.endTime;
+  if (!startTime || !endTime) {
+    return { ok: false, error: "Start and end times are required." };
+  }
   try {
     const execution = await runDetailedAppLogicRowPipeline(
       businessContext,
@@ -126,7 +129,7 @@ export async function deleteScheduleEntry(
   id: string,
   businessSlug: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { businessContext } = await requireBusinessMembership(businessSlug);
+  const { businessContext } = await requireBusinessOperationManager(businessSlug);
   const schedule = createScheduleEntryRepository(businessContext);
   const deleted = await schedule.deleteById(id);
   if (!deleted) return { ok: false, error: "Entry not found." };

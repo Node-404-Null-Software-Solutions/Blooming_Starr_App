@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { requireBusinessMembership } from "@/lib/authz";
+import { requireBusinessOperationManager } from "@/lib/authz";
 import { createProductIntake } from "@/lib/actions/data-entries";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import ProductIntakeForm from "./ProductIntakeForm";
@@ -10,7 +9,7 @@ export default async function NewProductIntakePage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  await requireBusinessMembership(businessSlug);
+  await requireBusinessOperationManager(businessSlug);
 
   const lookups = await getLookupEntriesMulti(businessSlug, [
     "productSource",
@@ -20,16 +19,15 @@ export default async function NewProductIntakePage({
     "paymentMethod",
   ]);
 
-  async function submit(formData: FormData): Promise<void> {
+  async function submit(formData: FormData) {
     "use server";
-    const res = await createProductIntake(businessSlug, formData);
-    if (res.ok) redirect(`/app/${businessSlug}/product-intake`);
+    return createProductIntake(businessSlug, formData);
   }
 
   return (
     <ProductIntakeForm
       businessSlug={businessSlug}
-      action={submit as (fd: FormData) => Promise<void>}
+      action={submit}
       lookups={lookups}
     />
   );

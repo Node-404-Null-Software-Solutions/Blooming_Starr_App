@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { requireBusinessMembership } from "@/lib/authz";
+import { requireBusinessOperationManager } from "@/lib/authz";
 import { createTreatmentTracking } from "@/lib/actions/data-entries";
 import {
   PlantStyleAddFormBody,
@@ -15,18 +14,17 @@ export default async function NewTreatmentTrackingPage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  await requireBusinessMembership(businessSlug);
+  await requireBusinessOperationManager(businessSlug);
 
-  async function submit(formData: FormData): Promise<void> {
+  async function submit(formData: FormData) {
     "use server";
-    const res = await createTreatmentTracking(businessSlug, formData);
-    if (res.ok) redirect(`/app/${businessSlug}/treatment-tracking`);
+    return createTreatmentTracking(businessSlug, formData);
   }
 
   const backHref = `/app/${businessSlug}/treatment-tracking`;
 
   return (
-    <PlantStyleAddFormShell action={submit as (fd: FormData) => Promise<void>}>
+    <PlantStyleAddFormShell action={submit} successHref={backHref}>
       <PlantStyleAddFormHeader
         backHref={backHref}
         backLabel="Close treatment tracking form"

@@ -2,6 +2,7 @@ import { formatAppDate } from "@/lib/date-format";
 import type { BusinessContext } from "@/lib/business-context";
 import { createOverheadExpenseRepository } from "@/lib/repositories/overhead-expense";
 import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
+import { plantIntakeTotalCostCents } from "@/lib/plant-intake-cost";
 import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
 import { createSalesRepository } from "@/lib/repositories/sales";
 
@@ -98,6 +99,13 @@ function buildDateWhere(rangeStart: Date | null, rangeEnd?: Date | null) {
   return endClause ?? undefined;
 }
 
+export function buildTaxYearDateWhere(year: number) {
+  return buildDateWhere(
+    new Date(year, 0, 1),
+    endOfDay(new Date(year, 11, 31))
+  );
+}
+
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function formatDateOnly(value: Date | null): string | null {
@@ -113,9 +121,7 @@ export async function getTaxSummary(
   const overheadExpenses = createOverheadExpenseRepository(businessContext);
   const plantIntakes = createPlantIntakeRepository(businessContext);
   const productIntakes = createProductIntakeRepository(businessContext);
-  const rangeStart = new Date(year, 0, 1);
-  const rangeEnd = endOfDay(new Date(year, 11, 31));
-  const rangeWhere = buildDateWhere(rangeStart, rangeEnd);
+  const rangeWhere = buildTaxYearDateWhere(year);
 
   const [
     salesEntries,
@@ -236,36 +242,38 @@ export async function getTaxSummary(
     const qty = p.qty ?? 1;
     const cost = p.costCents ?? 0;
     const msrp = p.msrpCents ?? 0;
+    const purchaseTotal = plantIntakeTotalCostCents(cost, qty);
+    const totalMsrp = plantIntakeTotalCostCents(msrp, qty);
 
     switch (status) {
       case "available":
         availableCount += qty;
-        totalPlantInvestmentCents += cost;
-        plantInvestmentAtMsrpCents += msrp;
+        totalPlantInvestmentCents += purchaseTotal;
+        plantInvestmentAtMsrpCents += totalMsrp;
         break;
       case "sold":
         soldCount += qty;
         break;
       case "dead":
         deadCount += qty;
-        deadLossCents += cost;
+        deadLossCents += purchaseTotal;
         break;
       case "damaged":
         damagedCount += qty;
-        damagedLossCents += cost;
+        damagedLossCents += purchaseTotal;
         break;
       case "giveaway":
         giveawayCount += qty;
-        giveawayLossCents += cost;
+        giveawayLossCents += purchaseTotal;
         break;
       case "donation":
         donationCount += qty;
-        donationLossCents += cost;
+        donationLossCents += purchaseTotal;
         break;
       default:
         availableCount += qty;
-        totalPlantInvestmentCents += cost;
-        plantInvestmentAtMsrpCents += msrp;
+        totalPlantInvestmentCents += purchaseTotal;
+        plantInvestmentAtMsrpCents += totalMsrp;
         break;
     }
   }

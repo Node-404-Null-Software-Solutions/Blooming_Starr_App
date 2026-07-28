@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { requireBusinessMembership } from "@/lib/authz";
+import { requireBusinessOperationManager } from "@/lib/authz";
 import { createOverheadExpense } from "@/lib/actions/data-entries";
 import { getLookupEntriesMulti } from "@/lib/actions/lookups";
 import {
@@ -17,21 +16,20 @@ export default async function NewOverheadExpensePage({
   params: Promise<{ businessSlug: string }>;
 }) {
   const { businessSlug } = await params;
-  await requireBusinessMembership(businessSlug);
+  await requireBusinessOperationManager(businessSlug);
 
   const lookups = await getLookupEntriesMulti(businessSlug, ["paymentMethod"]);
   const paymentMethods = lookups.paymentMethod ?? [];
 
-  async function submit(formData: FormData): Promise<void> {
+  async function submit(formData: FormData) {
     "use server";
-    const res = await createOverheadExpense(businessSlug, formData);
-    if (res.ok) redirect(`/app/${businessSlug}/overhead-expenses`);
+    return createOverheadExpense(businessSlug, formData);
   }
 
   const backHref = `/app/${businessSlug}/overhead-expenses`;
 
   return (
-    <PlantStyleAddFormShell action={submit as (fd: FormData) => Promise<void>}>
+    <PlantStyleAddFormShell action={submit} successHref={backHref}>
       <PlantStyleAddFormHeader
         backHref={backHref}
         backLabel="Close overhead expense form"

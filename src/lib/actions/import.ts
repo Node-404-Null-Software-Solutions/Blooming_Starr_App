@@ -31,6 +31,7 @@ import {
   createPlantIntakeRepository,
   type TenantPlantIntakeCreateManyInput,
 } from "@/lib/repositories/plant-intake";
+import { resolvePlantIntakeUnitCostCents } from "@/lib/plant-intake-cost";
 import {
   createOverheadExpenseRepository,
   type TenantOverheadExpenseCreateManyInput,
@@ -538,7 +539,8 @@ async function importPlantIntake(
   const cCultivar = col("Cultivar");
   const cId = col("ID #", "ID#", "ID");
   const cSku = col("SKU");
-  const cCost = col("Total Cost", "Cost");
+  const cUnitCost = col("Unit Cost", "Cost");
+  const cTotalCost = col("Total Cost");
   const cLocation = col("Location");
   const cStatus = col("Status");
   const cMsrp = col("MSRP");
@@ -587,11 +589,20 @@ async function importPlantIntake(
       seenSku.add(sku);
 
       const qty = cQty ? parseIntSafe(row.getCell(cQty).value, 1) : 1;
-      const costCents = cCost ? parseCurrencyToCents(row.getCell(cCost).value) : 0;
+      const importedUnitCostCents = resolvePlantIntakeUnitCostCents({
+        unitCostCents: cUnitCost
+          ? parseCurrencyToCents(row.getCell(cUnitCost).value)
+          : undefined,
+        totalCostCents: cTotalCost
+          ? parseCurrencyToCents(row.getCell(cTotalCost).value)
+          : undefined,
+        quantity: qty,
+      });
       const msrpCents = cMsrp ? parseCurrencyToCents(row.getCell(cMsrp).value) : 0;
       const plantLogic = calculatePlantIntake.run({
         qty: qty > 0 ? qty : 1,
-        costCents: costCents >= 0 ? costCents : 0,
+        costCents:
+          importedUnitCostCents >= 0 ? importedUnitCostCents : 0,
         msrpCents: msrpCents >= 0 ? msrpCents : 0,
       }).scope;
 
@@ -752,7 +763,9 @@ async function importSales(
 
   const cDate = col("Date");
   const cSku = col("SKU");
+  const cCustomerName = col("Customer Name", "Customer");
   const cItemName = col("Item Name");
+  const cStatus = col("Status", "Sale Status");
   const cQty = col("Qty");
   const cSalePrice = col("Sale Price");
   const cCost = col("Cost");
@@ -801,7 +814,13 @@ async function importSales(
 
     toCreate.push({
       date, sku,
+      customerName: cCustomerName
+        ? toStringCell(row.getCell(cCustomerName).value) || null
+        : null,
       itemName: cItemName ? toStringCell(row.getCell(cItemName).value) || null : null,
+      status: cStatus
+        ? toStringCell(row.getCell(cStatus).value) || "Sold"
+        : "Sold",
       qty: Math.round(derived.qty), salePriceCents,
       totalSaleCents: Math.round(derived.totalSaleCents),
       paymentMethod: cPayment ? toStringCell(row.getCell(cPayment).value) || null : null,
@@ -1167,6 +1186,7 @@ async function importTreatmentTracking(
   const cPot = col("Pot Sz", "Pot Size");
   const cMethod = col("Method");
   const cInit = col("Init.", "Initials");
+  const cNotes = col("Notes");
   const cNextEarliest = col("Next Earliest");
   const cNextLatest = col("Next Latest");
 
@@ -1243,6 +1263,7 @@ async function importTreatmentTracking(
           ? toStringCell(row.getCell(cMethod).value) || null
           : null,
         initials: cInit ? toStringCell(row.getCell(cInit).value) || null : null,
+        notes: cNotes ? toStringCell(row.getCell(cNotes).value) || null : null,
         nextEarliest: calculatedDates.nextEarliest,
         nextLatest: calculatedDates.nextLatest,
       });

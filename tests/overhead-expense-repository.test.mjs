@@ -137,3 +137,18 @@ test("Overhead Expense bulk create injects the business into every row", async (
     ["business-a", "business-a"]
   );
 });
+
+test("Overhead raw export is tenant scoped and selects transaction fields", async () => {
+  const mock = createMockClient();
+  const expenses = createOverheadExpenseRepository(context, mock.client);
+  const where = { date: { gte: new Date("2026-01-01") } };
+
+  await expenses.listForRawExport(where);
+
+  assert.deepEqual(mock.calls[0].args.where, {
+    AND: [{ businessId: "business-a" }, where],
+  });
+  assert.equal(mock.calls[0].args.select.shippingCents, true);
+  assert.equal(mock.calls[0].args.select.totalCents, true);
+  assert.equal(mock.calls[0].args.select.externalUid, true);
+});

@@ -14,6 +14,7 @@ import { EditableCell } from "@/components/data-table/EditableCell";
 import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
+import { CanManageOperations } from "@/components/permissions/BusinessPermissions";
 
 type SalesModuleClientProps = {
   businessSlug: string;
@@ -67,7 +68,9 @@ export default function SalesModuleClient({
     const payload: Record<string, unknown> = {};
     if (field === "date") payload.date = value || null;
     else if (field === "sku") payload.sku = value;
+    else if (field === "customerName") payload.customerName = value || null;
     else if (field === "itemName") payload.itemName = value || null;
+    else if (field === "status") payload.status = value || "Sold";
     else if (field === "qty" && numVal !== undefined) payload.qty = numVal;
     else if (field === "salePriceCents" && numVal !== undefined) payload.salePriceCents = numVal;
     else if (field === "paymentMethod") payload.paymentMethod = value || null;
@@ -105,8 +108,10 @@ export default function SalesModuleClient({
             selectedRow
               ? [
                   { label: "Date", node: <EditableCell value={selectedRow.date?.slice(0, 10) ?? ""} onSave={(v) => handleSave(selectedRow.id, "date", v)} type="date" /> },
+                  { label: "Customer Name", node: <EditableCell value={selectedRow.customerName ?? ""} onSave={(v) => handleSave(selectedRow.id, "customerName", v)} /> },
                   { label: "SKU", node: <EditableCell value={selectedRow.sku} onSave={(v) => handleSave(selectedRow.id, "sku", v)} /> },
                   { label: "Item Name", node: <EditableCell value={selectedRow.itemName ?? ""} onSave={(v) => handleSave(selectedRow.id, "itemName", v)} /> },
+                  { label: "Status", node: <EditableCell value={selectedRow.status} onSave={(v) => handleSave(selectedRow.id, "status", v)} /> },
                   { label: "Sale Channel", node: <EditableCell value={selectedRow.channel ?? ""} onSave={(v) => handleSave(selectedRow.id, "channel", v)} /> },
                   { label: "Qty", node: <EditableCell value={String(selectedRow.qty)} onSave={(v) => handleSave(selectedRow.id, "qty", v)} type="number" /> },
                   { label: "Sale Price", node: <EditableCell value={String(selectedRow.salePriceCents)} onSave={(v) => handleSave(selectedRow.id, "salePriceCents", v)} type="currency" /> },
@@ -153,12 +158,14 @@ export default function SalesModuleClient({
               Import your Inventory Trackers workbook to populate this list.
             </p>
             <div className="mt-4 flex items-center justify-center gap-2">
-              <Link
-                href={`/app/${businessSlug}/settings/import`}
-                className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-              >
-                Import
-              </Link>
+              <CanManageOperations>
+                <Link
+                  href={`/app/${businessSlug}/settings/import`}
+                  className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                >
+                  Import
+                </Link>
+              </CanManageOperations>
             </div>
           </div>
         ) : (
@@ -170,6 +177,8 @@ export default function SalesModuleClient({
             isPending={isPending}
             selectMode={selectMode}
             editMode={editMode}
+            businessSlug={businessSlug}
+            onSelectModeChange={setSelectMode}
           />
         )}
       </div>

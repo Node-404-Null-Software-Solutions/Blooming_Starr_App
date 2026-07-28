@@ -130,6 +130,14 @@ export function createTransplantLogRepository(
       return result.count === 1;
     },
 
+    async deleteByIds(ids: string[]) {
+      if (ids.length === 0) return 0;
+      const result = await client.transplantLog.deleteMany({
+        where: { businessId, id: { in: ids } },
+      });
+      return result.count;
+    },
+
     createMany(
       data: TenantTransplantLogCreateManyInput[],
       options: { skipDuplicates?: boolean } = {}

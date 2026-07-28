@@ -60,6 +60,10 @@ export default function TopBar({ onMenuClick, logoUrl, businessName, businessSlu
     updateSearch(value);
   }
 
+  function handleRefresh() {
+    window.location.reload();
+  }
+
   return (
     <header className="sticky top-0 z-50 h-14 border-b border-[#10aa15] bg-[#08bd12] shadow-sm">
       <div className="flex h-14 min-w-0 items-center gap-2 px-2 sm:gap-3 sm:px-3">
@@ -101,8 +105,10 @@ export default function TopBar({ onMenuClick, logoUrl, businessName, businessSlu
         <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
           <button
             type="button"
+            onClick={handleRefresh}
             className="inline-flex h-8 w-8 items-center justify-center rounded-sm border border-white/20 text-white hover:bg-white/15"
-            aria-label="Refresh"
+            aria-label="Reload page"
+            title="Reload page"
           >
             <RefreshCw className="h-4 w-4" />
           </button>

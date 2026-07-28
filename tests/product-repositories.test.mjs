@@ -161,3 +161,52 @@ test("Product Intake bulk create injects the business into every row", async () 
     { businessId: "business-a", sku: "TWO" },
   ]);
 });
+
+test("Product Intake photo reads and writes stay tenant scoped", async () => {
+  const mock = createProductIntakeClient();
+  const intakes = createProductIntakeRepository(context, mock.client);
+  const photo = {
+    contentType: "image/webp",
+    data: new Uint8Array([1, 2, 3]),
+    originalName: "pot.webp",
+  };
+
+  await intakes.findPhotoById("intake-1");
+  assert.equal(await intakes.setPhotoById("intake-1", photo), true);
+  assert.equal(await intakes.clearPhotoById("intake-1"), true);
+
+  assert.deepEqual(mock.calls[0].args.where, {
+    AND: [{ businessId: "business-a" }, { id: "intake-1" }],
+  });
+  assert.equal(mock.calls[0].args.select.photoData, true);
+  assert.deepEqual(mock.calls[1].args.where, {
+    businessId: "business-a",
+    id: "intake-1",
+  });
+  assert.equal(mock.calls[1].args.data.photoContentType, "image/webp");
+  assert.deepEqual(mock.calls[2].args.where, {
+    businessId: "business-a",
+    id: "intake-1",
+  });
+  assert.equal(mock.calls[2].args.data.photoData, null);
+});
+
+test("Product Intake list omits photo bytes", async () => {
+  const mock = createProductIntakeClient();
+  const intakes = createProductIntakeRepository(context, mock.client);
+
+  await intakes.list();
+
+  assert.deepEqual(mock.calls[0].args.omit, { photoData: true });
+});
+
+test("Product Intake bulk delete is tenant scoped", async () => {
+  const mock = createProductIntakeClient();
+  const intakes = createProductIntakeRepository(context, mock.client);
+
+  assert.equal(await intakes.deleteByIds(["intake-1", "intake-2"]), 1);
+  assert.deepEqual(mock.calls[0].args.where, {
+    businessId: "business-a",
+    id: { in: ["intake-1", "intake-2"] },
+  });
+});

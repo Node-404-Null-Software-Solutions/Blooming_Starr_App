@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { InlineSaveAction } from "@/components/forms/InlineSaveForm";
 import {
   PlantStyleAddFormBody,
   PlantStyleAddFormHeader,
@@ -17,7 +18,7 @@ import {
 
 type TransplantLogFormProps = {
   businessSlug: string;
-  action: (fd: FormData) => Promise<void>;
+  action: InlineSaveAction;
   skuList: string[];
   actionOptions: string[];
   mediaOptions: string[];
@@ -40,7 +41,7 @@ export default function TransplantLogForm({
   const backHref = `/app/${businessSlug}/transplant-log`;
 
   return (
-    <PlantStyleAddFormShell action={action}>
+    <PlantStyleAddFormShell action={action} successHref={backHref}>
       <PlantStyleAddFormHeader
         backHref={backHref}
         backLabel="Close transplant log form"

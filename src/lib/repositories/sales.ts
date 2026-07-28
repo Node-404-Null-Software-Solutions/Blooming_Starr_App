@@ -115,6 +115,34 @@ export function createSalesRepository(
       });
     },
 
+    listForRawExport(where?: TenantSalesWhereInput) {
+      return client.salesEntry.findMany({
+        where: withBusinessScope(businessId, where),
+        select: {
+          id: true,
+          date: true,
+          sku: true,
+          customerName: true,
+          itemName: true,
+          status: true,
+          qty: true,
+          salePriceCents: true,
+          totalSaleCents: true,
+          paymentMethod: true,
+          cardLast4: true,
+          channel: true,
+          costCents: true,
+          profitCents: true,
+          marginPct: true,
+          notes: true,
+          externalUid: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+      });
+    },
+
     create(data: TenantSalesCreateInput) {
       return client.salesEntry.create({
         data: withBusinessData(businessId, data),
@@ -134,6 +162,14 @@ export function createSalesRepository(
         where: { businessId, id },
       });
       return result.count === 1;
+    },
+
+    async deleteByIds(ids: string[]) {
+      if (ids.length === 0) return 0;
+      const result = await client.salesEntry.deleteMany({
+        where: { businessId, id: { in: ids } },
+      });
+      return result.count;
     },
 
     createMany(

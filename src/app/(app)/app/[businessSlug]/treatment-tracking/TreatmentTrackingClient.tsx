@@ -11,6 +11,7 @@ import { EditableCell } from "@/components/data-table/EditableCell";
 import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
+import { CanManageOperations } from "@/components/permissions/BusinessPermissions";
 
 export type TreatmentRow = {
   id: string;
@@ -24,6 +25,7 @@ export type TreatmentRow = {
   potSize: string | null;
   method: string | null;
   initials: string | null;
+  notes: string | null;
   nextEarliest: string | null;
   nextLatest: string | null;
 };
@@ -45,9 +47,7 @@ export default function TreatmentTrackingClient({
 
   const selectedRow = rows.find((r) => r.id === selectedId) ?? null;
   const detailOpen = selectedId !== null;
-  const formatDate = (date: string | null) => formatAppDate(date, "—");
-
-  async function handleSave(id: string, field: keyof Omit<TreatmentRow, "id" | "nextEarliest" | "nextLatest">, value: string) {
+  async function handleSave(id: string, field: keyof Omit<TreatmentRow, "id">, value: string) {
     const payload: Record<string, unknown> = {};
     if (field === "date") payload.date = value || null;
     else if (field === "sku") payload.sku = value;
@@ -59,6 +59,9 @@ export default function TreatmentTrackingClient({
     else if (field === "potSize") payload.potSize = value || null;
     else if (field === "method") payload.method = value || null;
     else if (field === "initials") payload.initials = value || null;
+    else if (field === "notes") payload.notes = value || null;
+    else if (field === "nextEarliest") payload.nextEarliest = value || null;
+    else if (field === "nextLatest") payload.nextLatest = value || null;
 
     const res = await updateTreatmentTracking(id, businessSlug, payload as Parameters<typeof updateTreatmentTracking>[2]);
     if (res.ok) startTransition(() => router.refresh());
@@ -101,8 +104,9 @@ export default function TreatmentTrackingClient({
                   { label: "Pot Size", node: <EditableCell value={selectedRow.potSize ?? ""} onSave={(v) => handleSave(selectedRow.id, "potSize", v)} /> },
                   { label: "Method", node: <EditableCell value={selectedRow.method ?? ""} onSave={(v) => handleSave(selectedRow.id, "method", v)} /> },
                   { label: "Initials", node: <EditableCell value={selectedRow.initials ?? ""} onSave={(v) => handleSave(selectedRow.id, "initials", v)} /> },
-                  { label: "Next Earliest", node: <span className="text-gray-700">{formatDate(selectedRow.nextEarliest)}</span> },
-                  { label: "Next Latest", node: <span className="text-gray-700">{formatDate(selectedRow.nextLatest)}</span> },
+                  { label: "Next Earliest", node: <EditableCell value={selectedRow.nextEarliest ?? ""} onSave={(v) => handleSave(selectedRow.id, "nextEarliest", v)} type="date" /> },
+                  { label: "Next Latest", node: <EditableCell value={selectedRow.nextLatest ?? ""} onSave={(v) => handleSave(selectedRow.id, "nextLatest", v)} type="date" /> },
+                  { label: "Notes", node: <EditableCell value={selectedRow.notes ?? ""} onSave={(v) => handleSave(selectedRow.id, "notes", v)} /> },
                 ]
               : []
           }
@@ -137,12 +141,14 @@ export default function TreatmentTrackingClient({
             Import your Inventory Trackers workbook to populate this list.
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
-            <Link
-              href={`/app/${businessSlug}/settings/import`}
-              className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              Import
-            </Link>
+            <CanManageOperations>
+              <Link
+                href={`/app/${businessSlug}/settings/import`}
+                className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                Import
+              </Link>
+            </CanManageOperations>
           </div>
         </div>
       ) : (
@@ -172,13 +178,14 @@ export default function TreatmentTrackingClient({
                   {row.sku} · {row.target ?? "—"} · {row.product ?? "—"}
                 </p>
                 {row.method && <p className="mt-0.5 break-words text-xs text-gray-400 [overflow-wrap:anywhere]">{row.method}</p>}
+                {row.notes && <p className="mt-1 break-words text-xs text-gray-500 [overflow-wrap:anywhere]">{row.notes}</p>}
               </div>
             ))}
           </div>
 
 
           <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[1500px] border-collapse bg-white">
+              <table className="w-full min-w-[1650px] border-collapse bg-white">
                 <thead>
                   <tr>
                     <th className={headCell}>Date</th>
@@ -193,6 +200,7 @@ export default function TreatmentTrackingClient({
                     <th className={headCell}>Initials</th>
                     <th className={headCell}>Next Earliest Application</th>
                     <th className={headCell}>Next Latest Application</th>
+                    <th className={headCell}>Notes</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -243,8 +251,15 @@ export default function TreatmentTrackingClient({
                       <td className={`${bodyCell} whitespace-nowrap`}>
                         <EditableCell value={row.initials ?? ""} onSave={(v) => handleSave(row.id, "initials", v)} />
                       </td>
-                      <td className={`${bodyCell} whitespace-nowrap`}>{formatDate(row.nextEarliest)}</td>
-                      <td className={`${bodyCell} whitespace-nowrap`}>{formatDate(row.nextLatest)}</td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>
+                        <EditableCell value={row.nextEarliest ?? ""} onSave={(v) => handleSave(row.id, "nextEarliest", v)} type="date" />
+                      </td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>
+                        <EditableCell value={row.nextLatest ?? ""} onSave={(v) => handleSave(row.id, "nextLatest", v)} type="date" />
+                      </td>
+                      <td className={`${bodyCell} min-w-56`}>
+                        <EditableCell value={row.notes ?? ""} onSave={(v) => handleSave(row.id, "notes", v)} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

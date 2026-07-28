@@ -11,6 +11,7 @@ import { EditableCell } from "@/components/data-table/EditableCell";
 import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
+import { CanManageOperations } from "@/components/permissions/BusinessPermissions";
 
 export type FertilizerRow = {
   id: string;
@@ -43,9 +44,7 @@ export default function FertilizerLogClient({
 
   const selectedRow = rows.find((r) => r.id === selectedId) ?? null;
   const detailOpen = selectedId !== null;
-  const formatDate = (date: string | null) => formatAppDate(date, "—");
-
-  async function handleSave(id: string, field: keyof Omit<FertilizerRow, "id" | "nextEarliest" | "nextLatest">, value: string) {
+  async function handleSave(id: string, field: keyof Omit<FertilizerRow, "id">, value: string) {
     const payload: Record<string, unknown> = {};
     if (field === "date") payload.date = value || null;
     else if (field === "plantSku") payload.plantSku = value || null;
@@ -55,6 +54,8 @@ export default function FertilizerLogClient({
     else if (field === "rate") payload.rate = value || null;
     else if (field === "unit") payload.unit = value || null;
     else if (field === "notes") payload.notes = value || null;
+    else if (field === "nextEarliest") payload.nextEarliest = value || null;
+    else if (field === "nextLatest") payload.nextLatest = value || null;
 
     const res = await updateFertilizerLog(id, businessSlug, payload as Parameters<typeof updateFertilizerLog>[2]);
     if (res.ok) startTransition(() => router.refresh());
@@ -95,8 +96,8 @@ export default function FertilizerLogClient({
                   { label: "Rate", node: <EditableCell value={selectedRow.rate ?? ""} onSave={(v) => handleSave(selectedRow.id, "rate", v)} /> },
                   { label: "Unit", node: <EditableCell value={selectedRow.unit ?? ""} onSave={(v) => handleSave(selectedRow.id, "unit", v)} /> },
                   { label: "Notes", node: <EditableCell value={selectedRow.notes ?? ""} onSave={(v) => handleSave(selectedRow.id, "notes", v)} /> },
-                  { label: "Next Earliest", node: <span className="text-gray-700">{formatDate(selectedRow.nextEarliest)}</span> },
-                  { label: "Next Latest", node: <span className="text-gray-700">{formatDate(selectedRow.nextLatest)}</span> },
+                  { label: "Next Earliest", node: <EditableCell value={selectedRow.nextEarliest ?? ""} onSave={(v) => handleSave(selectedRow.id, "nextEarliest", v)} type="date" /> },
+                  { label: "Next Latest", node: <EditableCell value={selectedRow.nextLatest ?? ""} onSave={(v) => handleSave(selectedRow.id, "nextLatest", v)} type="date" /> },
                 ]
               : []
           }
@@ -131,12 +132,14 @@ export default function FertilizerLogClient({
             Import your Inventory Trackers workbook to populate this list.
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
-            <Link
-              href={`/app/${businessSlug}/settings/import`}
-              className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              Import
-            </Link>
+            <CanManageOperations>
+              <Link
+                href={`/app/${businessSlug}/settings/import`}
+                className="inline-flex items-center rounded-md bg-(--primary) px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                Import
+              </Link>
+            </CanManageOperations>
           </div>
         </div>
       ) : (
@@ -229,8 +232,12 @@ export default function FertilizerLogClient({
                       <td className={bodyCell}>
                         <EditableCell value={row.notes ?? ""} onSave={(v) => handleSave(row.id, "notes", v)} />
                       </td>
-                      <td className={`${bodyCell} whitespace-nowrap`}>{formatDate(row.nextEarliest)}</td>
-                      <td className={`${bodyCell} whitespace-nowrap`}>{formatDate(row.nextLatest)}</td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>
+                        <EditableCell value={row.nextEarliest ?? ""} onSave={(v) => handleSave(row.id, "nextEarliest", v)} type="date" />
+                      </td>
+                      <td className={`${bodyCell} whitespace-nowrap`}>
+                        <EditableCell value={row.nextLatest ?? ""} onSave={(v) => handleSave(row.id, "nextLatest", v)} type="date" />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

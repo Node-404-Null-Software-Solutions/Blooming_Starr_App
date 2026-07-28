@@ -14,6 +14,7 @@ import { MasterDetailLayout } from "@/components/data-table/MasterDetailLayout";
 import { RowDetailDrawer } from "@/components/data-table/RowDetailDrawer";
 import { formatAppDate } from "@/lib/date-format";
 import PlantIntakeDetailEditForm from "./PlantIntakeDetailEditForm";
+import RecordPhotoManager from "@/components/record-photo/RecordPhotoManager";
 
 function displayCurrency(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -149,10 +150,22 @@ export default function PlantIntakeClient({
                   { label: "ID #", node: <span>{selectedRow.locationCode ?? "-"}</span> },
                   { label: "SKU", node: <span className="font-mono text-gray-700">{selectedRow.sku}</span> },
                   { label: "QTY", node: <span>{selectedRow.qty}</span> },
-                  { label: "Total Cost", node: <span>{displayCurrency(selectedRow.totalCostCents)}</span> },
+                  { label: "Purchase Total", node: <span>{displayCurrency(selectedRow.totalCostCents)}</span> },
                   { label: "Unit Cost", node: <span>{displayCurrency(selectedRow.costCents)}</span> },
                   { label: "MSRP", node: <span>{displayCurrency(selectedRow.msrpCents)}</span> },
                   { label: "Pot Type", node: <span>{selectedRow.potType ?? "-"}</span> },
+                  {
+                    label: "Photo",
+                    node: (
+                      <RecordPhotoManager
+                        businessSlug={businessSlug}
+                        recordId={selectedRow.id}
+                        recordType="plant-intake"
+                        photoUrl={selectedRow.photoUrl}
+                        alt={`${selectedRow.genus} ${selectedRow.cultivar}`}
+                      />
+                    ),
+                  },
                   { label: "Payment Method", node: <span>{selectedRow.paymentMethod ?? "-"}</span> },
                   { label: "Card Number", node: <span>{selectedRow.cardLast4 ?? "-"}</span> },
                 ]
@@ -164,7 +177,6 @@ export default function PlantIntakeClient({
       <div className="min-h-[calc(100vh-3.5rem)] bg-white">
         <PlantIntakeToolbar
           businessSlug={businessSlug}
-          isOwner={true}
           genusOptions={genusOptions}
           selectMode={selectMode}
           editMode={editMode}
@@ -179,6 +191,7 @@ export default function PlantIntakeClient({
           selectMode={selectMode}
           editMode={editMode}
           onEditModeChange={setEditMode}
+          onSelectModeChange={setSelectMode}
         />
       </div>
     </MasterDetailLayout>

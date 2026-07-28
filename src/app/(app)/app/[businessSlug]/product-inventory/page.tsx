@@ -2,6 +2,7 @@ import { requireBusinessMembership } from "@/lib/authz";
 import { formatAppDate } from "@/lib/date-format";
 import { createProductIntakeRepository } from "@/lib/repositories/product-intake";
 import { createSalesRepository } from "@/lib/repositories/sales";
+import { recordPhotoUrl } from "@/lib/record-photo";
 import ProductInventoryClient, {
   type ProductInventoryRow,
 } from "./ProductInventoryClient";
@@ -42,6 +43,7 @@ export default async function ProductInventoryPage({
       qtyPurchased: number;
       qtySold: number;
       notes: string | null;
+      photoUrl: string | null;
     }
   >();
 
@@ -58,6 +60,14 @@ export default async function ProductInventoryPage({
         existing.productName = name || row.vendor || row.sku;
         existing.notes = row.notes;
       }
+      if (!existing.photoUrl && row.photoContentType && row.photoUpdatedAt) {
+        existing.photoUrl = recordPhotoUrl(
+          businessSlug,
+          "product-intake",
+          row.id,
+          row.photoUpdatedAt,
+        );
+      }
     } else {
       skuMap.set(row.sku, {
         sku: row.sku,
@@ -69,6 +79,15 @@ export default async function ProductInventoryPage({
         qtyPurchased: row.qty,
         qtySold: 0,
         notes: row.notes,
+        photoUrl:
+          row.photoContentType && row.photoUpdatedAt
+            ? recordPhotoUrl(
+                businessSlug,
+                "product-intake",
+                row.id,
+                row.photoUpdatedAt,
+              )
+            : null,
       });
     }
   }
@@ -93,6 +112,7 @@ export default async function ProductInventoryPage({
       qtySold: item.qtySold,
       qtyRemaining: Math.max(0, qtyRemaining),
       notes: item.notes,
+      photoUrl: item.photoUrl,
     };
   });
 

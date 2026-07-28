@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { EditableCell } from "@/components/data-table/EditableCell";
 import { formatAppDate } from "@/lib/date-format";
+import { deleteSalesEntries } from "@/lib/actions/data-entries";
+import BulkSelectionBar from "@/components/data-table/BulkSelectionBar";
 
 export type SalesRow = {
   id: string;
   date: string | null;
   sku: string;
+  customerName: string | null;
   itemName: string | null;
+  status: string;
   qty: number;
   salePriceCents: number;
   totalSaleCents: number;
@@ -25,7 +30,9 @@ export type SalesRow = {
 export type EditableSalesField =
   | "date"
   | "sku"
+  | "customerName"
   | "itemName"
+  | "status"
   | "qty"
   | "salePriceCents"
   | "paymentMethod"
@@ -66,6 +73,8 @@ export default function SalesDataTable({
   isPending = false,
   selectMode = false,
   editMode = false,
+  businessSlug,
+  onSelectModeChange,
 }: {
   initialRows: SalesRow[];
   selectedId: string | null;
@@ -74,8 +83,17 @@ export default function SalesDataTable({
   isPending?: boolean;
   selectMode?: boolean;
   editMode?: boolean;
+  businessSlug: string;
+  onSelectModeChange?: (value: boolean) => void;
 }) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!selectMode) setSelectedRows(new Set());
+  }, [selectMode]);
 
   function toggleSelectedRow(id: string) {
     setSelectedRows((current) => {
@@ -102,6 +120,33 @@ export default function SalesDataTable({
     onSelectedIdChange(row.id);
   }
 
+  async function deleteSelectedRows() {
+    const ids = Array.from(selectedRows);
+    if (
+      ids.length === 0 ||
+      !window.confirm(
+        `Delete ${ids.length} selected row${ids.length === 1 ? "" : "s"}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    try {
+      const result = await deleteSalesEntries(ids, businessSlug);
+      if (!result.ok) {
+        window.alert(result.error);
+        return;
+      }
+      setSelectedRows(new Set());
+      onSelectedIdChange(null);
+      onSelectModeChange?.(false);
+      startTransition(() => router.refresh());
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }
+
   function renderCell(row: SalesRow, field: EditableSalesField, type: "text" | "currency" | "number" | "date" = "text") {
     if (!editMode) return displayValue(row, field);
 
@@ -125,9 +170,12 @@ export default function SalesDataTable({
   return (
     <div>
       {selectMode ? (
-        <div className="flex h-10 items-center justify-center border-b border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-700 sm:justify-start sm:text-left">
-          {selectedRows.size} row{selectedRows.size === 1 ? "" : "s"} selected
-        </div>
+        <BulkSelectionBar
+          count={selectedRows.size}
+          isDeleting={isBulkDeleting}
+          onClear={() => setSelectedRows(new Set())}
+          onDelete={deleteSelectedRows}
+        />
       ) : null}
 
       <div className="space-y-2 p-3 md:hidden">
@@ -161,6 +209,9 @@ export default function SalesDataTable({
                 <p className="text-sm font-medium">{formatAppDate(row.date, "-")}</p>
                 <p className="mt-0.5 text-xs text-gray-500">
                   {row.itemName || row.sku} - qty {row.qty.toFixed(2)} - {money(row.totalSaleCents ?? 0)}
+                </p>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  {row.customerName || "No customer"} - {row.status}
                 </p>
                 {row.channel && <p className="mt-0.5 text-xs text-gray-400">{row.channel}</p>}
               </div>
@@ -248,10 +299,10 @@ export default function SalesDataTable({
                     </td>
                   ) : null}
                   <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "date", "date")}</td>
-                  <td className={`${bodyCell} whitespace-nowrap`}></td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "customerName")}</td>
                   <td className={`${bodyCell} max-w-72 truncate`} title={row.itemName ?? ""}>{renderCell(row, "itemName")}</td>
                   <td className={`${bodyCell} whitespace-nowrap font-mono`}>{renderCell(row, "sku")}</td>
-                  <td className={`${bodyCell} whitespace-nowrap`}>Sold</td>
+                  <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "status")}</td>
                   <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "qty", "number")}</td>
                   <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "costCents", "currency")}</td>
                   <td className={`${bodyCell} whitespace-nowrap`}>{renderCell(row, "salePriceCents", "currency")}</td>

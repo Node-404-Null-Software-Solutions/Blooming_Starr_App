@@ -6,6 +6,7 @@ import Link from "next/link";
 import ModuleHeader from "../_components/ModuleHeader";
 import { updateEmployee, deactivateEmployee, reactivateEmployee } from "@/lib/actions/employees";
 import { EditableCell } from "@/components/data-table/EditableCell";
+import { useBusinessPermissions } from "@/components/permissions/BusinessPermissions";
 
 export type EmployeeRow = {
   id: string;
@@ -26,6 +27,7 @@ export default function EmployeesClient({
   businessSlug: string;
   rows: EmployeeRow[];
 }) {
+  const { canManageOperations } = useBusinessPermissions();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const hasRows = rows.length > 0;
@@ -40,12 +42,12 @@ export default function EmployeesClient({
     else if (field === "email") payload.email = value || null;
     else if (field === "phone") payload.phone = value || null;
     else if (field === "position") payload.position = value || null;
-    else if (field === "hourlyRateCents") {
-      const cents = Math.round(parseFloat(value) * 100);
-      if (!Number.isNaN(cents)) payload.hourlyRateCents = cents;
-    } else if (field === "salaryRateCents") {
-      const cents = Math.round(parseFloat(value) * 100);
-      if (!Number.isNaN(cents)) payload.salaryRateCents = cents;
+    else if (
+      field === "hourlyRateCents" ||
+      field === "salaryRateCents"
+    ) {
+      const cents = Number(value);
+      if (Number.isSafeInteger(cents) && cents >= 0) payload[field] = cents;
     } else if (field === "notes") payload.notes = value || null;
 
     const res = await updateEmployee(
@@ -78,6 +80,7 @@ export default function EmployeesClient({
             No employees yet.
           </div>
           <p className="mt-2">Add your first employee to get started.</p>
+          {canManageOperations ? (
           <div className="mt-4">
             <Link
               href={`/app/${businessSlug}/employees/new`}
@@ -86,6 +89,7 @@ export default function EmployeesClient({
               Add Employee
             </Link>
           </div>
+          ) : null}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -96,22 +100,26 @@ export default function EmployeesClient({
                 <th className="sticky top-0 z-10 px-3 py-2">Email</th>
                 <th className="sticky top-0 z-10 px-3 py-2">Phone</th>
                 <th className="sticky top-0 z-10 px-3 py-2">Position</th>
-                <th className="sticky top-0 z-10 px-3 py-2">Hourly Rate</th>
-                <th className="sticky top-0 z-10 px-3 py-2">Salary</th>
+                <th className="sticky top-0 z-10 px-3 py-2">Hourly Rate ($)</th>
+                <th className="sticky top-0 z-10 px-3 py-2">Salary ($)</th>
                 <th className="sticky top-0 z-10 px-3 py-2">Status</th>
                 <th className="sticky top-0 z-10 px-3 py-2">Notes</th>
-                <th className="sticky top-0 z-10 px-3 py-2">Actions</th>
+                {canManageOperations ? (
+                  <th className="sticky top-0 z-10 px-3 py-2">Actions</th>
+                ) : null}
               </tr>
             </thead>
             <tbody className="text-sm text-gray-700">
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-gray-100">
+                  {canManageOperations ? (
                   <td className="px-3 py-2 whitespace-nowrap">
                     <EditableCell
                       value={row.name}
                       onSave={(v) => handleSave(row.id, "name", v)}
                     />
                   </td>
+                  ) : null}
                   <td className="px-3 py-2 whitespace-nowrap">
                     <EditableCell
                       value={row.email}
@@ -132,14 +140,14 @@ export default function EmployeesClient({
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <EditableCell
-                      value={(row.hourlyRateCents / 100).toFixed(2)}
+                      value={String(row.hourlyRateCents)}
                       onSave={(v) => handleSave(row.id, "hourlyRateCents", v)}
                       type="currency"
                     />
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <EditableCell
-                      value={(row.salaryRateCents / 100).toFixed(2)}
+                      value={String(row.salaryRateCents)}
                       onSave={(v) => handleSave(row.id, "salaryRateCents", v)}
                       type="currency"
                     />

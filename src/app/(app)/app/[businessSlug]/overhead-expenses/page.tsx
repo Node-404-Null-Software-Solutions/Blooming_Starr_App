@@ -19,6 +19,7 @@ export default async function OverheadExpensesPage({
   const toRaw = typeof sp.to === "string" ? sp.to : "";
   const vendorRaw = typeof sp.vendor === "string" ? sp.vendor.trim() : "";
   const categoryRaw = typeof sp.category === "string" ? sp.category.trim() : "";
+  const qRaw = typeof sp.q === "string" ? sp.q.trim() : "";
   const fromDate = fromRaw ? new Date(fromRaw) : null;
   const toDate = toRaw ? new Date(toRaw) : null;
   const validFrom = fromDate && !Number.isNaN(fromDate.getTime()) ? fromDate : null;
@@ -30,6 +31,30 @@ export default async function OverheadExpensesPage({
     ...(dateFilter ? { date: dateFilter } : {}),
     ...(vendorRaw ? { vendor: { contains: vendorRaw, mode: "insensitive" as const } } : {}),
     ...(categoryRaw ? { category: { contains: categoryRaw, mode: "insensitive" as const } } : {}),
+    ...(qRaw
+      ? {
+          OR: [
+            { vendor: { contains: qRaw, mode: "insensitive" as const } },
+            { brand: { contains: qRaw, mode: "insensitive" as const } },
+            { category: { contains: qRaw, mode: "insensitive" as const } },
+            { description: { contains: qRaw, mode: "insensitive" as const } },
+            {
+              paymentMethod: {
+                contains: qRaw,
+                mode: "insensitive" as const,
+              },
+            },
+            { cardLast4: { contains: qRaw, mode: "insensitive" as const } },
+            {
+              invoiceNumber: {
+                contains: qRaw,
+                mode: "insensitive" as const,
+              },
+            },
+            { notes: { contains: qRaw, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
   });
   const sortedRows = sortByDateDescNullsLast(rows);
 
@@ -44,6 +69,7 @@ export default async function OverheadExpensesPage({
     description: row.description,
     qty: row.qty,
     subTotalCents: row.subTotalCents,
+    shippingCents: row.shippingCents,
     discountCents: row.discountCents,
     unitCostCents: row.unitCostCents,
     totalCents: row.totalCents,

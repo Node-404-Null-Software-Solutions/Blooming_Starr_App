@@ -37,7 +37,9 @@ export default async function SalesPage({
         ? {
             OR: [
               { sku: { contains: qRaw, mode: "insensitive" as const } },
+              { customerName: { contains: qRaw, mode: "insensitive" as const } },
               { itemName: { contains: qRaw, mode: "insensitive" as const } },
+              { status: { contains: qRaw, mode: "insensitive" as const } },
               { notes: { contains: qRaw, mode: "insensitive" as const } },
             ],
           }
@@ -51,7 +53,9 @@ export default async function SalesPage({
     id: row.id,
     date: row.date ? row.date.toISOString() : null,
     sku: row.sku,
+    customerName: row.customerName,
     itemName: row.itemName,
+    status: row.status,
     qty: row.qty,
     salePriceCents: row.salePriceCents,
     totalSaleCents: row.totalSaleCents ?? 0,

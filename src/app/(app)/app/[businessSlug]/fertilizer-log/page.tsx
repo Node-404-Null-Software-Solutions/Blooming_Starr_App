@@ -20,6 +20,7 @@ export default async function FertilizerLogPage({
   const plantSkuRaw = typeof sp.plantSku === "string" ? sp.plantSku.trim() : "";
   const potSkuRaw = typeof sp.potSku === "string" ? sp.potSku.trim() : "";
   const productRaw = typeof sp.product === "string" ? sp.product.trim() : "";
+  const qRaw = typeof sp.q === "string" ? sp.q.trim() : "";
   const fromDate = fromRaw ? new Date(fromRaw) : null;
   const toDate = toRaw ? new Date(toRaw) : null;
   const validFrom = fromDate && !Number.isNaN(fromDate.getTime()) ? fromDate : null;
@@ -32,6 +33,18 @@ export default async function FertilizerLogPage({
     ...(plantSkuRaw ? { plantSku: { contains: plantSkuRaw, mode: "insensitive" as const } } : {}),
     ...(potSkuRaw ? { potSku: { contains: potSkuRaw, mode: "insensitive" as const } } : {}),
     ...(productRaw ? { product: { contains: productRaw, mode: "insensitive" as const } } : {}),
+    ...(qRaw
+      ? {
+          OR: [
+            { plantSku: { contains: qRaw, mode: "insensitive" as const } },
+            { potSku: { contains: qRaw, mode: "insensitive" as const } },
+            { product: { contains: qRaw, mode: "insensitive" as const } },
+            { method: { contains: qRaw, mode: "insensitive" as const } },
+            { unit: { contains: qRaw, mode: "insensitive" as const } },
+            { notes: { contains: qRaw, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
   });
   const sortedRows = sortByDateDescNullsLast(rows);
 

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { formatAppDate } from "@/lib/date-format";
+import { useBusinessPermissions } from "@/components/permissions/BusinessPermissions";
 
 type EditableCellProps = {
   value: string;
@@ -42,6 +43,7 @@ export function EditableCell({
   className = "",
   title,
 }: EditableCellProps) {
+  const { canManageOperations } = useBusinessPermissions();
   const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -140,6 +142,10 @@ export function EditableCell({
       : type === "date" && value
         ? formatAppDate(value, "—")
         : value || "—";
+
+  if (!canManageOperations) {
+    return <div className={`px-1 py-0.5 ${className}`}>{display}</div>;
+  }
 
   return (
     <div

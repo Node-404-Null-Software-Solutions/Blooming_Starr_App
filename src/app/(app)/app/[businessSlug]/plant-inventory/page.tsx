@@ -4,6 +4,11 @@ import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
 import { createPricingEntryRepository } from "@/lib/repositories/pricing-entry";
 import { createSalesRepository } from "@/lib/repositories/sales";
 import { createTransplantLogRepository } from "@/lib/repositories/transplant-log";
+import {
+  plantIntakeTotalCostCents,
+  plantIntakeUnitCostCents,
+} from "@/lib/plant-intake-cost";
+import { recordPhotoUrl } from "@/lib/record-photo";
 import PlantInventoryClient, { type PlantInventoryRow } from "./PlantInventoryClient";
 
 function formatDate(value: Date | null) {
@@ -94,11 +99,12 @@ export default async function PlantInventoryPage({
       date: Date | null;
       createdAt: Date;
       plantName: string;
-      plantCostCents: number;
-      plantMsrpCents: number;
+      plantCostTotalCents: number;
+      plantMsrpTotalCents: number;
       qtyPurchased: number;
       qtyUsed: number;
       statuses: string[];
+      photoUrl: string | null;
     }
   >();
 
@@ -108,8 +114,14 @@ export default async function PlantInventoryPage({
     const status = row.status ?? "";
     if (existing) {
       existing.qtyPurchased += row.qty;
-      existing.plantCostCents += row.costCents;
-      existing.plantMsrpCents += row.msrpCents;
+      existing.plantCostTotalCents += plantIntakeTotalCostCents(
+        row.costCents,
+        row.qty,
+      );
+      existing.plantMsrpTotalCents += plantIntakeTotalCostCents(
+        row.msrpCents,
+        row.qty,
+      );
       existing.statuses.push(status);
       if (isUsedStatus(status)) existing.qtyUsed += row.qty;
       if ((row.date ?? row.createdAt) > (existing.date ?? existing.createdAt)) {
@@ -117,17 +129,40 @@ export default async function PlantInventoryPage({
         existing.createdAt = row.createdAt;
         existing.plantName = plantName;
       }
+      if (!existing.photoUrl && row.photoContentType && row.photoUpdatedAt) {
+        existing.photoUrl = recordPhotoUrl(
+          businessSlug,
+          "plant-intake",
+          row.id,
+          row.photoUpdatedAt,
+        );
+      }
     } else {
       intakeMap.set(row.sku, {
         sku: row.sku,
         date: row.date,
         createdAt: row.createdAt,
         plantName,
-        plantCostCents: row.costCents,
-        plantMsrpCents: row.msrpCents,
+        plantCostTotalCents: plantIntakeTotalCostCents(
+          row.costCents,
+          row.qty,
+        ),
+        plantMsrpTotalCents: plantIntakeTotalCostCents(
+          row.msrpCents,
+          row.qty,
+        ),
         qtyPurchased: row.qty,
         qtyUsed: isUsedStatus(status) ? row.qty : 0,
         statuses: [status],
+        photoUrl:
+          row.photoContentType && row.photoUpdatedAt
+            ? recordPhotoUrl(
+                businessSlug,
+                "plant-intake",
+                row.id,
+                row.photoUpdatedAt,
+              )
+            : null,
       });
     }
   }
@@ -140,11 +175,12 @@ export default async function PlantInventoryPage({
       date: null,
       createdAt: new Date(0),
       plantName: parent?.plantName ?? transplant.divisionSku,
-      plantCostCents: transplant.costCents,
-      plantMsrpCents: 0,
+      plantCostTotalCents: transplant.costCents,
+      plantMsrpTotalCents: 0,
       qtyPurchased: 1,
       qtyUsed: 0,
       statuses: ["For Sale"],
+      photoUrl: parent?.photoUrl ?? null,
     });
   }
 
@@ -155,13 +191,20 @@ export default async function PlantInventoryPage({
     const status = normalizeStatus(pricing?.status ?? item.statuses[0], item.qtyPurchased - qtySold - item.qtyUsed, qtySold);
     const qtyUsed = item.qtyUsed;
     const qtyRemaining = Math.max(0, item.qtyPurchased - qtySold - qtyUsed);
-    const plantCostCents = pricing?.plantCostCents || item.plantCostCents;
+    const intakeUnitCostCents = plantIntakeUnitCostCents(
+      item.plantCostTotalCents,
+      item.qtyPurchased,
+    );
+    const plantCostCents = pricing?.plantCostCents || intakeUnitCostCents;
     const otherCostCents = pricing
       ? pricing.potOrProdCostCents + pricing.overheadCents
       : 0;
     const totalCostCents =
       pricing?.totalCostCents || plantCostCents + otherCostCents;
-    const plantMsrpCents = item.plantMsrpCents;
+    const plantMsrpCents = plantIntakeUnitCostCents(
+      item.plantMsrpTotalCents,
+      item.qtyPurchased,
+    );
     const otherMsrpCents = pricing?.msrpCents ?? 0;
     const totalMsrpCents = plantMsrpCents + otherMsrpCents;
     const estimatedSalePriceCents = pricing?.estimatedSellPriceCents ?? 0;
@@ -198,6 +241,7 @@ export default async function PlantInventoryPage({
       qtyUsed,
       qtyRemaining,
       notes: pricing?.notes ?? null,
+      photoUrl: item.photoUrl,
     };
   });
 

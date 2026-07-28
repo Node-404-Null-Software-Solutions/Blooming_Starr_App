@@ -1,0 +1,3 @@
+ALTER TABLE "SalesEntry"
+ADD COLUMN "customerName" TEXT,
+ADD COLUMN "status" TEXT NOT NULL DEFAULT 'Sold';

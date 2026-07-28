@@ -7,10 +7,11 @@ import {
   ChevronDown,
   ChevronRight,
   Filter,
-  ImageIcon,
 } from "lucide-react";
 import ModuleHeader from "../_components/ModuleHeader";
 import { centsToUsdFixed as money } from "@/lib/formulas";
+import PhotoThumbnail from "@/components/record-photo/PhotoThumbnail";
+import { CanManageOperations } from "@/components/permissions/BusinessPermissions";
 
 export type ProductInventoryRow = {
   sku: string;
@@ -24,6 +25,7 @@ export type ProductInventoryRow = {
   qtySold: number;
   qtyRemaining: number;
   notes: string | null;
+  photoUrl: string | null;
 };
 
 type Filters = {
@@ -61,7 +63,7 @@ export default function ProductInventoryClient({
   initialQ?: string;
 }) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [selectMode, setSelectMode] = useState(false);
+  const selectMode = false;
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
   const [draftFilters, setDraftFilters] = useState<Filters>({
     ...emptyFilters,
@@ -95,11 +97,6 @@ export default function ProductInventoryClient({
   }, [activeFilters, rows]);
 
   const hasActiveFilters = Object.values(activeFilters).some(Boolean);
-
-  function toggleSelectMode() {
-    setSelectMode((value) => !value);
-    setSelectedRows(new Set());
-  }
 
   function toggleSelectedRow(sku: string) {
     setSelectedRows((current) => {
@@ -140,8 +137,6 @@ export default function ProductInventoryClient({
           title="Product Inventory"
           onFilterClick={() => setIsFilterOpen((value) => !value)}
           filterActive={hasActiveFilters}
-          selectMode={selectMode}
-          onSelectClick={toggleSelectMode}
           rightSlot={
             isFilterOpen ? (
               <div className="absolute right-0 top-10 z-20 w-80 rounded-md border border-gray-200 bg-white p-4 shadow-lg">
@@ -259,14 +254,17 @@ export default function ProductInventoryClient({
 
       {filteredRows.length === 0 ? (
         <div className="m-4 rounded-md border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
-          No product inventory data.{" "}
-          <Link
-            href={`/app/${businessSlug}/settings/import`}
-            className="text-(--primary) hover:underline"
-          >
-            Import data
-          </Link>{" "}
-          to populate this view.
+          No product inventory data.
+          <CanManageOperations>
+            {" "}
+            <Link
+              href={`/app/${businessSlug}/settings/import`}
+              className="text-(--primary) hover:underline"
+            >
+              Import data
+            </Link>{" "}
+            to populate this view.
+          </CanManageOperations>
         </div>
       ) : (
         <>
@@ -410,9 +408,11 @@ export default function ProductInventoryClient({
                   <td className={`${bodyCell} text-center`}>{row.qtySold}</td>
                   <td className={`${bodyCell} text-center`}>{row.qtyRemaining}</td>
                   <td className={`${bodyCell} text-center`}>
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-sm bg-gray-100 text-gray-400">
-                      <ImageIcon className="h-3.5 w-3.5" />
-                    </span>
+                    <PhotoThumbnail
+                      photoUrl={row.photoUrl}
+                      alt={row.productName}
+                      size={28}
+                    />
                   </td>
                   <td
                     className={`${bodyCell} max-w-44 truncate`}

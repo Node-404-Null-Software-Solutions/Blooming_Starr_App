@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { requireBusinessMembership } from "@/lib/authz";
 import { formatAppDate } from "@/lib/date-format";
 import { createPlantIntakeRepository } from "@/lib/repositories/plant-intake";
+import { plantIntakeTotalCostCents } from "@/lib/plant-intake-cost";
+import { recordPhotoUrl } from "@/lib/record-photo";
+import RecordPhotoManager from "@/components/record-photo/RecordPhotoManager";
 
 const formatCurrency = (cents: number) =>
   new Intl.NumberFormat("en-US", {
@@ -30,6 +33,16 @@ export default async function PlantIntakeDetailsPage({
   if (!record) {
     notFound();
   }
+
+  const photoUrl =
+    record.photoContentType && record.photoUpdatedAt
+      ? recordPhotoUrl(
+          resolvedParams.businessSlug,
+          "plant-intake",
+          record.id,
+          record.photoUpdatedAt,
+        )
+      : null;
 
   return (
     <div className="space-y-6">
@@ -71,9 +84,17 @@ export default async function PlantIntakeDetailsPage({
             <dd className="font-medium text-gray-900">{record.qty}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase text-gray-500">Cost</dt>
+            <dt className="text-xs uppercase text-gray-500">Unit Cost</dt>
             <dd className="font-medium text-gray-900">
               {formatCurrency(record.costCents)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase text-gray-500">Purchase Total</dt>
+            <dd className="font-medium text-gray-900">
+              {formatCurrency(
+                plantIntakeTotalCostCents(record.costCents, record.qty),
+              )}
             </dd>
           </div>
           <div>
@@ -110,6 +131,18 @@ export default async function PlantIntakeDetailsPage({
             <dt className="text-xs uppercase text-gray-500">Status</dt>
             <dd className="font-medium text-gray-900">
               {record.status ?? "-"}
+            </dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="mb-2 text-xs uppercase text-gray-500">Photo</dt>
+            <dd>
+              <RecordPhotoManager
+                businessSlug={resolvedParams.businessSlug}
+                recordId={record.id}
+                recordType="plant-intake"
+                photoUrl={photoUrl}
+                alt={`${record.genus} ${record.cultivar}`}
+              />
             </dd>
           </div>
         </dl>

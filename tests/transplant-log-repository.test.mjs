@@ -137,3 +137,17 @@ test("Transplant bulk create injects the business into every row", async () => {
     ["business-a", "business-a"]
   );
 });
+
+test("Transplant bulk delete is tenant scoped", async () => {
+  const mock = createMockClient();
+  const transplants = createTransplantLogRepository(context, mock.client);
+
+  assert.equal(
+    await transplants.deleteByIds(["transplant-1", "transplant-2"]),
+    1
+  );
+  assert.deepEqual(mock.calls[0].args.where, {
+    businessId: "business-a",
+    id: { in: ["transplant-1", "transplant-2"] },
+  });
+});

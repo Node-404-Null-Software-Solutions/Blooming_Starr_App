@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { ArrowLeft, Pencil, Sprout, Trash2, X } from "lucide-react";
+import { useBusinessPermissions } from "@/components/permissions/BusinessPermissions";
 
 type Field = {
   label: string;
@@ -62,6 +63,7 @@ export function RowDetailDrawer({
   isEditing = false,
   editContent,
 }: Props) {
+  const { canManageOperations } = useBusinessPermissions();
   const titleId = useId();
   const titleRef = useRef<HTMLParagraphElement>(null);
 
@@ -124,7 +126,7 @@ export function RowDetailDrawer({
             <X className="h-5 w-5" />
           </button>
           <div className="ml-2 flex shrink-0 items-center gap-1 lg:hidden">
-            {onEdit && !isEditing ? (
+            {canManageOperations && onEdit && !isEditing ? (
               <button
                 onClick={onEdit}
                 aria-label="Edit row"
@@ -133,7 +135,7 @@ export function RowDetailDrawer({
                 <Pencil className="h-5 w-5" />
               </button>
             ) : null}
-            {!isEditing ? (
+            {canManageOperations && !isEditing ? (
               <button
                 onClick={onDelete}
                 aria-label="Delete row"
@@ -168,12 +170,16 @@ export function RowDetailDrawer({
         ) : null}
 
         <div className="hidden shrink-0 items-center justify-between border-t border-gray-200 px-4 py-3 lg:flex">
-          <button
-            onClick={onDelete}
-            className="rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
-          >
-            Delete Row
-          </button>
+          {canManageOperations ? (
+            <button
+              onClick={onDelete}
+              className="rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
+            >
+              Delete Row
+            </button>
+          ) : (
+            <span />
+          )}
           <button
             onClick={onClose}
             className="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
